@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const dbLayer = require('./main/db');
+const isbnProvider = require('./main/providers/isbn');
 
 const DATA_DIR = () => path.join(app.getPath('userData'), 'data');
 const BOOKS_FILE = () => path.join(DATA_DIR(), 'books.json');
@@ -202,4 +203,32 @@ ipcMain.handle('backup:import', async () => {
     return created;
   });
   return { ok: true, count: restored.length };
+});
+
+// ISBN metadata lookup
+ipcMain.handle('meta:byIsbn', async (evt, isbn) => {
+  try {
+    const results = await isbnProvider.byIsbn(db, isbn);
+    return { ok: true, results };
+  } catch (e) {
+    console.error('meta:byIsbn failed', e);
+    return { ok: false, error: String(e?.message || e) };
+  }
+});
+
+// Download cover from URL into covers dir
+ipcMain.handle('covers:download', async (evt, url) => {
+  try {
+    if (!url) return { ok: false };
+    const res = await fetch(url);
+    if (!res.ok) return { ok: false };
+    const buf = Buffer.from(await res.arrayBuffer());
+    const ext = path.extname(new URL(url).pathname) || '.jpg';
+    const dest = path.join(COVERS_DIR(), `${uniqId()}${ext}`);
+    fs.writeFileSync(dest, buf);
+    return { ok: true, path: dest };
+  } catch (e) {
+    console.error('covers:download failed', e);
+    return { ok: false, error: String(e?.message || e) };
+  }
 });
