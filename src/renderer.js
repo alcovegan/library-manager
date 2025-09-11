@@ -13,11 +13,13 @@ const saveBtn = $('#saveBtn');
 const resetBtn = $('#resetBtn');
 const exportBtn = $('#exportBtn');
 const importBtn = $('#importBtn');
+const searchInput = $('#searchInput');
 const themeToggle = $('#themeToggle');
 const formTitle = $('#formTitle');
 
 let state = {
   books: [],
+  visibleBooks: [],
   editId: null,
   coverSourcePath: null,
 };
@@ -37,12 +39,13 @@ function setPreview(path) {
 
 function render() {
   listEl.innerHTML = '';
-  if (!state.books.length) {
+  const list = state.visibleBooks.length ? state.visibleBooks : state.books;
+  if (!list.length) {
     emptyEl.style.display = 'block';
     return;
   }
   emptyEl.style.display = 'none';
-  for (const b of state.books) {
+  for (const b of list) {
     const el = document.createElement('div');
     el.className = 'book';
     const img = document.createElement('img');
@@ -149,7 +152,30 @@ importBtn.addEventListener('click', async () => {
 
 async function load() {
   state.books = await window.api.getBooks();
+  applySearch(searchInput?.value || '');
   render();
+}
+
+function debounce(fn, ms) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+
+function applySearch(q) {
+  const query = (q || '').trim();
+  if (!query) {
+    state.visibleBooks = [];
+  } else {
+    state.visibleBooks = window.search.fuzzy(state.books, query);
+  }
+}
+
+if (searchInput) {
+  const handler = debounce((e) => {
+    applySearch(e.target.value);
+    render();
+  }, 120);
+  searchInput.addEventListener('input', handler);
 }
 
 function applyTheme(theme) {
