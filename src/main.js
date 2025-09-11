@@ -49,13 +49,14 @@ function createWindow() {
   win.loadFile(path.join(__dirname, 'index.html'));
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   ensureDirs();
-  db = dbLayer.openDb(app.getPath('userData'));
-  dbLayer.migrate(db);
+  db = await dbLayer.openDb(app.getPath('userData'));
+  await dbLayer.migrate(db);
   // One-time migration from JSON storage if DB is empty but JSON exists
   try {
-    const hasBooks = db.prepare('SELECT 1 FROM books LIMIT 1').get();
+    const has = db.db.exec('SELECT 1 FROM books LIMIT 1');
+    const hasBooks = has && has[0] && has[0].values && has[0].values.length;
     const jsonPath = BOOKS_FILE();
     if (!hasBooks && fs.existsSync(jsonPath)) {
       const arr = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
@@ -82,9 +83,7 @@ app.on('window-all-closed', () => {
 });
 
 // IPC Handlers
-ipcMain.handle('books:list', async () => {
-  return dbLayer.listBooks(db);
-});
+ipcMain.handle('books:list', async () => dbLayer.listBooks(db));
 
 ipcMain.handle('books:add', async (event, payload) => {
   const { title, authors, coverSourcePath } = payload;
@@ -98,7 +97,8 @@ ipcMain.handle('books:add', async (event, payload) => {
 
 ipcMain.handle('books:update', async (event, payload) => {
   const { id, title, authors, coverSourcePath } = payload;
-  const current = db.prepare('SELECT id, coverPath FROM books WHERE id = ?').get(id);
+  const row = db.db.exec(`SELECT id, coverPath FROM books WHERE id = '${String(id).replace(/'/g, "''")}'`);
+  const current = row[0] && row[0].values[0] ? { id: row[0].values[0][0], coverPath: row[0].values[0][1] } : null;
   if (!current) throw new Error('Book not found');
   let coverPath = current.coverPath;
   if (coverSourcePath) {
