@@ -86,17 +86,19 @@ app.on('window-all-closed', () => {
 ipcMain.handle('books:list', async () => dbLayer.listBooks(db));
 
 ipcMain.handle('books:add', async (event, payload) => {
-  const { title, authors, coverSourcePath } = payload;
+  const { title, authors, coverSourcePath, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags } = payload;
   const book = dbLayer.createBook(db, {
     title: String(title || '').trim(),
     authors: Array.isArray(authors) ? authors.map(a => String(a).trim()).filter(Boolean) : [],
     coverPath: copyCoverIfProvided(coverSourcePath),
+    series, seriesIndex, year, publisher, isbn, language, rating, notes,
+    tags: Array.isArray(tags) ? tags : [],
   });
   return book;
 });
 
 ipcMain.handle('books:update', async (event, payload) => {
-  const { id, title, authors, coverSourcePath } = payload;
+  const { id, title, authors, coverSourcePath, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags } = payload;
   const row = db.db.exec(`SELECT id, coverPath FROM books WHERE id = '${String(id).replace(/'/g, "''")}'`);
   const current = row[0] && row[0].values[0] ? { id: row[0].values[0][0], coverPath: row[0].values[0][1] } : null;
   if (!current) throw new Error('Book not found');
@@ -113,6 +115,8 @@ ipcMain.handle('books:update', async (event, payload) => {
     title: String(title || '').trim(),
     authors: Array.isArray(authors) ? authors.map(a => String(a).trim()).filter(Boolean) : [],
     coverPath,
+    series, seriesIndex, year, publisher, isbn, language, rating, notes,
+    tags: Array.isArray(tags) ? tags : [],
   });
   return updated;
 });
@@ -193,8 +197,8 @@ ipcMain.handle('backup:import', async () => {
         coverPath = dest;
       } catch {}
     }
-    const { cover, authors = [], title = '' } = b;
-    const created = dbLayer.createBook(db, { title, authors, coverPath });
+    const { cover, authors = [], title = '', series=null, seriesIndex=null, year=null, publisher=null, isbn=null, language=null, rating=null, notes=null, tags=[] } = b;
+    const created = dbLayer.createBook(db, { title, authors, coverPath, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags });
     return created;
   });
   return { ok: true, count: restored.length };
