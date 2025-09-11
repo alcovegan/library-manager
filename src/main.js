@@ -1,7 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const dbLayer = require('./db');
+const dbLayer = require('./main/db');
 
 const DATA_DIR = () => path.join(app.getPath('userData'), 'data');
 const BOOKS_FILE = () => path.join(DATA_DIR(), 'books.json');
