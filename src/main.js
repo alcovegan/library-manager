@@ -130,7 +130,8 @@ ipcMain.handle('books:delete', async (event, id) => {
 });
 
 ipcMain.handle('select:cover', async () => {
-  const { canceled, filePaths } = await dialog.showOpenDialog({
+  const win = BrowserWindow.getFocusedWindow();
+  const { canceled, filePaths } = await dialog.showOpenDialog(win || undefined, {
     title: 'Выберите обложку',
     properties: ['openFile'],
     filters: [
