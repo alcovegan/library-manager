@@ -79,6 +79,22 @@ async function migrate(ctx) {
     setSchemaVersion(ctx, 1);
     persist(ctx);
   }
+  if (getSchemaVersion(ctx) === 1) {
+    ctx.db.exec(`
+      ALTER TABLE books ADD COLUMN series TEXT;
+      ALTER TABLE books ADD COLUMN seriesIndex INTEGER;
+      ALTER TABLE books ADD COLUMN year INTEGER;
+      ALTER TABLE books ADD COLUMN publisher TEXT;
+      ALTER TABLE books ADD COLUMN isbn TEXT;
+      ALTER TABLE books ADD COLUMN language TEXT;
+      ALTER TABLE books ADD COLUMN rating REAL;
+      ALTER TABLE books ADD COLUMN notes TEXT;
+      ALTER TABLE books ADD COLUMN tags TEXT;
+      CREATE INDEX IF NOT EXISTS idx_books_isbn ON books(isbn);
+    `);
+    setSchemaVersion(ctx, 2);
+    persist(ctx);
+  }
 }
 
 function ensureAuthor(ctx, name) {
@@ -110,18 +126,43 @@ function authorsForBook(ctx, bookId) {
 }
 
 function listBooks(ctx) {
-  const res = ctx.db.exec('SELECT id, title, coverPath, createdAt, updatedAt FROM books ORDER BY title COLLATE NOCASE');
+  const res = ctx.db.exec('SELECT id, title, coverPath, createdAt, updatedAt, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags FROM books ORDER BY title COLLATE NOCASE');
   const rows = res[0] ? res[0].values : [];
-  return rows.map(([id, title, coverPath, createdAt, updatedAt]) => ({
-    id, title, coverPath, createdAt, updatedAt, authors: authorsForBook(ctx, id),
+  return rows.map(([id, title, coverPath, createdAt, updatedAt, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags]) => ({
+    id, title, coverPath, createdAt, updatedAt, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags: parseTags(tags), authors: authorsForBook(ctx, id),
   }));
 }
 
-function createBook(ctx, { title, authors = [], coverPath = null }) {
+function parseTags(t) {
+  if (!t) return [];
+  try { const arr = JSON.parse(t); return Array.isArray(arr) ? arr : []; } catch { return []; }
+}
+
+function normInt(v) { const n = Number.parseInt(v, 10); return Number.isFinite(n) ? n : null; }
+function normFloat(v) { const n = Number.parseFloat(v); return Number.isFinite(n) ? n : null; }
+function normStr(v) { return (v === undefined || v === null) ? null : String(v); }
+function strTags(arr) { try { return JSON.stringify(Array.isArray(arr) ? arr : []); } catch { return '[]'; } }
+
+function createBook(ctx, { title, authors = [], coverPath = null, series=null, seriesIndex=null, year=null, publisher=null, isbn=null, language=null, rating=null, notes=null, tags=[] }) {
   const now = new Date().toISOString();
   const id = randomUUID();
-  const insBook = ctx.db.prepare('INSERT INTO books(id, title, coverPath, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?)');
-  insBook.bind([id, title, coverPath, now, now]);
+  const insBook = ctx.db.prepare('INSERT INTO books(id, title, coverPath, createdAt, updatedAt, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+  insBook.bind([
+    id,
+    title,
+    coverPath,
+    now,
+    now,
+    normStr(series),
+    normInt(seriesIndex),
+    normInt(year),
+    normStr(publisher),
+    normStr(isbn),
+    normStr(language),
+    normFloat(rating),
+    normStr(notes),
+    strTags(tags),
+  ]);
   insBook.step();
   insBook.free();
   const insBA = ctx.db.prepare('INSERT INTO book_authors(bookId, authorId) VALUES (?, ?)');
@@ -133,13 +174,27 @@ function createBook(ctx, { title, authors = [], coverPath = null }) {
   }
   insBA.free();
   persist(ctx);
-  return { id, title, coverPath, authors, createdAt: now, updatedAt: now };
+  return { id, title, coverPath, authors, createdAt: now, updatedAt: now, series, seriesIndex: normInt(seriesIndex), year: normInt(year), publisher, isbn, language, rating: normFloat(rating), notes, tags };
 }
 
-function updateBook(ctx, { id, title, authors = [], coverPath = null }) {
+function updateBook(ctx, { id, title, authors = [], coverPath = null, series=null, seriesIndex=null, year=null, publisher=null, isbn=null, language=null, rating=null, notes=null, tags=[] }) {
   const now = new Date().toISOString();
-  const upd = ctx.db.prepare('UPDATE books SET title = ?, coverPath = ?, updatedAt = ? WHERE id = ?');
-  upd.bind([title, coverPath, now, id]);
+  const upd = ctx.db.prepare('UPDATE books SET title = ?, coverPath = ?, updatedAt = ?, series = ?, seriesIndex = ?, year = ?, publisher = ?, isbn = ?, language = ?, rating = ?, notes = ?, tags = ? WHERE id = ?');
+  upd.bind([
+    title,
+    coverPath,
+    now,
+    normStr(series),
+    normInt(seriesIndex),
+    normInt(year),
+    normStr(publisher),
+    normStr(isbn),
+    normStr(language),
+    normFloat(rating),
+    normStr(notes),
+    strTags(tags),
+    id,
+  ]);
   upd.step();
   upd.free();
   ctx.db.exec(`DELETE FROM book_authors WHERE bookId = '${id.replace(/'/g, "''")}'`);
@@ -152,7 +207,7 @@ function updateBook(ctx, { id, title, authors = [], coverPath = null }) {
   }
   insBA.free();
   persist(ctx);
-  return { id, title, coverPath, authors, updatedAt: now };
+  return { id, title, coverPath, authors, updatedAt: now, series, seriesIndex: normInt(seriesIndex), year: normInt(year), publisher, isbn, language, rating: normFloat(rating), notes, tags };
 }
 
 function deleteBook(ctx, id) {
