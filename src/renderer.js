@@ -117,28 +117,40 @@ function startEdit(b) {
 }
 
 chooseCoverBtn.addEventListener('click', async () => {
-  const p = await window.api.selectCover();
-  if (p) {
-    state.coverSourcePath = p;
-    coverFileLabel.textContent = p;
-    setPreview(p);
+  try {
+    if (!window.api || !window.api.selectCover) throw new Error('bridge unavailable');
+    const p = await window.api.selectCover();
+    if (p) {
+      state.coverSourcePath = p;
+      coverFileLabel.textContent = p;
+      setPreview(p);
+    }
+  } catch (e) {
+    alert('Не удалось открыть диалог выбора файла');
+    console.error(e);
   }
 });
 
 saveBtn.addEventListener('click', async () => {
-  const title = titleInput.value.trim();
-  const authors = authorsInput.value.split(',').map(s => s.trim()).filter(Boolean);
-  if (!title) {
-    alert('Введите название');
-    return;
+  try {
+    const title = titleInput.value.trim();
+    const authors = authorsInput.value.split(',').map(s => s.trim()).filter(Boolean);
+    if (!title) {
+      alert('Введите название');
+      return;
+    }
+    if (!window.api) throw new Error('bridge unavailable');
+    if (state.editId) {
+      await window.api.updateBook({ id: state.editId, title, authors, coverSourcePath: state.coverSourcePath });
+    } else {
+      await window.api.addBook({ title, authors, coverSourcePath: state.coverSourcePath });
+    }
+    resetForm();
+    await load();
+  } catch (e) {
+    alert('Сохранение не удалось');
+    console.error(e);
   }
-  if (state.editId) {
-    await window.api.updateBook({ id: state.editId, title, authors, coverSourcePath: state.coverSourcePath });
-  } else {
-    await window.api.addBook({ title, authors, coverSourcePath: state.coverSourcePath });
-  }
-  resetForm();
-  await load();
 });
 
 resetBtn.addEventListener('click', resetForm);
@@ -157,7 +169,12 @@ importBtn.addEventListener('click', async () => {
 });
 
 async function load() {
-  state.books = await window.api.getBooks();
+  if (!window.api || !window.api.getBooks) {
+    console.error('preload bridge not available');
+    state.books = [];
+  } else {
+    state.books = await window.api.getBooks();
+  }
   applySearch(searchInput?.value || '');
   render();
 }
