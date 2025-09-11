@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const dbLayer = require('./db');
 
 const DATA_DIR = () => path.join(app.getPath('userData'), 'data');
 const BOOKS_FILE = () => path.join(DATA_DIR(), 'books.json');
@@ -11,21 +12,10 @@ function ensureDirs() {
   const coversDir = COVERS_DIR();
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
   if (!fs.existsSync(coversDir)) fs.mkdirSync(coversDir, { recursive: true });
-  if (!fs.existsSync(BOOKS_FILE())) fs.writeFileSync(BOOKS_FILE(), JSON.stringify([] , null, 2));
+  // DB file will be created on open; JSON file may exist from legacy versions
 }
 
-function readBooks() {
-  try {
-    const raw = fs.readFileSync(BOOKS_FILE(), 'utf8');
-    return JSON.parse(raw);
-  } catch (e) {
-    return [];
-  }
-}
-
-function writeBooks(books) {
-  fs.writeFileSync(BOOKS_FILE(), JSON.stringify(books, null, 2));
-}
+let db;
 
 function uniqId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -61,6 +51,25 @@ function createWindow() {
 
 app.whenReady().then(() => {
   ensureDirs();
+  db = dbLayer.openDb(app.getPath('userData'));
+  dbLayer.migrate(db);
+  // One-time migration from JSON storage if DB is empty but JSON exists
+  try {
+    const hasBooks = db.prepare('SELECT 1 FROM books LIMIT 1').get();
+    const jsonPath = BOOKS_FILE();
+    if (!hasBooks && fs.existsSync(jsonPath)) {
+      const arr = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+      if (Array.isArray(arr) && arr.length) {
+        for (const b of arr) {
+          const authors = Array.isArray(b.authors) ? b.authors : [];
+          dbLayer.createBook(db, { title: b.title || '', authors, coverPath: b.coverPath || null });
+        }
+        // keep legacy file as-is; user can remove manually later
+      }
+    }
+  } catch (e) {
+    console.error('Migration from JSON failed:', e);
+  }
   createWindow();
 
   app.on('activate', () => {
@@ -74,32 +83,23 @@ app.on('window-all-closed', () => {
 
 // IPC Handlers
 ipcMain.handle('books:list', async () => {
-  return readBooks();
+  return dbLayer.listBooks(db);
 });
 
 ipcMain.handle('books:add', async (event, payload) => {
   const { title, authors, coverSourcePath } = payload;
-  const books = readBooks();
-  const now = new Date().toISOString();
-  const book = {
-    id: uniqId(),
+  const book = dbLayer.createBook(db, {
     title: String(title || '').trim(),
     authors: Array.isArray(authors) ? authors.map(a => String(a).trim()).filter(Boolean) : [],
     coverPath: copyCoverIfProvided(coverSourcePath),
-    createdAt: now,
-    updatedAt: now,
-  };
-  books.push(book);
-  writeBooks(books);
+  });
   return book;
 });
 
 ipcMain.handle('books:update', async (event, payload) => {
   const { id, title, authors, coverSourcePath } = payload;
-  const books = readBooks();
-  const idx = books.findIndex(b => b.id === id);
-  if (idx === -1) throw new Error('Book not found');
-  const current = books[idx];
+  const current = db.prepare('SELECT id, coverPath FROM books WHERE id = ?').get(id);
+  if (!current) throw new Error('Book not found');
   let coverPath = current.coverPath;
   if (coverSourcePath) {
     // replace cover
@@ -108,27 +108,23 @@ ipcMain.handle('books:update', async (event, payload) => {
     }
     coverPath = copyCoverIfProvided(coverSourcePath);
   }
-  books[idx] = {
-    ...current,
+  const updated = dbLayer.updateBook(db, {
+    id,
     title: String(title || '').trim(),
     authors: Array.isArray(authors) ? authors.map(a => String(a).trim()).filter(Boolean) : [],
     coverPath,
-    updatedAt: new Date().toISOString(),
-  };
-  writeBooks(books);
-  return books[idx];
+  });
+  return updated;
 });
 
 ipcMain.handle('books:delete', async (event, id) => {
-  const books = readBooks();
-  const idx = books.findIndex(b => b.id === id);
-  if (idx === -1) return { ok: false };
-  const [removed] = books.splice(idx, 1);
-  if (removed?.coverPath && fs.existsSync(removed.coverPath)) {
-    try { fs.unlinkSync(removed.coverPath); } catch {}
+  const row = db.prepare('SELECT coverPath FROM books WHERE id = ?').get(id);
+  if (!row) return { ok: false };
+  if (row?.coverPath && fs.existsSync(row.coverPath)) {
+    try { fs.unlinkSync(row.coverPath); } catch {}
   }
-  writeBooks(books);
-  return { ok: true };
+  const ok = dbLayer.deleteBook(db, id);
+  return { ok };
 });
 
 ipcMain.handle('select:cover', async () => {
@@ -144,7 +140,7 @@ ipcMain.handle('select:cover', async () => {
 });
 
 ipcMain.handle('backup:export', async () => {
-  const books = readBooks();
+  const books = dbLayer.listBooks(db);
   const payload = {
     version: 1,
     exportedAt: new Date().toISOString(),
@@ -194,10 +190,9 @@ ipcMain.handle('backup:import', async () => {
         coverPath = dest;
       } catch {}
     }
-    const { cover, ...rest } = b;
-    return { ...rest, coverPath };
+    const { cover, authors = [], title = '' } = b;
+    const created = dbLayer.createBook(db, { title, authors, coverPath });
+    return created;
   });
-  writeBooks(restored);
   return { ok: true, count: restored.length };
 });
-
