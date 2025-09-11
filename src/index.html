@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Домашняя библиотека</title>
+    <style>
+      :root {
+        --bg: #f6f7fb;
+        --bg-gradient: radial-gradient(1200px 800px at -10% -20%, #ffffff 0%, #f6f7fb 60%),
+                        radial-gradient(1000px 700px at 120% 0%, #f0f2f9 0%, #f6f7fb 60%);
+        --surface: #ffffff;
+        --muted-surface: #f2f4f8;
+        --border: #e5e8f0;
+        --text: #161827;
+        --muted: #6b728e;
+        --accent: #3b6fff;
+        --accent-strong: #2b59ff;
+        --danger: #e23d4f;
+        --shadow: 0 8px 24px rgba(17, 24, 39, 0.08);
+        --radius: 12px;
+      }
+
+      body.theme-dark {
+        --bg: #0f1220;
+        --bg-gradient: radial-gradient(1200px 800px at -10% -20%, #1d2240 0%, #0f1220 60%),
+                        radial-gradient(1000px 700px at 120% 0%, #181d36 0%, #0f1220 60%);
+        --surface: #161a2b;
+        --muted-surface: #1b2035;
+        --border: #242a44;
+        --text: #e8ecff;
+        --muted: #a6add6;
+        --accent: #6c8cff;
+        --accent-strong: #5274ff;
+        --danger: #ff5d6c;
+        --shadow: 0 8px 24px rgba(0,0,0,0.35);
+      }
+
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        color: var(--text);
+        background: var(--bg);
+        background-image: var(--bg-gradient);
+        background-attachment: fixed;
+        font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      }
+
+      header {
+        position: sticky; top: 0; z-index: 2;
+        display:flex; align-items:center; justify-content:space-between;
+        padding: 14px 18px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+      }
+      header h1 { font-size: 16px; margin: 0; letter-spacing: 0.3px; }
+      header .actions button { margin-left: 8px; }
+
+      main { display: grid; grid-template-columns: 380px 1fr; gap: 18px; padding: 18px; }
+      .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; box-shadow: var(--shadow); }
+      .card h3 { margin: 0 0 6px; font-size: 15px; font-weight: 600; }
+      label { display:block; font-size: 12px; color: var(--muted); margin-top: 8px; margin-bottom: 6px; }
+      input[type="text"] {
+        width: 100%; padding: 10px 12px; border:1px solid var(--border); border-radius:10px; box-sizing: border-box;
+        background: var(--muted-surface); color: var(--text);
+        outline: none; transition: border 120ms ease, box-shadow 120ms ease;
+      }
+      input[type="text"]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,111,255,0.25); }
+      .row { display:flex; gap:8px; align-items:center; }
+      button { padding:9px 12px; border:1px solid var(--border); border-radius:10px; background: var(--muted-surface); color: var(--text); cursor:pointer; transition: background 120ms ease, border 120ms ease, transform 60ms ease; }
+      button:active { transform: translateY(1px); }
+      button.primary { background: linear-gradient(180deg, var(--accent) 0%, var(--accent-strong) 100%); border-color: rgba(43,89,255,0.6); color: #fff; }
+      button.danger { background: linear-gradient(180deg, var(--danger) 0%, #cc4753 100%); border-color: #a43b45; color: #fff; }
+
+      .cover-preview { width: 100%; max-height: 220px; object-fit: contain; background: repeating-conic-gradient(from 45deg, rgba(0,0,0,0.04) 0% 25%, rgba(0,0,0,0.02) 0% 50%) 50% / 20px 20px; border:1px dashed var(--border); border-radius: 10px; display:none; }
+      .list { display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+      .book { display:flex; gap:12px; background: var(--surface); border:1px solid var(--border); padding:10px; border-radius:12px; box-shadow: var(--shadow); align-items: center; }
+      .thumb { width:64px; height:86px; object-fit:cover; background: #e9ecf6; border-radius:8px; border:1px solid var(--border); display:none; }
+      .meta { flex:1; min-width: 0; }
+      .title { font-weight:650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .authors { color:var(--muted); font-size:12px; margin-top:4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .empty { color:var(--muted); padding:16px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Домашняя библиотека</h1>
+      <div class="actions">
+        <button id="themeToggle">Тёмная тема</button>
+        <button id="exportBtn">Сделать бэкап</button>
+        <button id="importBtn">Импорт бэкапа</button>
+      </div>
+    </header>
+    <main>
+      <section class="card">
+        <h3 id="formTitle">Добавить книгу</h3>
+        <label>Название</label>
+        <input id="titleInput" type="text" placeholder="Например, Война и мир" />
+        <label>Авторы (через запятую)</label>
+        <input id="authorsInput" type="text" placeholder="Автор1, Автор2" />
+        <label>Обложка</label>
+        <div class="row">
+          <button id="chooseCoverBtn">Выбрать файл…</button>
+          <span id="coverFileLabel" style="color:#555; font-size:12px;">Не выбрано</span>
+        </div>
+        <img id="coverPreview" class="cover-preview" alt="предпросмотр" />
+        <div class="row" style="margin-top:12px;">
+          <button id="saveBtn" class="primary">Сохранить</button>
+          <button id="resetBtn">Сбросить</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <div id="list" class="list"></div>
+        <div id="empty" class="empty" style="display:none;">Пока нет книг. Добавьте первую!</div>
+      </section>
+    </main>
+
+    <script src="renderer.js"></script>
+  </body>
+  </html>
