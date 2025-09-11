@@ -95,6 +95,19 @@ async function migrate(ctx) {
     setSchemaVersion(ctx, 2);
     persist(ctx);
   }
+  // v3: isbn_cache for provider responses
+  if (getSchemaVersion(ctx) === 2) {
+    ctx.db.exec(`
+      CREATE TABLE IF NOT EXISTS isbn_cache (
+        isbn TEXT PRIMARY KEY,
+        provider TEXT,
+        payload TEXT NOT NULL,
+        fetchedAt TEXT NOT NULL
+      );
+    `);
+    setSchemaVersion(ctx, 3);
+    persist(ctx);
+  }
 }
 
 function ensureAuthor(ctx, name) {
@@ -216,4 +229,20 @@ function deleteBook(ctx, id) {
   return true;
 }
 
-module.exports = { openDb, migrate, listBooks, createBook, updateBook, deleteBook };
+function getIsbnCache(ctx, isbn) {
+  const safe = String(isbn).replace(/'/g, "''");
+  const res = ctx.db.exec(`SELECT provider, payload, fetchedAt FROM isbn_cache WHERE isbn='${safe}'`);
+  if (!res[0] || !res[0].values[0]) return null;
+  const [provider, payload, fetchedAt] = res[0].values[0];
+  try { return { provider, payload: JSON.parse(payload), fetchedAt }; } catch { return null; }
+}
+
+function setIsbnCache(ctx, isbn, provider, payload) {
+  const stmt = ctx.db.prepare('INSERT INTO isbn_cache(isbn, provider, payload, fetchedAt) VALUES (?, ?, ?, ?) ON CONFLICT(isbn) DO UPDATE SET provider=excluded.provider, payload=excluded.payload, fetchedAt=excluded.fetchedAt');
+  stmt.bind([String(isbn), String(provider || ''), JSON.stringify(payload || {}), new Date().toISOString()]);
+  stmt.step();
+  stmt.free();
+  persist(ctx);
+}
+
+module.exports = { openDb, migrate, listBooks, createBook, updateBook, deleteBook, getIsbnCache, setIsbnCache };
