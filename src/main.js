@@ -118,10 +118,12 @@ ipcMain.handle('books:update', async (event, payload) => {
 });
 
 ipcMain.handle('books:delete', async (event, id) => {
-  const row = db.prepare('SELECT coverPath FROM books WHERE id = ?').get(id);
-  if (!row) return { ok: false };
-  if (row?.coverPath && fs.existsSync(row.coverPath)) {
-    try { fs.unlinkSync(row.coverPath); } catch {}
+  const safeId = String(id).replace(/'/g, "''");
+  const res = db.db.exec(`SELECT coverPath FROM books WHERE id = '${safeId}'`);
+  const coverPath = res[0] && res[0].values[0] ? res[0].values[0][0] : null;
+  if (!res[0] || !res[0].values.length) return { ok: false };
+  if (coverPath && fs.existsSync(coverPath)) {
+    try { fs.unlinkSync(coverPath); } catch {}
   }
   const ok = dbLayer.deleteBook(db, id);
   return { ok };

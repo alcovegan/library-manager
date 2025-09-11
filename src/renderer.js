@@ -24,6 +24,12 @@ let state = {
   coverSourcePath: null,
 };
 
+function toFileUrl(p) {
+  if (!p) return '';
+  // ensure spaces and special chars are encoded properly
+  return encodeURI(`file://${p}`);
+}
+
 function setPreview(path) {
   const show = !!path;
   if (!show) {
@@ -34,7 +40,7 @@ function setPreview(path) {
   coverPreview.style.display = 'none';
   coverPreview.onload = () => { coverPreview.style.display = 'block'; };
   coverPreview.onerror = () => { coverPreview.style.display = 'none'; };
-  coverPreview.src = `file://${path}`;
+  coverPreview.src = toFileUrl(path);
 }
 
 function render() {
@@ -53,7 +59,7 @@ function render() {
     if (b.coverPath) {
       img.onload = () => { img.style.display = 'block'; };
       img.onerror = () => { img.style.display = 'none'; };
-      img.src = `file://${b.coverPath}`;
+      img.src = toFileUrl(b.coverPath);
     }
     const meta = document.createElement('div');
     meta.className = 'meta';
