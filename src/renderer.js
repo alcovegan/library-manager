@@ -14,6 +14,24 @@ const resetBtn = $('#resetBtn');
 const exportBtn = $('#exportBtn');
 const importBtn = $('#importBtn');
 const searchInput = $('#searchInput');
+const openCreateModalBtn = $('#openCreateModalBtn');
+// Modal elements
+const modalEl = $('#detailsModal');
+const closeModalBtn = $('#closeModalBtn');
+const modalCoverPreview = $('#modalCoverPreview');
+const modalChooseCoverBtn = $('#modalChooseCoverBtn');
+const modalTitle = $('#modalTitle');
+const modalAuthors = $('#modalAuthors');
+const modalSeries = $('#modalSeries');
+const modalSeriesIndex = $('#modalSeriesIndex');
+const modalYear = $('#modalYear');
+const modalPublisher = $('#modalPublisher');
+const modalIsbn = $('#modalIsbn');
+const modalLanguage = $('#modalLanguage');
+const modalRating = $('#modalRating');
+const modalTags = $('#modalTags');
+const modalNotes = $('#modalNotes');
+const modalSaveBtn = $('#modalSaveBtn');
 const themeToggle = $('#themeToggle');
 const formTitle = $('#formTitle');
 
@@ -22,6 +40,10 @@ let state = {
   visibleBooks: [],
   editId: null,
   coverSourcePath: null,
+  modal: {
+    id: null,
+    coverSourcePath: null,
+  }
 };
 
 function toFileUrl(p) {
@@ -41,6 +63,18 @@ function setPreview(path) {
   coverPreview.onload = () => { coverPreview.style.display = 'block'; };
   coverPreview.onerror = () => { coverPreview.style.display = 'none'; };
   coverPreview.src = toFileUrl(path);
+}
+
+function setModalPreview(path) {
+  if (!path) {
+    modalCoverPreview.style.display = 'none';
+    modalCoverPreview.removeAttribute('src');
+    return;
+  }
+  modalCoverPreview.style.display = 'none';
+  modalCoverPreview.onload = () => { modalCoverPreview.style.display = 'block'; };
+  modalCoverPreview.onerror = () => { modalCoverPreview.style.display = 'none'; };
+  modalCoverPreview.src = toFileUrl(path);
 }
 
 function render() {
@@ -75,7 +109,7 @@ function render() {
     const actions = document.createElement('div');
     const editBtn = document.createElement('button');
     editBtn.textContent = 'Редактировать';
-    editBtn.onclick = () => startEdit(b);
+    editBtn.onclick = () => openDetails(b);
     const delBtn = document.createElement('button');
     delBtn.textContent = 'Удалить';
     delBtn.className = 'danger';
@@ -114,6 +148,29 @@ function startEdit(b) {
   setPreview(b.coverPath || null);
   formTitle.textContent = 'Редактировать книгу';
   saveBtn.textContent = 'Обновить';
+}
+
+function openDetails(b) {
+  // populate modal fields
+  state.modal.id = b?.id || null;
+  modalTitle.value = b?.title || '';
+  modalAuthors.value = (b?.authors || []).join(', ');
+  modalSeries.value = b?.series || '';
+  modalSeriesIndex.value = b?.seriesIndex ?? '';
+  modalYear.value = b?.year ?? '';
+  modalPublisher.value = b?.publisher || '';
+  modalIsbn.value = b?.isbn || '';
+  modalLanguage.value = b?.language || '';
+  modalRating.value = b?.rating ?? '';
+  modalTags.value = (b?.tags || []).join(', ');
+  modalNotes.value = b?.notes || '';
+  state.modal.coverSourcePath = null;
+  setModalPreview(b?.coverPath || null);
+  modalEl.style.display = 'flex';
+}
+
+function closeDetails() {
+  modalEl.style.display = 'none';
 }
 
 chooseCoverBtn.addEventListener('click', async () => {
@@ -199,6 +256,56 @@ if (searchInput) {
     render();
   }, 120);
   searchInput.addEventListener('input', handler);
+}
+
+if (closeModalBtn) closeModalBtn.addEventListener('click', closeDetails);
+if (modalChooseCoverBtn) {
+  modalChooseCoverBtn.addEventListener('click', async () => {
+    try {
+      const p = await window.api.selectCover();
+      if (p) {
+        state.modal.coverSourcePath = p;
+        setModalPreview(p);
+      }
+    } catch (e) { console.error(e); }
+  });
+}
+
+if (modalSaveBtn) {
+  modalSaveBtn.addEventListener('click', async () => {
+    try {
+      const payload = {
+        id: state.modal.id,
+        title: modalTitle.value.trim(),
+        authors: modalAuthors.value.split(',').map(s => s.trim()).filter(Boolean),
+        coverSourcePath: state.modal.coverSourcePath || null,
+        series: modalSeries.value || null,
+        seriesIndex: modalSeriesIndex.value || null,
+        year: modalYear.value || null,
+        publisher: modalPublisher.value || null,
+        isbn: modalIsbn.value || null,
+        language: modalLanguage.value || null,
+        rating: modalRating.value || null,
+        notes: modalNotes.value || null,
+        tags: modalTags.value.split(',').map(s => s.trim()).filter(Boolean),
+      };
+      if (!payload.title) { alert('Введите название'); return; }
+      if (payload.id) {
+        await window.api.updateBook(payload);
+      } else {
+        await window.api.addBook(payload);
+      }
+      closeDetails();
+      await load();
+    } catch (e) {
+      alert('Не удалось сохранить');
+      console.error(e);
+    }
+  });
+}
+
+if (openCreateModalBtn) {
+  openCreateModalBtn.addEventListener('click', () => openDetails({}));
 }
 
 function applyTheme(theme) {

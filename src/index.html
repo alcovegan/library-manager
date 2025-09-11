@@ -108,6 +108,8 @@
         <div class="row" style="margin-top:12px;">
           <button id="saveBtn" class="primary">Сохранить</button>
           <button id="resetBtn">Сбросить</button>
+          <div style="flex:1"></div>
+          <button id="openCreateModalBtn">Расширенная форма</button>
         </div>
       </section>
 
@@ -116,6 +118,73 @@
         <div id="empty" class="empty" style="display:none;">Пока нет книг. Добавьте первую!</div>
       </section>
     </main>
+
+    <!-- details modal -->
+    <div id="detailsModal" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center;">
+      <div class="modal-backdrop" style="position:absolute; inset:0; background:rgba(0,0,0,0.35);"></div>
+      <div class="modal-card" style="position:relative; width: min(820px, 96vw); max-height: 90vh; overflow:auto; background: var(--surface); border:1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); padding: 16px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+          <h3 style="margin:0;">Карточка книги</h3>
+          <button id="closeModalBtn">Закрыть</button>
+        </div>
+        <div style="display:grid; grid-template-columns: 220px 1fr; gap: 14px; margin-top: 12px;">
+          <div>
+            <img id="modalCoverPreview" class="cover-preview" alt="обложка" style="display:block; width:100%; height: auto; max-height: 280px;" />
+            <div class="row" style="margin-top:8px;">
+              <button id="modalChooseCoverBtn">Выбрать обложку…</button>
+            </div>
+          </div>
+          <div>
+            <label>Название</label>
+            <input id="modalTitle" type="text" />
+            <label>Авторы (через запятую)</label>
+            <input id="modalAuthors" type="text" />
+            <div class="row" style="gap:10px;">
+              <div style="flex:1;">
+                <label>Серия</label>
+                <input id="modalSeries" type="text" />
+              </div>
+              <div style="width:140px;">
+                <label>№ в серии</label>
+                <input id="modalSeriesIndex" type="text" />
+              </div>
+            </div>
+            <div class="row" style="gap:10px;">
+              <div style="width:140px;">
+                <label>Год</label>
+                <input id="modalYear" type="text" />
+              </div>
+              <div style="flex:1;">
+                <label>Издательство</label>
+                <input id="modalPublisher" type="text" />
+              </div>
+            </div>
+            <div class="row" style="gap:10px;">
+              <div style="flex:1;">
+                <label>ISBN</label>
+                <input id="modalIsbn" type="text" />
+              </div>
+              <div style="width:180px;">
+                <label>Язык</label>
+                <input id="modalLanguage" type="text" />
+              </div>
+              <div style="width:140px;">
+                <label>Рейтинг (0–5)</label>
+                <input id="modalRating" type="text" placeholder="напр. 4.5" />
+              </div>
+            </div>
+            <label>Теги (через запятую)</label>
+            <input id="modalTags" type="text" />
+            <label>Заметки</label>
+            <input id="modalNotes" type="text" />
+
+            <div class="row" style="margin-top:12px;">
+              <button id="modalSaveBtn" class="primary">Сохранить</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <script src="renderer.js"></script>
   </body>
