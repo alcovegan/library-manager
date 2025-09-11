@@ -27,6 +27,9 @@ const modalSeriesIndex = $('#modalSeriesIndex');
 const modalYear = $('#modalYear');
 const modalPublisher = $('#modalPublisher');
 const modalIsbn = $('#modalIsbn');
+const isbnSearchBtn = $('#isbnSearchBtn');
+const isbnResults = $('#isbnResults');
+const isbnResultsList = $('#isbnResultsList');
 const modalLanguage = $('#modalLanguage');
 const modalRating = $('#modalRating');
 const modalTags = $('#modalTags');
@@ -167,6 +170,9 @@ function openDetails(b) {
   state.modal.coverSourcePath = null;
   setModalPreview(b?.coverPath || null);
   modalEl.style.display = 'flex';
+  // clear previous search results
+  if (isbnResults) isbnResults.style.display = 'none';
+  if (isbnResultsList) isbnResultsList.innerHTML = '';
 }
 
 function closeDetails() {
@@ -306,6 +312,66 @@ if (modalSaveBtn) {
 
 if (openCreateModalBtn) {
   openCreateModalBtn.addEventListener('click', () => openDetails({}));
+}
+
+function renderIsbnCandidates(cands) {
+  if (!isbnResultsList) return;
+  isbnResultsList.innerHTML = '';
+  for (const c of cands) {
+    const row = document.createElement('div');
+    row.style.display = 'grid';
+    row.style.gridTemplateColumns = '80px 1fr auto';
+    row.style.gap = '8px';
+    const img = document.createElement('img');
+    img.style.width = '80px';
+    img.style.height = '110px';
+    img.style.objectFit = 'cover';
+    if (c.coverUrl) { img.onload = () => { img.style.display = 'block'; }; img.onerror = () => { img.style.display = 'none'; }; img.src = c.coverUrl; }
+    const meta = document.createElement('div');
+    meta.innerHTML = `<div style="font-weight:600;">${c.title || ''}</div>
+      <div style="font-size:12px; color:var(--muted);">${(c.authors||[]).join(', ')}</div>
+      <div style="font-size:12px; color:var(--muted);">${c.publisher || ''} ${c.year ? '('+c.year+')' : ''}</div>`;
+    const actions = document.createElement('div');
+    const applyBtn = document.createElement('button');
+    applyBtn.textContent = 'Применить';
+    applyBtn.addEventListener('click', async () => {
+      // merge into modal fields
+      modalTitle.value = c.title || modalTitle.value;
+      modalAuthors.value = (c.authors || []).join(', ');
+      modalPublisher.value = c.publisher || '';
+      modalYear.value = c.year ?? '';
+      modalLanguage.value = c.language || '';
+      modalIsbn.value = c.isbn || modalIsbn.value;
+      modalTags.value = (c.tags || []).join(', ');
+      modalNotes.value = c.notes || '';
+      if (c.coverUrl) {
+        const dl = await window.api.downloadCover(c.coverUrl);
+        if (dl && dl.ok && dl.path) {
+          state.modal.coverSourcePath = dl.path;
+          setModalPreview(dl.path);
+        }
+      }
+      if (isbnResults) isbnResults.style.display = 'none';
+      if (isbnResultsList) isbnResultsList.innerHTML = '';
+    });
+    actions.appendChild(applyBtn);
+    row.appendChild(img);
+    row.appendChild(meta);
+    row.appendChild(actions);
+    isbnResultsList.appendChild(row);
+  }
+}
+
+if (isbnSearchBtn) {
+  isbnSearchBtn.addEventListener('click', async () => {
+    const q = (modalIsbn.value || '').trim();
+    if (!q) { alert('Введите ISBN'); return; }
+    const res = await window.api.metaByIsbn(q);
+    if (!res || !res.ok) { alert('Не удалось получить данные по ISBN'); return; }
+    if (!res.results || !res.results.length) { alert('Ничего не найдено'); return; }
+    renderIsbnCandidates(res.results);
+    if (isbnResults) isbnResults.style.display = 'block';
+  });
 }
 
 function applyTheme(theme) {
