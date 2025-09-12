@@ -54,6 +54,7 @@ const startEnrichBtn = $('#startEnrichBtn');
 const stopEnrichBtn = $('#stopEnrichBtn');
 const enrichList = $('#enrichList');
 const exportCsvBtn = $('#exportCsvBtn');
+const csvHeaderless = $('#csvHeaderless');
 // Settings modal elements
 const settingsModal = $('#settingsModal');
 const closeSettingsBtn = $('#closeSettingsBtn');
@@ -744,7 +745,7 @@ if (parseCsvBtn) {
     const file = csvInput?.files?.[0];
     if (!file) { alert('Выберите CSV'); return; }
     const text = await file.text();
-    const { headers, rows } = await window.api.parseCsv(text);
+    const { headers, rows } = await window.api.parseCsv({ text, headerless: !!csvHeaderless?.checked });
     if (!headers.length || !rows.length) { alert('Не удалось распарсить CSV'); return; }
     enrichState.headers = headers;
     enrichState.rows = rows.map(r => ({
@@ -756,6 +757,11 @@ if (parseCsvBtn) {
     fillMappingSelect(mapAuthors, headers);
     fillMappingSelect(mapPublisher, headers);
     fillMappingSelect(mapYear, headers);
+    // Try to preselect first two columns as Authors/Title for headerless CSV
+    if (csvHeaderless?.checked) {
+      if (mapAuthors && headers[0]) mapAuthors.value = headers[0];
+      if (mapTitle && headers[1]) mapTitle.value = headers[1];
+    }
     if (mappingArea) mappingArea.style.display = 'block';
     renderEnrichRows();
   });
@@ -772,10 +778,14 @@ async function processQueue() {
   r.status = 'querying'; renderEnrichRows();
   try {
     const resp = await window.api.aiEnrichIsbn({ title: r.title, authors: r.authors, publisher: r.publisher, year: r.year });
-    if (resp && resp.ok && resp.result) {
-      r.aiIsbn = resp.result.isbn13 || null;
-      r.status = r.aiIsbn ? `found ${r.aiIsbn} (conf=${resp.result.confidence ?? 0})` : 'not found';
-      r._debugRaw = resp.raw || '';
+    if (resp && resp.ok) {
+      if (resp.result) {
+        r.aiIsbn = resp.result.isbn13 || null;
+        r.status = r.aiIsbn ? `found ${r.aiIsbn} (conf=${resp.result.confidence ?? 0})` : 'not found';
+      } else {
+        r.status = 'not found';
+      }
+      r._debugRaw = resp.raw || resp.error || '';
       r._debugPrompt = resp.prompt || '';
       renderEnrichRows();
       if (r.aiIsbn) {
@@ -786,7 +796,9 @@ async function processQueue() {
         }
       }
     } else {
-      r.status = 'error'; renderEnrichRows();
+      r.status = 'error';
+      r._debugRaw = resp?.error || '';
+      renderEnrichRows();
     }
   } catch (e) {
     console.error(e); r.status = 'error'; renderEnrichRows();

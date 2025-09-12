@@ -27,19 +27,32 @@ contextBridge.exposeInMainWorld('api', {
   aiEnrichIsbn: (payload) => ipcRenderer.invoke('ai:isbn:enrich', payload),
   getSettings: () => ipcRenderer.invoke('settings:get'),
   updateSettings: (patch) => ipcRenderer.invoke('settings:update', patch),
-  parseCsv: (text) => {
+  parseCsv: (arg) => {
+    const opts = (typeof arg === 'object' && arg !== null) ? arg : { text: String(arg || '') };
+    const text = String(opts.text || '');
+    const headerless = !!opts.headerless;
     if (Papa) {
-      const res = Papa.parse(String(text || ''), {
-        header: true,
+      const res = Papa.parse(text, {
+        header: !headerless,
         skipEmptyLines: 'greedy',
         dynamicTyping: false,
       });
-      const headers = Array.isArray(res.meta?.fields) ? res.meta.fields : [];
-      const rows = Array.isArray(res.data) ? res.data : [];
+      if (!headerless) {
+        const headers = Array.isArray(res.meta?.fields) ? res.meta.fields : [];
+        const rows = Array.isArray(res.data) ? res.data : [];
+        return { headers, rows };
+      }
+      // headerless: res.data is array of arrays → build generic headers col1..colN and objects
+      const rowsArr = Array.isArray(res.data) ? res.data : [];
+      let maxCols = 0; rowsArr.forEach(a => { if (Array.isArray(a)) maxCols = Math.max(maxCols, a.length); });
+      const headers = Array.from({ length: maxCols }, (_, i) => `col${i+1}`);
+      const rows = rowsArr.map(a => {
+        const o = {}; headers.forEach((h, i) => { o[h] = (a[i] ?? '').toString(); }); return o;
+      });
       return { headers, rows };
     }
     // fallback: very naive split (not recommended)
-    const lines = String(text || '').split(/\r?\n/).filter(l => l.trim().length > 0);
+    const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
     if (!lines.length) return { headers: [], rows: [] };
     const headers = lines[0].split(',').map(h => h.trim());
     const rows = lines.slice(1).map(line => {
