@@ -4,6 +4,7 @@ const fs = require('fs');
 // Load keys from .env (project root)
 try { require('dotenv').config(); } catch {}
 const dbLayer = require('./main/db');
+const settings = require('./main/settings');
 const isbnProvider = require('./main/providers/isbn');
 
 const DATA_DIR = () => path.join(app.getPath('userData'), 'data');
@@ -54,6 +55,7 @@ function createWindow() {
 
 app.whenReady().then(async () => {
   ensureDirs();
+  settings.init(app.getPath('userData'));
   db = await dbLayer.openDb(app.getPath('userData'));
   await dbLayer.migrate(db);
   // One-time migration from JSON storage if DB is empty but JSON exists
@@ -231,6 +233,24 @@ ipcMain.handle('covers:download', async (evt, url) => {
     return { ok: true, path: dest };
   } catch (e) {
     console.error('covers:download failed', e);
+    return { ok: false, error: String(e?.message || e) };
+  }
+});
+
+// Settings IPC
+ipcMain.handle('settings:get', async () => {
+  try { return { ok: true, settings: settings.getSettings() }; }
+  catch (e) { return { ok: false, error: String(e?.message || e) }; }
+});
+
+ipcMain.handle('settings:update', async (evt, patch) => {
+  try {
+    const saved = settings.updateSettings({
+      isbndbApiKey: String(patch?.isbndbApiKey ?? ''),
+      googleBooksApiKey: String(patch?.googleBooksApiKey ?? ''),
+    });
+    return { ok: true, settings: saved };
+  } catch (e) {
     return { ok: false, error: String(e?.message || e) };
   }
 });

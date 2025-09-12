@@ -36,6 +36,13 @@ const modalTags = $('#modalTags');
 const modalNotes = $('#modalNotes');
 const modalSaveBtn = $('#modalSaveBtn');
 const themeToggle = $('#themeToggle');
+const openSettingsBtn = $('#openSettingsBtn');
+// Settings modal elements
+const settingsModal = $('#settingsModal');
+const closeSettingsBtn = $('#closeSettingsBtn');
+const settingsIsbndbKey = $('#settingsIsbndbKey');
+const settingsGoogleKey = $('#settingsGoogleKey');
+const saveSettingsBtn = $('#saveSettingsBtn');
 const formTitle = $('#formTitle');
 
 let state = {
@@ -371,6 +378,51 @@ if (isbnSearchBtn) {
     if (!res.results || !res.results.length) { alert('Ничего не найдено'); return; }
     renderIsbnCandidates(res.results);
     if (isbnResults) isbnResults.style.display = 'block';
+  });
+}
+
+function openSettings() {
+  if (settingsModal) settingsModal.style.display = 'flex';
+}
+
+function closeSettings() {
+  if (settingsModal) settingsModal.style.display = 'none';
+}
+
+async function loadSettings() {
+  try {
+    const res = await window.api.getSettings();
+    if (res && res.ok && res.settings) {
+      if (settingsIsbndbKey) settingsIsbndbKey.value = res.settings.isbndbApiKey || '';
+      if (settingsGoogleKey) settingsGoogleKey.value = res.settings.googleBooksApiKey || '';
+    }
+  } catch (e) { console.error(e); }
+}
+
+if (openSettingsBtn) {
+  openSettingsBtn.addEventListener('click', async () => {
+    await loadSettings();
+    openSettings();
+  });
+}
+
+if (closeSettingsBtn) closeSettingsBtn.addEventListener('click', closeSettings);
+
+if (saveSettingsBtn) {
+  saveSettingsBtn.addEventListener('click', async () => {
+    try {
+      const payload = {
+        isbndbApiKey: settingsIsbndbKey ? settingsIsbndbKey.value.trim() : '',
+        googleBooksApiKey: settingsGoogleKey ? settingsGoogleKey.value.trim() : '',
+      };
+      const res = await window.api.updateSettings(payload);
+      if (!res || !res.ok) { alert('Не удалось сохранить настройки'); return; }
+      closeSettings();
+      alert('Настройки сохранены');
+    } catch (e) {
+      console.error(e);
+      alert('Ошибка сохранения настроек');
+    }
   });
 }
 

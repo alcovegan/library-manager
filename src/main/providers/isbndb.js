@@ -44,8 +44,10 @@ function normalizeFromBook(isbn, book) {
   }];
 }
 
+const settings = require('../settings');
+
 async function byIsbn(isbn) {
-  const apiKey = process.env.ISBNDB_API_KEY;
+  const apiKey = (settings.getSettings().isbndbApiKey || process.env.ISBNDB_API_KEY);
   if (!apiKey) return [];
   const clean = String(isbn).replace(/[^0-9Xx]/g, '');
   if (!clean) return [];
@@ -61,4 +63,3 @@ async function byIsbn(isbn) {
 }
 
 module.exports = { byIsbn };
-

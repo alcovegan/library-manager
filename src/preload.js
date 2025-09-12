@@ -18,6 +18,8 @@ contextBridge.exposeInMainWorld('api', {
   importBackup: () => ipcRenderer.invoke('backup:import'),
   metaByIsbn: (isbn) => ipcRenderer.invoke('meta:byIsbn', isbn),
   downloadCover: (url) => ipcRenderer.invoke('covers:download', url),
+  getSettings: () => ipcRenderer.invoke('settings:get'),
+  updateSettings: (patch) => ipcRenderer.invoke('settings:update', patch),
 });
 
 contextBridge.exposeInMainWorld('search', {

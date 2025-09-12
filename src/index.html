@@ -90,6 +90,7 @@
         <button id="themeToggle">Тёмная тема</button>
         <button id="exportBtn">Сделать бэкап</button>
         <button id="importBtn">Импорт бэкапа</button>
+        <button id="openSettingsBtn">Настройки</button>
       </div>
     </header>
     <main>
@@ -188,6 +189,31 @@
             <div class="row" style="margin-top:12px;">
               <button id="modalSaveBtn" class="primary">Сохранить</button>
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- settings modal -->
+    <div id="settingsModal" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center;">
+      <div class="modal-backdrop" style="position:absolute; inset:0; background:rgba(0,0,0,0.35);"></div>
+      <div class="modal-card" style="position:relative; width: min(560px, 96vw); max-height: 80vh; overflow:auto; background: var(--surface); border:1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); padding: 16px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+          <h3 style="margin:0;">Настройки</h3>
+          <button id="closeSettingsBtn">Закрыть</button>
+        </div>
+        <div style="margin-top: 12px; display:flex; flex-direction:column; gap:10px;">
+          <div>
+            <label>ISBNdb API Key</label>
+            <input id="settingsIsbndbKey" type="text" placeholder="sk_xxx" />
+            <div style="font-size:12px; color:var(--muted);">Хранится локально в userData/settings.json</div>
+          </div>
+          <div>
+            <label>Google Books API Key (опционально)</label>
+            <input id="settingsGoogleKey" type="text" placeholder="AIza..." />
+          </div>
+          <div class="row" style="margin-top:6px;">
+            <button id="saveSettingsBtn" class="primary">Сохранить</button>
           </div>
         </div>
       </div>

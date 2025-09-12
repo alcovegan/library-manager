@@ -1,6 +1,7 @@
 const db = require('../db');
 const openlibrary = require('./openlibrary');
 const isbndb = require('./isbndb');
+const settings = require('../settings');
 
 const CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 14; // 14 days
 
@@ -27,7 +28,8 @@ async function byIsbn(ctx, rawIsbn) {
   // providers in order
   let results = [];
   // 1) try ISBNdb if API key is present
-  if (process.env.ISBNDB_API_KEY) {
+  const s = settings.getSettings();
+  if (s.isbndbApiKey) {
     try {
       results = await isbndb.byIsbn(isbn);
     } catch (e) {
