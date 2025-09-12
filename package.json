@@ -16,6 +16,7 @@
     "electron": "^38.1.0"
   },
   "dependencies": {
+    "dotenv": "^17.2.2",
     "fuse.js": "^7.1.0",
     "sql.js": "^1.13.0",
     "uuid": "^13.0.0"

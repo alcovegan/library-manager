@@ -1,6 +1,8 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+// Load keys from .env (project root)
+try { require('dotenv').config(); } catch {}
 const dbLayer = require('./main/db');
 const isbnProvider = require('./main/providers/isbn');
 
