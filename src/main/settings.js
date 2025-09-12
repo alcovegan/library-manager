@@ -7,6 +7,7 @@ let cache = null;
 const DEFAULTS = {
   isbndbApiKey: process.env.ISBNDB_API_KEY || '',
   googleBooksApiKey: process.env.GOOGLE_BOOKS_API_KEY || '',
+  openaiApiKey: process.env.OPENAI_API_KEY || '',
 };
 
 function init(userDataPath) {
@@ -48,4 +49,3 @@ function updateSettings(patch) {
 }
 
 module.exports = { init, getSettings, updateSettings };
-

@@ -117,6 +117,18 @@ async function migrate(ctx) {
     setSchemaVersion(ctx, 4);
     persist(ctx);
   }
+  // v5: cache for AI enrichment
+  if (getSchemaVersion(ctx) === 4) {
+    ctx.db.exec(`
+      CREATE TABLE IF NOT EXISTS ai_isbn_cache (
+        key TEXT PRIMARY KEY,
+        payload TEXT NOT NULL,
+        fetchedAt TEXT NOT NULL
+      );
+    `);
+    setSchemaVersion(ctx, 5);
+    persist(ctx);
+  }
 }
 
 function ensureAuthor(ctx, name) {
@@ -260,4 +272,20 @@ function setIsbnCache(ctx, isbn, provider, payload) {
   persist(ctx);
 }
 
-module.exports = { openDb, migrate, listBooks, createBook, updateBook, deleteBook, getIsbnCache, setIsbnCache };
+function getAiIsbnCache(ctx, key) {
+  const safe = String(key).replace(/'/g, "''");
+  const res = ctx.db.exec(`SELECT payload, fetchedAt FROM ai_isbn_cache WHERE key='${safe}'`);
+  if (!res[0] || !res[0].values[0]) return null;
+  const [payload, fetchedAt] = res[0].values[0];
+  try { return { payload: JSON.parse(payload), fetchedAt }; } catch { return null; }
+}
+
+function setAiIsbnCache(ctx, key, payload) {
+  const stmt = ctx.db.prepare('INSERT INTO ai_isbn_cache(key, payload, fetchedAt) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET payload=excluded.payload, fetchedAt=excluded.fetchedAt');
+  stmt.bind([String(key), JSON.stringify(payload || {}), new Date().toISOString()]);
+  stmt.step();
+  stmt.free();
+  persist(ctx);
+}
+
+module.exports = { openDb, migrate, listBooks, createBook, updateBook, deleteBook, getIsbnCache, setIsbnCache, getAiIsbnCache, setAiIsbnCache };

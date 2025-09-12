@@ -39,11 +39,27 @@ const modalNotes = $('#modalNotes');
 const modalSaveBtn = $('#modalSaveBtn');
 const themeToggle = $('#themeToggle');
 const openSettingsBtn = $('#openSettingsBtn');
+const openEnrichBtn = $('#openEnrichBtn');
+const libraryView = $('#libraryView');
+const enrichView = $('#enrichView');
+// Enrichment UI
+const csvInput = $('#csvInput');
+const parseCsvBtn = $('#parseCsvBtn');
+const mappingArea = $('#mappingArea');
+const mapTitle = $('#mapTitle');
+const mapAuthors = $('#mapAuthors');
+const mapPublisher = $('#mapPublisher');
+const mapYear = $('#mapYear');
+const startEnrichBtn = $('#startEnrichBtn');
+const stopEnrichBtn = $('#stopEnrichBtn');
+const enrichList = $('#enrichList');
+const exportCsvBtn = $('#exportCsvBtn');
 // Settings modal elements
 const settingsModal = $('#settingsModal');
 const closeSettingsBtn = $('#closeSettingsBtn');
 const settingsIsbndbKey = $('#settingsIsbndbKey');
 const settingsGoogleKey = $('#settingsGoogleKey');
+const settingsOpenAIKey = $('#settingsOpenAIKey');
 const saveSettingsBtn = $('#saveSettingsBtn');
 const formTitle = $('#formTitle');
 
@@ -59,6 +75,14 @@ let state = {
     authorsAlt: [],
     snapshot: null,
   }
+};
+
+const enrichState = {
+  headers: [],
+  rows: [],
+  mapping: { title: null, authors: null, publisher: null, year: null },
+  running: false,
+  cursor: 0,
 };
 
 function toFileUrl(p) {
@@ -289,6 +313,12 @@ async function load() {
   }
   applySearch(searchInput?.value || '');
   render();
+}
+
+function showEnrichView(show) {
+  if (!libraryView || !enrichView) return;
+  libraryView.style.display = show ? 'none' : 'block';
+  enrichView.style.display = show ? 'block' : 'none';
 }
 
 function debounce(fn, ms) {
@@ -535,6 +565,9 @@ if (openSettingsBtn) {
     openSettings();
   });
 }
+if (openEnrichBtn) {
+  openEnrichBtn.addEventListener('click', () => showEnrichView(true));
+}
 
 if (closeSettingsBtn) closeSettingsBtn.addEventListener('click', closeSettings);
 
@@ -544,6 +577,7 @@ if (saveSettingsBtn) {
       const payload = {
         isbndbApiKey: settingsIsbndbKey ? settingsIsbndbKey.value.trim() : '',
         googleBooksApiKey: settingsGoogleKey ? settingsGoogleKey.value.trim() : '',
+        openaiApiKey: settingsOpenAIKey ? settingsOpenAIKey.value.trim() : '',
       };
       const res = await window.api.updateSettings(payload);
       if (!res || !res.ok) { alert('Не удалось сохранить настройки'); return; }
@@ -581,6 +615,178 @@ if (themeToggle) {
   themeToggle.addEventListener('click', () => {
     const current = document.body.classList.contains('theme-dark') ? 'dark' : 'light';
     applyTheme(current === 'dark' ? 'light' : 'dark');
+  });
+}
+
+// Enrichment helpers
+function guessDelimiter(text) {
+  const firstLine = text.split(/\r?\n/)[0] || '';
+  const commas = (firstLine.match(/,/g) || []).length;
+  const semis = (firstLine.match(/;/g) || []).length;
+  return semis > commas ? ';' : ',';
+}
+
+function parseCsv(text) {
+  const delim = guessDelimiter(text);
+  const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+  if (!lines.length) return { headers: [], rows: [] };
+  const headers = lines[0].split(delim).map(h => h.trim());
+  const rows = lines.slice(1).map(line => {
+    const cols = line.split(delim);
+    const obj = {};
+    headers.forEach((h, i) => { obj[h] = (cols[i] || '').trim(); });
+    return obj;
+  });
+  return { headers, rows };
+}
+
+function fillMappingSelect(select, headers) {
+  if (!select) return;
+  select.innerHTML = '';
+  const optNone = document.createElement('option');
+  optNone.value = '';
+  optNone.textContent = '—';
+  select.appendChild(optNone);
+  headers.forEach(h => {
+    const o = document.createElement('option');
+    o.value = h; o.textContent = h; select.appendChild(o);
+  });
+}
+
+function renderEnrichRows() {
+  if (!enrichList) return;
+  enrichList.innerHTML = '';
+  enrichState.rows.forEach((r) => {
+    const div = document.createElement('div');
+    div.style.border = '1px solid var(--border)';
+    div.style.borderRadius = '8px';
+    div.style.padding = '8px';
+    const t = document.createElement('div');
+    t.innerHTML = `<b>${r.title || ''}</b><br><span style="color:var(--muted); font-size:12px;">${(r.authors||'')}</span>`;
+    const meta = document.createElement('div');
+    meta.style.fontSize = '12px';
+    meta.style.color = 'var(--muted)';
+    meta.textContent = `${r.publisher || ''} ${r.year || ''}`;
+    const status = document.createElement('div');
+    status.style.fontSize = '12px';
+    status.textContent = r.status || 'pending';
+    const verify = document.createElement('div');
+    verify.style.fontSize = '12px';
+    verify.style.color = 'var(--muted)';
+    if (r.verified) {
+      verify.innerHTML = `${r.verified.title || ''} — ${(r.verified.authors||[]).join(', ')} (${r.verified.year||''})`;
+    }
+    const btnRow = document.createElement('div');
+    btnRow.style.display = 'flex';
+    btnRow.style.gap = '8px';
+    const acceptBtn = document.createElement('button');
+    acceptBtn.textContent = 'Принять';
+    acceptBtn.disabled = !r.aiIsbn;
+    acceptBtn.addEventListener('click', () => { r.acceptedIsbn = r.aiIsbn; r.status = 'accepted'; renderEnrichRows(); });
+    const reverifyBtn = document.createElement('button');
+    reverifyBtn.textContent = 'Проверить';
+    reverifyBtn.disabled = !r.aiIsbn;
+    reverifyBtn.addEventListener('click', async () => {
+      const res = await window.api.metaByIsbn({ isbn: r.aiIsbn, force: true });
+      if (res && res.ok && res.results && res.results[0]) {
+        r.verified = res.results[0];
+        renderEnrichRows();
+      }
+    });
+    btnRow.appendChild(acceptBtn);
+    btnRow.appendChild(reverifyBtn);
+    div.appendChild(t);
+    div.appendChild(meta);
+    div.appendChild(status);
+    div.appendChild(verify);
+    div.appendChild(btnRow);
+    enrichList.appendChild(div);
+  });
+}
+
+if (parseCsvBtn) {
+  parseCsvBtn.addEventListener('click', async () => {
+    const file = csvInput?.files?.[0];
+    if (!file) { alert('Выберите CSV'); return; }
+    const text = await file.text();
+    const { headers, rows } = parseCsv(text);
+    if (!headers.length || !rows.length) { alert('Не удалось распарсить CSV'); return; }
+    enrichState.headers = headers;
+    enrichState.rows = rows.map(r => ({
+      _raw: r,
+      title: '', authors: '', publisher: '', year: '',
+      status: 'pending', aiIsbn: null, verified: null, acceptedIsbn: null,
+    }));
+    fillMappingSelect(mapTitle, headers);
+    fillMappingSelect(mapAuthors, headers);
+    fillMappingSelect(mapPublisher, headers);
+    fillMappingSelect(mapYear, headers);
+    if (mappingArea) mappingArea.style.display = 'block';
+    renderEnrichRows();
+  });
+}
+
+async function processQueue() {
+  if (!enrichState.running) return;
+  if (enrichState.cursor >= enrichState.rows.length) { enrichState.running = false; return; }
+  const r = enrichState.rows[enrichState.cursor];
+  r.title = mapTitle?.value ? r._raw[mapTitle.value] : '';
+  r.authors = mapAuthors?.value ? r._raw[mapAuthors.value] : '';
+  r.publisher = mapPublisher?.value ? r._raw[mapPublisher.value] : '';
+  r.year = mapYear?.value ? r._raw[mapYear.value] : '';
+  r.status = 'querying'; renderEnrichRows();
+  try {
+    const resp = await window.api.aiEnrichIsbn({ title: r.title, authors: r.authors, publisher: r.publisher, year: r.year });
+    if (resp && resp.ok && resp.result) {
+      r.aiIsbn = resp.result.isbn13 || null;
+      r.status = r.aiIsbn ? `found ${r.aiIsbn} (conf=${resp.result.confidence ?? 0})` : 'not found';
+      renderEnrichRows();
+      if (r.aiIsbn) {
+        const ver = await window.api.metaByIsbn({ isbn: r.aiIsbn, force: true });
+        if (ver && ver.ok && ver.results && ver.results[0]) {
+          r.verified = ver.results[0];
+          renderEnrichRows();
+        }
+      }
+    } else {
+      r.status = 'error'; renderEnrichRows();
+    }
+  } catch (e) {
+    console.error(e); r.status = 'error'; renderEnrichRows();
+  }
+  enrichState.cursor += 1;
+  setTimeout(processQueue, 200);
+}
+
+if (startEnrichBtn) {
+  startEnrichBtn.addEventListener('click', () => {
+    if (!mapTitle?.value) { alert('Укажите колонку названия'); return; }
+    enrichState.running = true;
+    enrichState.cursor = 0;
+    processQueue();
+  });
+}
+if (stopEnrichBtn) {
+  stopEnrichBtn.addEventListener('click', () => { enrichState.running = false; });
+}
+
+if (exportCsvBtn) {
+  exportCsvBtn.addEventListener('click', () => {
+    if (!enrichState.headers.length) { alert('Нет данных'); return; }
+    const headers = [...enrichState.headers, 'isbn'];
+    const lines = [headers.join(',')];
+    enrichState.rows.forEach(r => {
+      const row = enrichState.headers.map(h => (r._raw[h] ?? ''));
+      row.push(r.acceptedIsbn || r.aiIsbn || '');
+      lines.push(row.map(x => String(x).includes(',') ? '"'+String(x).replaceAll('"','""')+'"' : String(x)).join(','));
+    });
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'enriched.csv';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
 }
 

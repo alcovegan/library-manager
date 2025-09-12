@@ -6,6 +6,7 @@ try { require('dotenv').config(); } catch {}
 const dbLayer = require('./main/db');
 const settings = require('./main/settings');
 const isbnProvider = require('./main/providers/isbn');
+const aiIsbn = require('./main/ai/isbn_enrich');
 
 const DATA_DIR = () => path.join(app.getPath('userData'), 'data');
 const BOOKS_FILE = () => path.join(DATA_DIR(), 'books.json');
@@ -237,6 +238,17 @@ ipcMain.handle('covers:download', async (evt, url) => {
     return { ok: true, path: dest };
   } catch (e) {
     console.error('covers:download failed', e);
+    return { ok: false, error: String(e?.message || e) };
+  }
+});
+
+// AI enrichment
+ipcMain.handle('ai:isbn:enrich', async (evt, payload) => {
+  try {
+    const res = await aiIsbn.enrich(db, payload || {});
+    return res;
+  } catch (e) {
+    console.error('ai:isbn:enrich failed', e);
     return { ok: false, error: String(e?.message || e) };
   }
 });
