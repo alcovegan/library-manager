@@ -3,6 +3,9 @@ const openlibrary = require('./openlibrary');
 const isbndb = require('./isbndb');
 const settings = require('../settings');
 
+const POSITIVE_TTL_MS = 1000 * 60 * 60 * 24 * 14; // 14 days
+const NEGATIVE_TTL_MS = 1000 * 60 * 10; // 10 minutes for empty results
+
 const CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 14; // 14 days
 
 function normalizeIsbn(input) {
@@ -17,13 +20,26 @@ function isFresh(iso) {
   } catch { return false; }
 }
 
-async function byIsbn(ctx, rawIsbn) {
+async function byIsbn(ctx, arg) {
+  const force = typeof arg === 'object' && arg !== null && 'force' in arg ? !!arg.force : false;
+  const rawIsbn = typeof arg === 'object' && arg !== null ? arg.isbn : arg;
   const isbn = normalizeIsbn(rawIsbn);
   if (!isbn) return [];
-  // cache first
+  // cache first (with different TTL for positive vs negative results)
   const cached = db.getIsbnCache(ctx, isbn);
-  if (cached && isFresh(cached.fetchedAt)) {
-    return Array.isArray(cached.payload) ? cached.payload : [];
+  if (!force && cached) {
+    const fresh = isFresh(cached.fetchedAt);
+    const hasData = Array.isArray(cached.payload) && cached.payload.length > 0;
+    if (hasData && fresh) {
+      return cached.payload;
+    }
+    if (!hasData) {
+      // negative cache: short TTL
+      try {
+        const t = new Date(cached.fetchedAt).getTime();
+        if (Date.now() - t < NEGATIVE_TTL_MS) return [];
+      } catch {}
+    }
   }
   // providers in order
   let results = [];
@@ -45,7 +61,7 @@ async function byIsbn(ctx, rawIsbn) {
     }
   }
   // store in cache
-  const providerName = results.length ? (results[0].source || (process.env.ISBNDB_API_KEY ? 'isbndb' : 'openlibrary')) : 'none';
+  const providerName = results.length ? (results[0].source || (s.isbndbApiKey ? 'isbndb' : 'openlibrary')) : 'none';
   db.setIsbnCache(ctx, isbn, providerName, results);
   return results;
 }

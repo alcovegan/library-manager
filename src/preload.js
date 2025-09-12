@@ -16,7 +16,7 @@ contextBridge.exposeInMainWorld('api', {
   selectCover: () => ipcRenderer.invoke('select:cover'),
   exportBackup: () => ipcRenderer.invoke('backup:export'),
   importBackup: () => ipcRenderer.invoke('backup:import'),
-  metaByIsbn: (isbn) => ipcRenderer.invoke('meta:byIsbn', isbn),
+  metaByIsbn: (arg) => ipcRenderer.invoke('meta:byIsbn', arg),
   downloadCover: (url) => ipcRenderer.invoke('covers:download', url),
   getSettings: () => ipcRenderer.invoke('settings:get'),
   updateSettings: (patch) => ipcRenderer.invoke('settings:update', patch),

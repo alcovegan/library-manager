@@ -210,9 +210,9 @@ ipcMain.handle('backup:import', async () => {
 });
 
 // ISBN metadata lookup
-ipcMain.handle('meta:byIsbn', async (evt, isbn) => {
+ipcMain.handle('meta:byIsbn', async (evt, payload) => {
   try {
-    const results = await isbnProvider.byIsbn(db, isbn);
+    const results = await isbnProvider.byIsbn(db, payload);
     return { ok: true, results };
   } catch (e) {
     console.error('meta:byIsbn failed', e);
