@@ -57,6 +57,7 @@ let state = {
     coverSourcePath: null,
     titleAlt: null,
     authorsAlt: [],
+    snapshot: null,
   }
 };
 
@@ -186,10 +187,45 @@ function openDetails(b) {
   // clear previous search results
   if (isbnResults) isbnResults.style.display = 'none';
   if (isbnResultsList) isbnResultsList.innerHTML = '';
+  // capture snapshot for dirty check
+  state.modal.snapshot = captureModalSnapshot();
 }
 
 function closeDetails() {
   modalEl.style.display = 'none';
+}
+
+function captureModalSnapshot() {
+  return {
+    title: modalTitle.value,
+    authors: modalAuthors.value,
+    series: modalSeries.value,
+    seriesIndex: modalSeriesIndex.value,
+    year: modalYear.value,
+    publisher: modalPublisher.value,
+    isbn: modalIsbn.value,
+    language: modalLanguage.value,
+    rating: modalRating.value,
+    tags: modalTags.value,
+    notes: modalNotes.value,
+    coverSourcePath: state.modal.coverSourcePath || null,
+    titleAlt: state.modal.titleAlt || null,
+    authorsAlt: Array.isArray(state.modal.authorsAlt) ? state.modal.authorsAlt.join(',') : '',
+  };
+}
+
+function isModalDirty() {
+  const snap = state.modal.snapshot || {};
+  const cur = captureModalSnapshot();
+  return JSON.stringify(snap) !== JSON.stringify(cur);
+}
+
+function tryCloseDetailsWithConfirm() {
+  if (modalEl && modalEl.style.display === 'flex' && isModalDirty()) {
+    const ok = confirm('Есть несохранённые изменения. Закрыть окно без сохранения?');
+    if (!ok) return;
+  }
+  closeDetails();
 }
 
 chooseCoverBtn.addEventListener('click', async () => {
@@ -277,7 +313,7 @@ if (searchInput) {
   searchInput.addEventListener('input', handler);
 }
 
-if (closeModalBtn) closeModalBtn.addEventListener('click', closeDetails);
+if (closeModalBtn) closeModalBtn.addEventListener('click', tryCloseDetailsWithConfirm);
 if (modalChooseCoverBtn) {
   modalChooseCoverBtn.addEventListener('click', async () => {
     try {
@@ -519,6 +555,17 @@ if (saveSettingsBtn) {
     }
   });
 }
+
+// Close details modal on Escape (with confirmation if dirty)
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    // only intercept when details modal is visible
+    if (modalEl && modalEl.style.display === 'flex') {
+      e.preventDefault();
+      tryCloseDetailsWithConfirm();
+    }
+  }
+});
 
 function applyTheme(theme) {
   const isDark = theme === 'dark';
