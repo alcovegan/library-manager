@@ -143,6 +143,10 @@
           <div class="row" style="margin-top:8px;">
             <button id="startEnrichBtn" class="primary">Начать</button>
             <button id="stopEnrichBtn">Пауза</button>
+            <label style="display:flex; align-items:center; gap:6px; margin-left:8px;">
+              <input id="enrichIgnoreCache" type="checkbox" /> Игнорировать кэш (OpenAI)
+            </label>
+            <button id="clearAiCacheBtn" title="Очистить кэш OpenAI результатов" style="margin-left:auto;">Очистить кэш</button>
           </div>
         </div>
         <div id="enrichList" style="margin-top:10px; display:flex; flex-direction:column; gap:8px;"></div>

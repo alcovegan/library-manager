@@ -288,4 +288,15 @@ function setAiIsbnCache(ctx, key, payload) {
   persist(ctx);
 }
 
-module.exports = { openDb, migrate, listBooks, createBook, updateBook, deleteBook, getIsbnCache, setIsbnCache, getAiIsbnCache, setAiIsbnCache };
+function clearAiIsbnCacheAll(ctx) {
+  ctx.db.exec('DELETE FROM ai_isbn_cache');
+  persist(ctx);
+}
+
+function clearAiIsbnCacheKey(ctx, key) {
+  const safe = String(key).replace(/'/g, "''");
+  ctx.db.exec(`DELETE FROM ai_isbn_cache WHERE key='${safe}'`);
+  persist(ctx);
+}
+
+module.exports = { openDb, migrate, listBooks, createBook, updateBook, deleteBook, getIsbnCache, setIsbnCache, getAiIsbnCache, setAiIsbnCache, clearAiIsbnCacheAll, clearAiIsbnCacheKey };

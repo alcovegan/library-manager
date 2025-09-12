@@ -55,6 +55,8 @@ const stopEnrichBtn = $('#stopEnrichBtn');
 const enrichList = $('#enrichList');
 const exportCsvBtn = $('#exportCsvBtn');
 const csvHeaderless = $('#csvHeaderless');
+const enrichIgnoreCache = $('#enrichIgnoreCache');
+const clearAiCacheBtn = $('#clearAiCacheBtn');
 // Settings modal elements
 const settingsModal = $('#settingsModal');
 const closeSettingsBtn = $('#closeSettingsBtn');
@@ -85,6 +87,7 @@ const enrichState = {
   mapping: { title: null, authors: null, publisher: null, year: null },
   running: false,
   cursor: 0,
+  ignoreCache: false,
 };
 
 function toFileUrl(p) {
@@ -777,16 +780,18 @@ async function processQueue() {
   r.year = mapYear?.value ? r._raw[mapYear.value] : '';
   r.status = 'querying'; renderEnrichRows();
   try {
-    const resp = await window.api.aiEnrichIsbn({ title: r.title, authors: r.authors, publisher: r.publisher, year: r.year });
+    const resp = await window.api.aiEnrichIsbn({ title: r.title, authors: r.authors, publisher: r.publisher, year: r.year, force: !!enrichState.ignoreCache });
     if (resp && resp.ok) {
       if (resp.result) {
         r.aiIsbn = resp.result.isbn13 || null;
-        r.status = r.aiIsbn ? `found ${r.aiIsbn} (conf=${resp.result.confidence ?? 0})` : 'not found';
+        const cachedTag = resp.cached ? ' (cached)' : '';
+        r.status = r.aiIsbn ? `found ${r.aiIsbn} (conf=${resp.result.confidence ?? 0})${cachedTag}` : `not found${cachedTag}`;
       } else {
-        r.status = 'not found';
+        r.status = `not found${resp.cached ? ' (cached)' : ''}`;
       }
       r._debugRaw = resp.raw || resp.error || '';
       r._debugPrompt = resp.prompt || '';
+      r._aiKey = resp.key || null;
       renderEnrichRows();
       if (r.aiIsbn) {
         const ver = await window.api.metaByIsbn({ isbn: r.aiIsbn, force: true });
@@ -812,6 +817,7 @@ if (startEnrichBtn) {
     if (!mapTitle?.value) { alert('Укажите колонку названия'); return; }
     enrichState.running = true;
     enrichState.cursor = 0;
+    enrichState.ignoreCache = !!enrichIgnoreCache?.checked;
     processQueue();
   });
 }
@@ -843,6 +849,18 @@ if (exportCsvBtn) {
     a.download = 'enriched.csv';
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+}
+
+if (clearAiCacheBtn) {
+  clearAiCacheBtn.addEventListener('click', async () => {
+    if (!confirm('Очистить кэш OpenAI (все записи)?')) return;
+    const res = await window.api.aiClearCache({ all: true });
+    if (res && res.ok) {
+      alert('Кэш очищен');
+    } else {
+      alert('Не удалось очистить кэш');
+    }
   });
 }
 

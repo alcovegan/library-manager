@@ -253,6 +253,19 @@ ipcMain.handle('ai:isbn:enrich', async (evt, payload) => {
   }
 });
 
+ipcMain.handle('ai:isbn:clearCache', async (evt, payload) => {
+  try {
+    if (payload && payload.key) {
+      dbLayer.clearAiIsbnCacheKey(db, payload.key);
+    } else {
+      dbLayer.clearAiIsbnCacheAll(db);
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+});
+
 // Settings IPC
 ipcMain.handle('settings:get', async () => {
   try { return { ok: true, settings: settings.getSettings() }; }
