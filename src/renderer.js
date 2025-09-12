@@ -54,6 +54,8 @@ let state = {
   modal: {
     id: null,
     coverSourcePath: null,
+    titleAlt: null,
+    authorsAlt: [],
   }
 };
 
@@ -176,6 +178,8 @@ function openDetails(b) {
   modalTags.value = (b?.tags || []).join(', ');
   modalNotes.value = b?.notes || '';
   state.modal.coverSourcePath = null;
+  state.modal.titleAlt = b?.titleAlt || null;
+  state.modal.authorsAlt = Array.isArray(b?.authorsAlt) ? b.authorsAlt : [];
   setModalPreview(b?.coverPath || null);
   modalEl.style.display = 'flex';
   // clear previous search results
@@ -302,6 +306,8 @@ if (modalSaveBtn) {
         rating: modalRating.value || null,
         notes: modalNotes.value || null,
         tags: modalTags.value.split(',').map(s => s.trim()).filter(Boolean),
+        titleAlt: state.modal.titleAlt || null,
+        authorsAlt: Array.isArray(state.modal.authorsAlt) ? state.modal.authorsAlt : [],
       };
       if (!payload.title) { alert('Введите название'); return; }
       if (payload.id) {
@@ -363,6 +369,38 @@ function renderIsbnCandidates(cands) {
       if (isbnResultsList) isbnResultsList.innerHTML = '';
     });
     actions.appendChild(applyBtn);
+    // add reverse transliteration option if likely Russian but no Cyrillic present
+    if (isLikelyRussian(c) && !hasCyrillic(`${c.title || ''} ${(c.authors || []).join(' ')}`)) {
+      const applyCyrBtn = document.createElement('button');
+      applyCyrBtn.textContent = 'Кириллицей';
+      applyCyrBtn.title = 'Сконвертировать в кириллицу и применить';
+      applyCyrBtn.addEventListener('click', async () => {
+        const convertedTitle = reverseTranslit(c.title || '');
+        const convertedAuthors = (c.authors || []).map(a => reverseTranslit(a));
+        // store originals
+        state.modal.titleAlt = c.title || null;
+        state.modal.authorsAlt = c.authors || [];
+        // apply converted
+        modalTitle.value = convertedTitle || modalTitle.value;
+        modalAuthors.value = convertedAuthors.join(', ');
+        modalPublisher.value = c.publisher || '';
+        modalYear.value = c.year ?? '';
+        modalLanguage.value = c.language || '';
+        modalIsbn.value = c.isbn || modalIsbn.value;
+        modalTags.value = (c.tags || []).join(', ');
+        modalNotes.value = c.notes || '';
+        if (c.coverUrl) {
+          const dl = await window.api.downloadCover(c.coverUrl);
+          if (dl && dl.ok && dl.path) {
+            state.modal.coverSourcePath = dl.path;
+            setModalPreview(dl.path);
+          }
+        }
+        if (isbnResults) isbnResults.style.display = 'none';
+        if (isbnResultsList) isbnResultsList.innerHTML = '';
+      });
+      actions.appendChild(applyCyrBtn);
+    }
     row.appendChild(img);
     row.appendChild(meta);
     row.appendChild(actions);
@@ -385,6 +423,48 @@ if (isbnSearchBtn) {
 }
 if (isbnRefreshBtn) {
   isbnRefreshBtn.addEventListener('click', () => runIsbnSearch(true));
+}
+
+function hasCyrillic(text) { return /[\u0400-\u04FF]/.test(text || ''); }
+function isLikelyRussian(c) {
+  const lang = String(c.language || '').toLowerCase();
+  return lang === 'ru' || lang === 'rus' || lang.startsWith('ru');
+}
+
+function reverseTranslit(input) {
+  if (!input) return input;
+  let s = input;
+  // multi-letter combos first
+  const combos = [
+    ['shch', 'щ'], ['sch', 'щ'],
+    ['yo', 'ё'], ['jo', 'ё'],
+    ['yu', 'ю'], ['ju', 'ю'],
+    ['ya', 'я'], ['ja', 'я'],
+    ['zh', 'ж'], ['kh', 'х'], ['ts', 'ц'], ['ch', 'ч'], ['sh', 'ш'],
+  ];
+  for (const [lat, cyr] of combos) {
+    const re = new RegExp(lat, 'gi');
+    s = s.replace(re, (m) => matchCase(cyr, m));
+  }
+  // single letters
+  const singles = {
+    a:'а', b:'б', v:'в', g:'г', d:'д', e:'е', z:'з', i:'и', j:'й', y:'ы', k:'к', l:'л', m:'м', n:'н', o:'о', p:'п', r:'р', s:'с', t:'т', u:'у', f:'ф', h:'х', c:'с', q:'к', w:'в', x:'кс'
+  };
+  s = s.replace(/[A-Za-z]/g, (ch) => {
+    const lower = ch.toLowerCase();
+    const rep = singles[lower];
+    if (!rep) return ch;
+    return matchCase(rep, ch);
+  });
+  return s;
+}
+
+function matchCase(rep, sample) {
+  if (sample.toUpperCase() === sample && sample.toLowerCase() !== sample) return rep.toUpperCase();
+  if (sample[0] && sample[0].toUpperCase() === sample[0] && sample.slice(1).toLowerCase() === sample.slice(1)) {
+    return rep[0].toUpperCase() + rep.slice(1);
+  }
+  return rep;
 }
 
 function openSettings() {
