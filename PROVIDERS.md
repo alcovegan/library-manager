@@ -16,7 +16,7 @@ This document describes the pluggable provider architecture used to fetch and ap
   - Returns a normalized list of candidates.
 - Providers (per-source): `src/main/providers/<provider>.js`
   - Implement `async byIsbn(isbn)` and return normalized candidates.
-  - Current: `openlibrary.js`.
+  - Current: `isbndb.js` (primary if `ISBNDB_API_KEY` is set), `openlibrary.js` (fallback).
 - Cache (DB): `isbn_cache` in `src/main/db.js`
   - Helpers: `getIsbnCache`, `setIsbnCache`.
 - IPC: exposed from `src/main.js`
@@ -74,7 +74,7 @@ Helpers in `src/main/db.js`:
    - Export `async byIsbn(isbn)`.
    - Call Google Books `volumes?q=isbn:{isbn}` with API key (from env or config).
    - Map response to the normalized candidate shape.
-2) Register in aggregator `isbn.js` (add to the providers list after cache check).
+2) Register in aggregator `isbn.js` (add to the providers list after cache check). Ordering matters: preferred providers first.
 3) Respect ToS/attribution. Add source string to `candidate.source` and show it in UI if required.
 4) Optionally extend UI to display multiple sources or “Try another source” fallback.
 

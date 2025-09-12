@@ -1,5 +1,6 @@
 const db = require('../db');
 const openlibrary = require('./openlibrary');
+const isbndb = require('./isbndb');
 
 const CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 14; // 14 days
 
@@ -25,15 +26,26 @@ async function byIsbn(ctx, rawIsbn) {
   }
   // providers in order
   let results = [];
-  try {
-    results = await openlibrary.byIsbn(isbn);
-  } catch (e) {
-    console.error('OpenLibrary error:', e);
+  // 1) try ISBNdb if API key is present
+  if (process.env.ISBNDB_API_KEY) {
+    try {
+      results = await isbndb.byIsbn(isbn);
+    } catch (e) {
+      console.error('ISBNdb error:', e);
+    }
+  }
+  // 2) fallback to Open Library
+  if (!results || results.length === 0) {
+    try {
+      results = await openlibrary.byIsbn(isbn);
+    } catch (e) {
+      console.error('OpenLibrary error:', e);
+    }
   }
   // store in cache
-  db.setIsbnCache(ctx, isbn, results.length ? 'openlibrary' : 'none', results);
+  const providerName = results.length ? (results[0].source || (process.env.ISBNDB_API_KEY ? 'isbndb' : 'openlibrary')) : 'none';
+  db.setIsbnCache(ctx, isbn, providerName, results);
   return results;
 }
 
 module.exports = { byIsbn };
-
