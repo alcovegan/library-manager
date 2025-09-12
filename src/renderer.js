@@ -26,6 +26,7 @@ const modalSeries = $('#modalSeries');
 const modalSeriesIndex = $('#modalSeriesIndex');
 const modalYear = $('#modalYear');
 const modalPublisher = $('#modalPublisher');
+const publisherCyrBtn = $('#publisherCyrBtn');
 const modalIsbn = $('#modalIsbn');
 const isbnSearchBtn = $('#isbnSearchBtn');
 const isbnRefreshBtn = $('#isbnRefreshBtn');
@@ -321,6 +322,13 @@ if (modalSaveBtn) {
       alert('Не удалось сохранить');
       console.error(e);
     }
+  });
+}
+
+if (publisherCyrBtn) {
+  publisherCyrBtn.addEventListener('click', () => {
+    if (!modalPublisher) return;
+    modalPublisher.value = reverseTranslit(modalPublisher.value || '');
   });
 }
 
