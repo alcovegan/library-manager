@@ -87,6 +87,40 @@ Helpers in `src/main/db.js`:
 - Place provider keys (e.g., Google Books) in environment variables or a settings UI stored under `userData`.
 - Do not expose secrets to the renderer. Read them in the main process only.
 
+### Getting API Keys
+
+#### Open Library
+- No API key required.
+
+#### Google Books API (recommended as fallback)
+- Create (or use) a Google account and open Google Cloud Console: console.cloud.google.com
+- Create a Project (or select an existing one).
+- Enable API: APIs & Services → Library → search “Books API” → Enable.
+- Create credentials: APIs & Services → Credentials → Create Credentials → API key.
+- Restrict key (recommended): open the key → Application restrictions = None (desktop app) or appropriate server IP; API restrictions = Restrict key → select “Books API” → Save.
+- Test:
+  - macOS/Linux: curl "https://www.googleapis.com/books/v1/volumes?q=isbn:9780140328721&key=YOUR_KEY"
+- Provide to app at runtime:
+  - macOS/Linux: `GOOGLE_BOOKS_API_KEY=YOUR_KEY npm start`
+  - Windows (PowerShell): `$env:GOOGLE_BOOKS_API_KEY='YOUR_KEY'; npm start`
+
+Suggested env var: `GOOGLE_BOOKS_API_KEY`.
+
+#### ISBNdb (optional, paid)
+- Sign up at https://isbndb.com/ and copy the API key from your dashboard.
+- Test:
+  - curl -H "Authorization: YOUR_KEY" "https://api2.isbndb.com/book/9780140328721"
+- Provide to app at runtime:
+  - macOS/Linux: `ISBNDB_API_KEY=YOUR_KEY npm start`
+
+Suggested env var: `ISBNDB_API_KEY`.
+
+#### WorldCat / OCLC (optional; requires affiliation)
+- Create an OCLC developer account and request a WSKey for WorldCat APIs: https://developer.api.oclc.org/
+- Some services require institution credentials; review ToS and access requirements.
+
+Suggested env var: `WORLDCAT_WSKEY`.
+
 ### Error Handling & Resilience
 - Network timeouts and non‑200: provider returns `[]`.
 - Aggregator catches provider errors, logs, and falls back to the next provider or empty list.
@@ -102,4 +136,3 @@ Helpers in `src/main/db.js`:
 - Expose “Try another source”/“Refresh” in UI ignoring cache.
 - Add cache TTL control and manual clear.
 - De‑dup candidates and choose best by language/region.
-
