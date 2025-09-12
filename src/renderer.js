@@ -136,6 +136,19 @@ function render() {
       img.src = toFileUrl(b.coverPath);
     }
     const meta = document.createElement('div');
+    // rebuild title/authors as text to avoid quote/HTML issues from CSV
+    try {
+      t.textContent = '';
+      const titleEl = document.createElement('div');
+      titleEl.style.fontWeight = '600';
+      titleEl.textContent = r.title || '';
+      const authorsEl = document.createElement('div');
+      authorsEl.style.color = 'var(--muted)';
+      authorsEl.style.fontSize = '12px';
+      authorsEl.textContent = r.authors || '';
+      t.appendChild(titleEl);
+      t.appendChild(authorsEl);
+    } catch {}
     meta.className = 'meta';
     const title = document.createElement('div');
     title.className = 'title';
@@ -731,7 +744,7 @@ if (parseCsvBtn) {
     const file = csvInput?.files?.[0];
     if (!file) { alert('Выберите CSV'); return; }
     const text = await file.text();
-    const { headers, rows } = parseCsv(text);
+    const { headers, rows } = await window.api.parseCsv(text);
     if (!headers.length || !rows.length) { alert('Не удалось распарсить CSV'); return; }
     enrichState.headers = headers;
     enrichState.rows = rows.map(r => ({
@@ -802,7 +815,14 @@ if (exportCsvBtn) {
     enrichState.rows.forEach(r => {
       const row = enrichState.headers.map(h => (r._raw[h] ?? ''));
       row.push(r.acceptedIsbn || r.aiIsbn || '');
-      lines.push(row.map(x => String(x).includes(',') ? '"'+String(x).replaceAll('"','""')+'"' : String(x)).join(','));
+      const esc = (x) => {
+        const s = String(x);
+        if (s.includes(',') || s.includes('\n') || s.includes('\r') || s.includes('"')) {
+          return '"' + s.replaceAll('"','""') + '"';
+        }
+        return s;
+      };
+      lines.push(row.map(esc).join(','));
     });
     const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);

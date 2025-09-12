@@ -1,11 +1,17 @@
 const { contextBridge, ipcRenderer } = require('electron');
 let Fuse = null;
+let Papa = null;
 try {
   // optional: if Fuse fails to load, fall back to simple filtering
   Fuse = require('fuse.js');
 } catch (e) {
   // eslint-disable-next-line no-console
   console.warn('Fuse.js not available, using simple search');
+}
+try {
+  Papa = require('papaparse');
+} catch (e) {
+  console.warn('PapaParse not available; CSV parsing will be basic');
 }
 
 contextBridge.exposeInMainWorld('api', {
@@ -21,6 +27,28 @@ contextBridge.exposeInMainWorld('api', {
   aiEnrichIsbn: (payload) => ipcRenderer.invoke('ai:isbn:enrich', payload),
   getSettings: () => ipcRenderer.invoke('settings:get'),
   updateSettings: (patch) => ipcRenderer.invoke('settings:update', patch),
+  parseCsv: (text) => {
+    if (Papa) {
+      const res = Papa.parse(String(text || ''), {
+        header: true,
+        skipEmptyLines: 'greedy',
+        dynamicTyping: false,
+      });
+      const headers = Array.isArray(res.meta?.fields) ? res.meta.fields : [];
+      const rows = Array.isArray(res.data) ? res.data : [];
+      return { headers, rows };
+    }
+    // fallback: very naive split (not recommended)
+    const lines = String(text || '').split(/\r?\n/).filter(l => l.trim().length > 0);
+    if (!lines.length) return { headers: [], rows: [] };
+    const headers = lines[0].split(',').map(h => h.trim());
+    const rows = lines.slice(1).map(line => {
+      const cols = line.split(',');
+      const obj = {}; headers.forEach((h,i)=>obj[h]= (cols[i]||'').trim());
+      return obj;
+    });
+    return { headers, rows };
+  },
 });
 
 contextBridge.exposeInMainWorld('search', {
