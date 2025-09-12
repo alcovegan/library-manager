@@ -697,13 +697,31 @@ function renderEnrichRows() {
         renderEnrichRows();
       }
     });
+    const debugBtn = document.createElement('button');
+    debugBtn.textContent = r._debugOpen ? 'Скрыть детали' : 'Детали';
+    debugBtn.addEventListener('click', () => { r._debugOpen = !r._debugOpen; renderEnrichRows(); });
     btnRow.appendChild(acceptBtn);
     btnRow.appendChild(reverifyBtn);
+    btnRow.appendChild(debugBtn);
     div.appendChild(t);
     div.appendChild(meta);
     div.appendChild(status);
     div.appendChild(verify);
     div.appendChild(btnRow);
+    if (r._debugOpen) {
+      const pre = document.createElement('pre');
+      pre.style.whiteSpace = 'pre-wrap';
+      pre.style.fontSize = '12px';
+      pre.style.background = 'var(--muted-surface)';
+      pre.style.padding = '8px';
+      pre.style.borderRadius = '8px';
+      const parts = [];
+      if (r._debugPrompt) parts.push('PROMPT:\n' + r._debugPrompt);
+      if (r._debugRaw) parts.push('OPENAI RAW:\n' + r._debugRaw);
+      if (r.aiIsbn) parts.push('PARSED:\n' + JSON.stringify({ isbn13: r.aiIsbn }, null, 2));
+      pre.textContent = parts.join('\n\n');
+      div.appendChild(pre);
+    }
     enrichList.appendChild(div);
   });
 }
@@ -744,6 +762,8 @@ async function processQueue() {
     if (resp && resp.ok && resp.result) {
       r.aiIsbn = resp.result.isbn13 || null;
       r.status = r.aiIsbn ? `found ${r.aiIsbn} (conf=${resp.result.confidence ?? 0})` : 'not found';
+      r._debugRaw = resp.raw || '';
+      r._debugPrompt = resp.prompt || '';
       renderEnrichRows();
       if (r.aiIsbn) {
         const ver = await window.api.metaByIsbn({ isbn: r.aiIsbn, force: true });

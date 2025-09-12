@@ -12,15 +12,17 @@ function hashKey({ title, authors, publisher, year }) {
 
 function buildPrompt({ title, authors, publisher, year }) {
   const lines = [];
-  lines.push('You are a bibliographic assistant. Given partial metadata, infer the likely ISBN-13 of the book.');
-  lines.push('Respond with a single strict JSON object with keys: isbn13 (string or null), confidence (0..1), rationale (optional short string).');
-  lines.push('Prefer the exact edition; if uncertain, return isbn13: null with low confidence.');
-  lines.push('Input:');
+  lines.push('Ты — библиографический помощник. По неполным данным о книге определи наиболее вероятный ISBN-13 нужного издания.');
+  lines.push('Отвечай строго одним JSON-объектом со следующими полями:');
+  lines.push('{ "isbn13": string|null, "confidence": number (0..1), "rationale"?: string }');
+  lines.push('- Если есть сомнение — укажи isbn13: null и поставь низкую confidence.');
+  lines.push('- Ищи именно нужное издание (год/издательство), а не любые переиздания, если это возможно.');
+  lines.push('Входные данные:');
   lines.push(`title: ${normalizeStr(title)}`);
   lines.push(`authors: ${normalizeStr(authors)}`);
   lines.push(`publisher: ${normalizeStr(publisher)}`);
   lines.push(`year: ${normalizeStr(year)}`);
-  lines.push('Output JSON only, no extra text.');
+  lines.push('Ответ: только JSON без дополнительного текста.');
   return lines.join('\n');
 }
 
@@ -75,7 +77,7 @@ async function enrich(ctx, payload) {
     rationale: typeof parsed.rationale === 'string' ? parsed.rationale : undefined,
   };
   db.setAiIsbnCache(ctx, key, result);
-  return { ok: true, cached: false, key, result };
+  return { ok: true, cached: false, key, result, raw, prompt };
 }
 
 module.exports = { enrich };
