@@ -264,6 +264,8 @@ ipcMain.handle('settings:update', async (evt, patch) => {
     const saved = settings.updateSettings({
       isbndbApiKey: String(patch?.isbndbApiKey ?? ''),
       googleBooksApiKey: String(patch?.googleBooksApiKey ?? ''),
+      openaiApiKey: String(patch?.openaiApiKey ?? ''),
+      openaiApiBaseUrl: String(patch?.openaiApiBaseUrl ?? ''),
     });
     return { ok: true, settings: saved };
   } catch (e) {

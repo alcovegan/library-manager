@@ -27,9 +27,10 @@ function buildPrompt({ title, authors, publisher, year }) {
 async function callOpenAI(prompt) {
   const s = settings.getSettings();
   const apiKey = s.openaiApiKey || process.env.OPENAI_API_KEY;
+  const baseURL = s.openaiApiBaseUrl || process.env.OPENAI_BASE_URL || process.env.OPENAI_API_BASE_URL;
   if (!apiKey) throw new Error('OPENAI_API_KEY not configured');
   const { OpenAI } = require('openai');
-  const client = new OpenAI({ apiKey });
+  const client = new OpenAI({ apiKey, baseURL });
   const completion = await client.chat.completions.create({
     model: 'gpt-4o-mini',
     messages: [
@@ -78,4 +79,3 @@ async function enrich(ctx, payload) {
 }
 
 module.exports = { enrich };
-

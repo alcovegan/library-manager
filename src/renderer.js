@@ -59,6 +59,7 @@ const settingsModal = $('#settingsModal');
 const closeSettingsBtn = $('#closeSettingsBtn');
 const settingsIsbndbKey = $('#settingsIsbndbKey');
 const settingsGoogleKey = $('#settingsGoogleKey');
+const settingsOpenAIBase = document.querySelector('#settingsOpenAIBase');
 const settingsOpenAIKey = $('#settingsOpenAIKey');
 const saveSettingsBtn = $('#saveSettingsBtn');
 const formTitle = $('#formTitle');
@@ -555,6 +556,8 @@ async function loadSettings() {
     if (res && res.ok && res.settings) {
       if (settingsIsbndbKey) settingsIsbndbKey.value = res.settings.isbndbApiKey || '';
       if (settingsGoogleKey) settingsGoogleKey.value = res.settings.googleBooksApiKey || '';
+      if (settingsOpenAIKey) settingsOpenAIKey.value = res.settings.openaiApiKey || '';
+      if (settingsOpenAIBase) settingsOpenAIBase.value = res.settings.openaiApiBaseUrl || '';
     }
   } catch (e) { console.error(e); }
 }
@@ -578,6 +581,7 @@ if (saveSettingsBtn) {
         isbndbApiKey: settingsIsbndbKey ? settingsIsbndbKey.value.trim() : '',
         googleBooksApiKey: settingsGoogleKey ? settingsGoogleKey.value.trim() : '',
         openaiApiKey: settingsOpenAIKey ? settingsOpenAIKey.value.trim() : '',
+        openaiApiBaseUrl: settingsOpenAIBase ? settingsOpenAIBase.value.trim() : '',
       };
       const res = await window.api.updateSettings(payload);
       if (!res || !res.ok) { alert('Не удалось сохранить настройки'); return; }
