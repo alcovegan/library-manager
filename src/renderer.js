@@ -90,6 +90,11 @@ const enrichState = {
   ignoreCache: false,
 };
 
+function updatePauseButton() {
+  if (!stopEnrichBtn) return;
+  stopEnrichBtn.textContent = enrichState.running ? 'Пауза' : 'Возобновить';
+}
+
 function toFileUrl(p) {
   if (!p) return '';
   // ensure spaces and special chars are encoded properly
@@ -818,11 +823,17 @@ if (startEnrichBtn) {
     enrichState.running = true;
     enrichState.cursor = 0;
     enrichState.ignoreCache = !!enrichIgnoreCache?.checked;
+    updatePauseButton();
     processQueue();
   });
 }
 if (stopEnrichBtn) {
-  stopEnrichBtn.addEventListener('click', () => { enrichState.running = false; });
+  stopEnrichBtn.addEventListener('click', () => {
+    // toggle pause/resume
+    enrichState.running = !enrichState.running;
+    updatePauseButton();
+    if (enrichState.running) processQueue();
+  });
 }
 
 if (exportCsvBtn) {
