@@ -55,7 +55,8 @@
         border-bottom: 1px solid var(--border);
       }
       header h1 { font-size: 16px; margin: 0; letter-spacing: 0.3px; }
-      header .actions button { margin-left: 8px; }
+      /* remove legacy margin that created inner padding in segments */
+      /* header .actions button { margin-left: 8px; } */
 
       main { display: grid; grid-template-columns: 380px 1fr; gap: 18px; padding: 18px; }
       .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; box-shadow: var(--shadow); }
@@ -79,6 +80,7 @@
       .list.compact .book { padding:6px; gap:8px; }
       .list.compact .thumb { width:48px; height:68px; }
       .book { display:flex; gap:12px; background: var(--surface); border:1px solid var(--border); padding:10px; border-radius:12px; box-shadow: var(--shadow); align-items: center; cursor: pointer; }
+      .book { overflow: hidden; }
       .book.selected { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,111,255,0.25); }
       .thumb { width:64px; height:86px; object-fit:cover; background: #e9ecf6; border-radius:8px; border:1px solid var(--border); display:none; }
       .meta { flex:1; min-width: 0; }
@@ -88,6 +90,33 @@
       .empty { color:var(--muted); padding:16px; }
       .dropzone { border: 1px dashed var(--border); border-radius: 10px; }
       .dropzone.active { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,111,255,0.25); }
+      .actions { display:flex; gap:8px; align-items:center; }
+      .icon-btn { width:36px; height:36px; padding:0; border:1px solid #e5e7eb; border-radius:8px; background:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+      .icon-btn:hover { background:#f8fafc; }
+      .icon-btn svg { width:16px; height:16px; color:#111827; }
+      /* Dark theme polishing for icons and segments */
+      body.theme-dark .icon-btn { background: var(--surface); border-color: var(--border); }
+      body.theme-dark .icon-btn:hover { background: rgba(255,255,255,0.06); }
+      body.theme-dark .icon-btn svg { color: var(--text); }
+
+      body.theme-dark .seg { border-color: var(--border); }
+      body.theme-dark .seg > button { background: transparent; }
+      body.theme-dark .seg > button.active { background: rgba(255,255,255,0.08); }
+      /* layout + unified controls */
+      html, body { height: 100%; }
+      body { margin: 0; display: flex; flex-direction: column; }
+      main { flex: 1; min-height: 0; }
+      .input { height:36px; padding:0 12px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; color:#1f2937; font-size:14px; }
+      .input:focus { outline:none; box-shadow:0 0 0 2px rgba(99,102,241,.55); }
+      .btn { height:36px; padding:0 12px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; color:#1f2937; font-size:14px; cursor:pointer; }
+      .btn:hover { background:#f8fafc; }
+      .btn.primary { background:#4f46e5; color:#fff; border-color:#4f46e5; }
+      .btn.primary:hover { background:#6366f1; }
+      .seg { display:inline-flex; border:1px solid #e5e7eb; border-radius:8px; overflow:hidden; }
+      .seg > button { height:36px; width:36px; padding:0; margin:0; border:0; background:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+      /* Removed inner divider for adjacent buttons */
+      /* .seg > button + button { border-left:1px solid #e5e7eb; } */
+      .seg > button.active { background:#f1f5f9; }
     </style>
   </head>
   <body>
@@ -102,15 +131,34 @@
           </div>
         </div>
         <div class="actions flex items-center gap-2">
-          <input id="searchInput" type="text" placeholder="Поиск по названию или автору…" class="w-72 px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-          <button id="viewToggle" class="px-3 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50">Список</button>
-          <button id="compactToggle" class="px-3 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50">Компактный</button>
-          <button id="themeToggle" class="px-3 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50">Тёмная тема</button>
-          <button id="exportBtn" class="px-3 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50">Бэкап</button>
-          <button id="importBtn" class="px-3 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50">Импорт</button>
-          <button id="openSettingsBtn" class="px-3 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50">Настройки</button>
-          <button id="openEnrichBtn" class="px-3 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50">Обогащение</button>
-          <button id="reloadBtn" class="px-3 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50" title="Перезагрузить без кэша">Перезагрузить</button>
+          <input id="searchInput" type="text" placeholder="Поиск по названию или автору…" class="input" style="width:16rem;" />
+          <div class="seg" role="group" aria-label="Вид">
+            <button id="btnViewGrid" type="button" class="active" aria-pressed="true" title="Сетка">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h8v8H3zM13 3h8v8h-8zM3 13h8v8H3zM13 13h8v8h-8z"/></svg>
+            </button>
+            <button id="btnViewList" type="button" aria-pressed="false" title="Список">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg>
+            </button>
+          </div>
+          
+          <button id="themeToggle" class="icon-btn" title="Тёмная тема">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 9.54 6.63 1 1 0 0 0-1.51-.5A7 7 0 1 1 12 4a1 1 0 0 0 0-2z"/></svg>
+          </button>
+          <button id="exportBtn" class="icon-btn" title="Бэкап">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 16l4-5h-3V4h-2v7H8l4 5zm8 3H4v-2h16v2z"/></svg>
+          </button>
+          <button id="importBtn" class="icon-btn" title="Импорт">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 8l-4 5h3v7h2v-7h3l-4-5zM4 5h16V3H4v2z"/></svg>
+          </button>
+          <button id="openSettingsBtn" class="icon-btn" title="Настройки">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94a7.49 7.49 0 0 0 .05-.94 7.49 7.49 0 0 0-.05-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.5 7.5 0 0 0-1.63-.94l-.36-2.54A.5.5 0 0 0 13.31 1h-3.62a.5.5 0 0 0-.5.42l-.36 2.54c-.58.23-1.12.54-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.69 7.98a.5.5 0 0 0 .12.64l2.03 1.58c-.03.31-.05.62-.05.94s.02.63.05.94L2.81 13.7a.5.5 0 0 0-.12.64l1.92 3.32c.14.24.43.34.69.22l2.39-.96c.51.39 1.05.71 1.63.94l.36 2.54c.04.24.25.42.5.42h3.62c.25 0 .46-.18.5-.42l.36-2.54c.58-.23 1.12-.54 1.63-.94l2.39.96c.26.12.55.02.69-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/></svg>
+          </button>
+          <button id="openEnrichBtn" class="icon-btn" title="Обогащение">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3 7h7l-5.5 4 2.5 7-7-4.5L5 20l2.5-7L2 9h7z"/></svg>
+          </button>
+          <button id="reloadBtn" class="icon-btn" title="Перезагрузить без кэша">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.65 6.35A7.95 7.95 0 0 0 12 4V1L7 6l5 5V7a5 5 0 1 1-5 5H5a7 7 0 1 0 12.65-5z"/></svg>
+          </button>
         </div>
       </div>
     </header>
@@ -118,25 +166,25 @@
       <section id="libraryView" class="card">
         <h3 id="formTitle">Добавить книгу</h3>
         <label>Название</label>
-        <input id="titleInput" type="text" placeholder="Например, Война и мир" class="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <input id="titleInput" type="text" placeholder="Например, Война и мир" class="input w-full" />
         <label>Авторы (через запятую)</label>
-        <input id="authorsInput" type="text" placeholder="Автор1, Автор2" class="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <input id="authorsInput" type="text" placeholder="Автор1, Автор2" class="input w-full" />
         <label>Обложка</label>
         <div class="row">
-          <button id="chooseCoverBtn" class="px-3 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50">Выбрать файл…</button>
+          <button id="chooseCoverBtn" class="btn">Выбрать файл…</button>
           <span id="coverFileLabel" class="text-xs text-slate-500">Не выбрано</span>
         </div>
         <img id="coverPreview" class="cover-preview dropzone" alt="предпросмотр" />
         <div class="row" style="margin-top:12px;">
-          <button id="saveBtn" class="px-3 py-2 text-sm rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white">Сохранить</button>
-          <button id="resetBtn" class="px-3 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50">Сбросить</button>
+          <button id="saveBtn" class="btn primary">Сохранить</button>
+          <button id="resetBtn" class="btn">Сбросить</button>
           <div style="flex:1"></div>
           <button id="openCreateModalBtn" class="px-3 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50">Расширенная форма</button>
         </div>
       </section>
 
       <section class="card" style="min-height:0;">
-        <div id="listViewport" style="max-height: calc(100vh - 160px); overflow-y: auto; padding-right: 8px;">
+        <div id="listViewport" style="height:100%; max-height: calc(100vh - 160px); overflow-y: auto; padding-right: 8px;">
           <div id="list" class="list"></div>
         </div>
         <div id="empty" class="empty" style="display:none;">Пока нет книг. Добавьте первую!</div>
