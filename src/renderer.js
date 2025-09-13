@@ -39,8 +39,10 @@ const modalNotes = $('#modalNotes');
 const modalSaveBtn = $('#modalSaveBtn');
 const themeToggle = $('#themeToggle');
 const openSettingsBtn = $('#openSettingsBtn');
-const viewToggle = $('#viewToggle');
-const compactToggle = $('#compactToggle');
+const btnViewGrid = document.querySelector('#btnViewGrid');
+const btnViewList = document.querySelector('#btnViewList');
+const btnDenseNormal = document.querySelector('#btnDenseNormal');
+const btnDenseCompact = document.querySelector('#btnDenseCompact');
 const openEnrichBtn = $('#openEnrichBtn');
 const libraryView = $('#libraryView');
 const enrichView = $('#enrichView');
@@ -68,6 +70,7 @@ const settingsOpenAIBase = document.querySelector('#settingsOpenAIBase');
 const settingsOpenAIKey = $('#settingsOpenAIKey');
 const saveSettingsBtn = $('#saveSettingsBtn');
 const formTitle = $('#formTitle');
+const reloadBtn = document.querySelector('#reloadBtn');
 
 let state = {
   books: [],
@@ -594,6 +597,11 @@ if (openSettingsBtn) {
 if (openEnrichBtn) {
   openEnrichBtn.addEventListener('click', () => showEnrichView(true));
 }
+if (reloadBtn) {
+  reloadBtn.addEventListener('click', async () => {
+    try { await window.api.reloadIgnoringCache(); } catch {}
+  });
+}
 
 if (closeSettingsBtn) closeSettingsBtn.addEventListener('click', closeSettings);
 
@@ -684,32 +692,27 @@ if (themeToggle) {
 }
 
 // View toggles
+function setPressed(el, pressed) {
+  if (!el) return;
+  el.setAttribute('aria-pressed', pressed ? 'true' : 'false');
+  el.classList.toggle('bg-slate-100', !!pressed);
+}
 function applyViewMode() {
   if (!listEl) return;
   const mode = localStorage.getItem('viewMode') || 'grid';
   const compact = localStorage.getItem('compact') === '1';
   listEl.classList.toggle('rows', mode === 'list');
   listEl.classList.toggle('compact', compact);
-  if (viewToggle) viewToggle.textContent = mode === 'list' ? 'Сетка' : 'Список';
-  if (compactToggle) compactToggle.textContent = compact ? 'Обычный' : 'Компактный';
+  setPressed(btnViewGrid, mode === 'grid');
+  setPressed(btnViewList, mode === 'list');
+  setPressed(btnDenseNormal, !compact);
+  setPressed(btnDenseCompact, compact);
 }
 applyViewMode();
-if (viewToggle) {
-  viewToggle.addEventListener('click', () => {
-    const current = localStorage.getItem('viewMode') || 'grid';
-    localStorage.setItem('viewMode', current === 'grid' ? 'list' : 'grid');
-    applyViewMode();
-    render();
-  });
-}
-if (compactToggle) {
-  compactToggle.addEventListener('click', () => {
-    const current = localStorage.getItem('compact') === '1';
-    localStorage.setItem('compact', current ? '0' : '1');
-    applyViewMode();
-    render();
-  });
-}
+if (btnViewGrid) btnViewGrid.addEventListener('click', () => { localStorage.setItem('viewMode', 'grid'); applyViewMode(); render(); });
+if (btnViewList) btnViewList.addEventListener('click', () => { localStorage.setItem('viewMode', 'list'); applyViewMode(); render(); });
+if (btnDenseNormal) btnDenseNormal.addEventListener('click', () => { localStorage.setItem('compact', '0'); applyViewMode(); render(); });
+if (btnDenseCompact) btnDenseCompact.addEventListener('click', () => { localStorage.setItem('compact', '1'); applyViewMode(); render(); });
 
 // Drag & Drop for covers
 function setupDropzone(imgEl, setPathFn) {

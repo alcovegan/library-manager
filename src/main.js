@@ -253,6 +253,19 @@ ipcMain.handle('ai:isbn:enrich', async (evt, payload) => {
   }
 });
 
+// App reload ignoring cache
+ipcMain.handle('app:reload-ignore-cache', async () => {
+  try {
+    const win = BrowserWindow.getFocusedWindow();
+    if (!win) return { ok: false };
+    await win.webContents.session.clearCache();
+    win.webContents.reloadIgnoringCache();
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+});
+
 ipcMain.handle('ai:isbn:clearCache', async (evt, payload) => {
   try {
     if (payload && payload.key) {

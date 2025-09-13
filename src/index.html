@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Домашняя библиотека</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="assets/tailwind-lite.css" />
     <style>
       :root {
         --bg: #f6f7fb;
@@ -110,6 +110,7 @@
           <button id="importBtn" class="px-3 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50">Импорт</button>
           <button id="openSettingsBtn" class="px-3 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50">Настройки</button>
           <button id="openEnrichBtn" class="px-3 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50">Обогащение</button>
+          <button id="reloadBtn" class="px-3 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50" title="Перезагрузить без кэша">Перезагрузить</button>
         </div>
       </div>
     </header>
@@ -134,8 +135,10 @@
         </div>
       </section>
 
-      <section class="card">
-        <div id="list" class="list"></div>
+      <section class="card" style="min-height:0;">
+        <div id="listViewport" style="max-height: calc(100vh - 160px); overflow-y: auto; padding-right: 8px;">
+          <div id="list" class="list"></div>
+        </div>
         <div id="empty" class="empty" style="display:none;">Пока нет книг. Добавьте первую!</div>
       </section>
       <section id="enrichView" class="card" style="display:none;">

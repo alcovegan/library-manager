@@ -28,6 +28,7 @@ contextBridge.exposeInMainWorld('api', {
   aiClearCache: (payload) => ipcRenderer.invoke('ai:isbn:clearCache', payload),
   getSettings: () => ipcRenderer.invoke('settings:get'),
   updateSettings: (patch) => ipcRenderer.invoke('settings:update', patch),
+  reloadIgnoringCache: () => ipcRenderer.invoke('app:reload-ignore-cache'),
   parseCsv: (arg) => {
     const opts = (typeof arg === 'object' && arg !== null) ? arg : { text: String(arg || '') };
     const text = String(opts.text || '');
