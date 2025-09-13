@@ -140,9 +140,11 @@ function render() {
   for (const b of list) {
     const el = document.createElement('div');
     el.className = 'book';
+    el.classList.add('bg-white','border','border-slate-200','rounded-xl','shadow-sm','hover:shadow','transition');
     if (b.id === state.selectedId) el.classList.add('selected');
     const img = document.createElement('img');
     img.className = 'thumb';
+    img.classList.add('rounded-md','border','border-slate-200');
     if (b.coverPath) {
       img.onload = () => { img.style.display = 'block'; };
       img.onerror = () => { img.style.display = 'none'; };
@@ -165,12 +167,14 @@ function render() {
     if (stars > 0) meta.appendChild(ratingEl);
 
     const actions = document.createElement('div');
+    actions.classList.add('flex','gap-2','items-center');
     const editBtn = document.createElement('button');
     editBtn.textContent = 'Редактировать';
+    editBtn.className = 'px-2 py-1 text-xs rounded-lg border border-slate-200 hover:bg-slate-50';
     editBtn.onclick = () => openDetails(b);
     const delBtn = document.createElement('button');
     delBtn.textContent = 'Удалить';
-    delBtn.className = 'danger';
+    delBtn.className = 'px-2 py-1 text-xs rounded-lg bg-rose-500 hover:bg-rose-400 text-white';
     delBtn.onclick = async () => {
       if (!confirm('Удалить книгу?')) return;
       await window.api.deleteBook(b.id);

@@ -91,37 +91,46 @@
     </style>
   </head>
   <body>
-    <header>
-      <h1>Домашняя библиотека</h1>
-      <div class="actions" style="display:flex; gap:8px; align-items:center;">
-        <input id="searchInput" type="text" placeholder="Поиск по названию или автору…" style="min-width: 280px;" />
-        <button id="viewToggle">Список</button>
-        <button id="compactToggle">Компактный</button>
-        <button id="themeToggle">Тёмная тема</button>
-        <button id="exportBtn">Сделать бэкап</button>
-        <button id="importBtn">Импорт бэкапа</button>
-        <button id="openSettingsBtn">Настройки</button>
-        <button id="openEnrichBtn">Обогащение</button>
+    <header class="sticky top-0 z-10 bg-white/70 backdrop-blur border-b border-slate-200">
+      <h1 class="sr-only">Домашняя библиотека</h1>
+      <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500"></div>
+          <div>
+            <div class="text-slate-800 text-sm font-semibold">Домашняя библиотека</div>
+            <div class="text-slate-500 text-xs">учёт книг, обложки, бэкапы</div>
+          </div>
+        </div>
+        <div class="actions flex items-center gap-2">
+          <input id="searchInput" type="text" placeholder="Поиск по названию или автору…" class="w-72 px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          <button id="viewToggle" class="px-3 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50">Список</button>
+          <button id="compactToggle" class="px-3 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50">Компактный</button>
+          <button id="themeToggle" class="px-3 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50">Тёмная тема</button>
+          <button id="exportBtn" class="px-3 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50">Бэкап</button>
+          <button id="importBtn" class="px-3 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50">Импорт</button>
+          <button id="openSettingsBtn" class="px-3 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50">Настройки</button>
+          <button id="openEnrichBtn" class="px-3 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50">Обогащение</button>
+        </div>
       </div>
     </header>
-    <main>
+    <main class="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 md:grid-cols-[380px,1fr] gap-5">
       <section id="libraryView" class="card">
         <h3 id="formTitle">Добавить книгу</h3>
         <label>Название</label>
-        <input id="titleInput" type="text" placeholder="Например, Война и мир" />
+        <input id="titleInput" type="text" placeholder="Например, Война и мир" class="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         <label>Авторы (через запятую)</label>
-        <input id="authorsInput" type="text" placeholder="Автор1, Автор2" />
+        <input id="authorsInput" type="text" placeholder="Автор1, Автор2" class="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         <label>Обложка</label>
         <div class="row">
-          <button id="chooseCoverBtn">Выбрать файл…</button>
-          <span id="coverFileLabel" style="color:#555; font-size:12px;">Не выбрано</span>
+          <button id="chooseCoverBtn" class="px-3 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50">Выбрать файл…</button>
+          <span id="coverFileLabel" class="text-xs text-slate-500">Не выбрано</span>
         </div>
         <img id="coverPreview" class="cover-preview dropzone" alt="предпросмотр" />
         <div class="row" style="margin-top:12px;">
-          <button id="saveBtn" class="primary">Сохранить</button>
-          <button id="resetBtn">Сбросить</button>
+          <button id="saveBtn" class="px-3 py-2 text-sm rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white">Сохранить</button>
+          <button id="resetBtn" class="px-3 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50">Сбросить</button>
           <div style="flex:1"></div>
-          <button id="openCreateModalBtn">Расширенная форма</button>
+          <button id="openCreateModalBtn" class="px-3 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50">Расширенная форма</button>
         </div>
       </section>
 
