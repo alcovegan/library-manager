@@ -39,6 +39,8 @@ const modalNotes = $('#modalNotes');
 const modalSaveBtn = $('#modalSaveBtn');
 const themeToggle = $('#themeToggle');
 const openSettingsBtn = $('#openSettingsBtn');
+const viewToggle = $('#viewToggle');
+const compactToggle = $('#compactToggle');
 const openEnrichBtn = $('#openEnrichBtn');
 const libraryView = $('#libraryView');
 const enrichView = $('#enrichView');
@@ -72,6 +74,7 @@ let state = {
   visibleBooks: [],
   editId: null,
   coverSourcePath: null,
+  selectedId: null,
   modal: {
     id: null,
     coverSourcePath: null,
@@ -137,6 +140,7 @@ function render() {
   for (const b of list) {
     const el = document.createElement('div');
     el.className = 'book';
+    if (b.id === state.selectedId) el.classList.add('selected');
     const img = document.createElement('img');
     img.className = 'thumb';
     if (b.coverPath) {
@@ -145,19 +149,6 @@ function render() {
       img.src = toFileUrl(b.coverPath);
     }
     const meta = document.createElement('div');
-    // rebuild title/authors as text to avoid quote/HTML issues from CSV
-    try {
-      t.textContent = '';
-      const titleEl = document.createElement('div');
-      titleEl.style.fontWeight = '600';
-      titleEl.textContent = r.title || '';
-      const authorsEl = document.createElement('div');
-      authorsEl.style.color = 'var(--muted)';
-      authorsEl.style.fontSize = '12px';
-      authorsEl.textContent = r.authors || '';
-      t.appendChild(titleEl);
-      t.appendChild(authorsEl);
-    } catch {}
     meta.className = 'meta';
     const title = document.createElement('div');
     title.className = 'title';
@@ -165,8 +156,13 @@ function render() {
     const authors = document.createElement('div');
     authors.className = 'authors';
     authors.textContent = (b.authors || []).join(', ');
+    const ratingEl = document.createElement('div');
+    ratingEl.className = 'rating';
+    const stars = Math.max(0, Math.min(5, Math.round(Number(b.rating || 0))));
+    if (stars > 0) ratingEl.textContent = '★'.repeat(stars) + '☆'.repeat(5 - stars);
     meta.appendChild(title);
     meta.appendChild(authors);
+    if (stars > 0) meta.appendChild(ratingEl);
 
     const actions = document.createElement('div');
     const editBtn = document.createElement('button');
@@ -186,6 +182,7 @@ function render() {
     el.appendChild(img);
     el.appendChild(meta);
     el.appendChild(actions);
+    el.addEventListener('click', () => { state.selectedId = b.id; render(); });
     listEl.appendChild(el);
   }
 }
@@ -625,6 +622,44 @@ document.addEventListener('keydown', (e) => {
       tryCloseDetailsWithConfirm();
     }
   }
+  // Focus search with '/'
+  if (e.key === '/' && !e.ctrlKey && !e.metaKey) {
+    e.preventDefault();
+    if (searchInput) searchInput.focus();
+  }
+  // New book with 'N'
+  if ((e.key === 'n' || e.key === 'N') && !e.ctrlKey && !e.metaKey) {
+    e.preventDefault();
+    openDetails({});
+  }
+  // Enter to save (modal preferred)
+  if (e.key === 'Enter' && !e.shiftKey) {
+    if (modalEl && modalEl.style.display === 'flex') {
+      e.preventDefault();
+      if (modalSaveBtn) modalSaveBtn.click();
+    } else {
+      if (document.activeElement && document.activeElement.tagName === 'INPUT') {
+        e.preventDefault();
+        if (saveBtn) saveBtn.click();
+      }
+    }
+  }
+  // Delete key to delete selected or current
+  if (e.key === 'Delete') {
+    if (modalEl && modalEl.style.display === 'flex' && state.modal.id) {
+      e.preventDefault();
+      if (confirm('Удалить книгу?')) {
+        window.api.deleteBook(state.modal.id).then(load);
+        closeDetails();
+      }
+    } else if (state.selectedId) {
+      e.preventDefault();
+      if (confirm('Удалить книгу?')) window.api.deleteBook(state.selectedId).then(load);
+    } else if (state.editId) {
+      e.preventDefault();
+      if (confirm('Удалить книгу?')) window.api.deleteBook(state.editId).then(load);
+    }
+  }
 });
 
 function applyTheme(theme) {
@@ -643,6 +678,50 @@ if (themeToggle) {
     applyTheme(current === 'dark' ? 'light' : 'dark');
   });
 }
+
+// View toggles
+function applyViewMode() {
+  if (!listEl) return;
+  const mode = localStorage.getItem('viewMode') || 'grid';
+  const compact = localStorage.getItem('compact') === '1';
+  listEl.classList.toggle('rows', mode === 'list');
+  listEl.classList.toggle('compact', compact);
+  if (viewToggle) viewToggle.textContent = mode === 'list' ? 'Сетка' : 'Список';
+  if (compactToggle) compactToggle.textContent = compact ? 'Обычный' : 'Компактный';
+}
+applyViewMode();
+if (viewToggle) {
+  viewToggle.addEventListener('click', () => {
+    const current = localStorage.getItem('viewMode') || 'grid';
+    localStorage.setItem('viewMode', current === 'grid' ? 'list' : 'grid');
+    applyViewMode();
+    render();
+  });
+}
+if (compactToggle) {
+  compactToggle.addEventListener('click', () => {
+    const current = localStorage.getItem('compact') === '1';
+    localStorage.setItem('compact', current ? '0' : '1');
+    applyViewMode();
+    render();
+  });
+}
+
+// Drag & Drop for covers
+function setupDropzone(imgEl, setPathFn) {
+  if (!imgEl) return;
+  imgEl.addEventListener('dragover', (e) => { e.preventDefault(); imgEl.classList.add('active'); });
+  imgEl.addEventListener('dragleave', () => imgEl.classList.remove('active'));
+  imgEl.addEventListener('drop', (e) => {
+    e.preventDefault(); imgEl.classList.remove('active');
+    const f = e.dataTransfer?.files?.[0];
+    const p = f && (f.path || '');
+    if (p) setPathFn(p);
+  });
+}
+
+setupDropzone(coverPreview, (p) => { state.coverSourcePath = p; coverFileLabel.textContent = p; setPreview(p); });
+setupDropzone(modalCoverPreview, (p) => { state.modal.coverSourcePath = p; setModalPreview(p); });
 
 // Enrichment helpers
 function guessDelimiter(text) {

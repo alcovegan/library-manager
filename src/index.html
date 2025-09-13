@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Домашняя библиотека</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
       :root {
         --bg: #f6f7fb;
@@ -74,12 +75,19 @@
 
       .cover-preview { width: 100%; max-height: 220px; object-fit: contain; background: repeating-conic-gradient(from 45deg, rgba(0,0,0,0.04) 0% 25%, rgba(0,0,0,0.02) 0% 50%) 50% / 20px 20px; border:1px dashed var(--border); border-radius: 10px; display:none; }
       .list { display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
-      .book { display:flex; gap:12px; background: var(--surface); border:1px solid var(--border); padding:10px; border-radius:12px; box-shadow: var(--shadow); align-items: center; }
+      .list.rows { grid-template-columns: 1fr; }
+      .list.compact .book { padding:6px; gap:8px; }
+      .list.compact .thumb { width:48px; height:68px; }
+      .book { display:flex; gap:12px; background: var(--surface); border:1px solid var(--border); padding:10px; border-radius:12px; box-shadow: var(--shadow); align-items: center; cursor: pointer; }
+      .book.selected { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,111,255,0.25); }
       .thumb { width:64px; height:86px; object-fit:cover; background: #e9ecf6; border-radius:8px; border:1px solid var(--border); display:none; }
       .meta { flex:1; min-width: 0; }
       .title { font-weight:650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .authors { color:var(--muted); font-size:12px; margin-top:4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .rating { color: #fbbf24; font-size: 12px; margin-top: 2px; }
       .empty { color:var(--muted); padding:16px; }
+      .dropzone { border: 1px dashed var(--border); border-radius: 10px; }
+      .dropzone.active { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,111,255,0.25); }
     </style>
   </head>
   <body>
@@ -87,6 +95,8 @@
       <h1>Домашняя библиотека</h1>
       <div class="actions" style="display:flex; gap:8px; align-items:center;">
         <input id="searchInput" type="text" placeholder="Поиск по названию или автору…" style="min-width: 280px;" />
+        <button id="viewToggle">Список</button>
+        <button id="compactToggle">Компактный</button>
         <button id="themeToggle">Тёмная тема</button>
         <button id="exportBtn">Сделать бэкап</button>
         <button id="importBtn">Импорт бэкапа</button>
@@ -106,7 +116,7 @@
           <button id="chooseCoverBtn">Выбрать файл…</button>
           <span id="coverFileLabel" style="color:#555; font-size:12px;">Не выбрано</span>
         </div>
-        <img id="coverPreview" class="cover-preview" alt="предпросмотр" />
+        <img id="coverPreview" class="cover-preview dropzone" alt="предпросмотр" />
         <div class="row" style="margin-top:12px;">
           <button id="saveBtn" class="primary">Сохранить</button>
           <button id="resetBtn">Сбросить</button>
@@ -166,7 +176,7 @@
         </div>
         <div style="display:grid; grid-template-columns: 220px 1fr; gap: 14px; margin-top: 12px;">
           <div>
-            <img id="modalCoverPreview" class="cover-preview" alt="обложка" style="display:block; width:100%; height: auto; max-height: 280px;" />
+            <img id="modalCoverPreview" class="cover-preview dropzone" alt="обложка" style="display:block; width:100%; height: auto; max-height: 280px;" />
             <div class="row" style="margin-top:8px;">
               <button id="modalChooseCoverBtn">Выбрать обложку…</button>
             </div>
