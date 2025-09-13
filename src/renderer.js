@@ -157,7 +157,9 @@ function render() {
     meta.className = 'meta';
     const title = document.createElement('div');
     title.className = 'title';
-    title.textContent = b.title || '(без названия)';
+    const isListMode = listEl.classList.contains('rows');
+    title.textContent = truncateTitle(b.title || '(без названия)', isListMode ? 80 : 60);
+    title.title = b.title || '';
     const authors = document.createElement('div');
     authors.className = 'authors';
     authors.textContent = (b.authors || []).join(', ');
@@ -170,14 +172,16 @@ function render() {
     if (stars > 0) meta.appendChild(ratingEl);
 
     const actions = document.createElement('div');
-    actions.classList.add('flex','gap-2','items-center');
+    actions.className = 'actions';
     const editBtn = document.createElement('button');
-    editBtn.textContent = 'Редактировать';
-    editBtn.className = 'px-2 py-1 text-xs rounded-lg border border-slate-200 hover:bg-slate-50';
+    editBtn.className = 'icon-btn';
+    editBtn.title = 'Редактировать';
+    editBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41L18.37 3.29a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>';
     editBtn.onclick = () => openDetails(b);
     const delBtn = document.createElement('button');
-    delBtn.textContent = 'Удалить';
-    delBtn.className = 'px-2 py-1 text-xs rounded-lg bg-rose-500 hover:bg-rose-400 text-white';
+    delBtn.className = 'icon-btn';
+    delBtn.title = 'Удалить';
+    delBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1z"/></svg>';
     delBtn.onclick = async () => {
       if (!confirm('Удалить книгу?')) return;
       await window.api.deleteBook(b.id);
@@ -192,6 +196,12 @@ function render() {
     el.addEventListener('click', () => { state.selectedId = b.id; render(); });
     listEl.appendChild(el);
   }
+}
+
+function truncateTitle(text, max) {
+  if (!text) return '';
+  if (text.length <= max) return text;
+  return text.slice(0, max - 1).trimEnd() + '…';
 }
 
 function resetForm() {
@@ -358,7 +368,22 @@ function applySearch(q) {
   if (!query) {
     state.visibleBooks = [];
   } else {
-    state.visibleBooks = window.search.fuzzy(state.books, query);
+    try {
+      if (window.search && typeof window.search.fuzzy === 'function') {
+        state.visibleBooks = window.search.fuzzy(state.books, query);
+      } else {
+        const ql = query.toLowerCase();
+        state.visibleBooks = state.books.filter(b => {
+          const t = (b.title || '').toLowerCase();
+          const a = (Array.isArray(b.authors) ? b.authors.join(', ') : (b.authors || ''))
+            .toLowerCase();
+          return t.includes(ql) || a.includes(ql);
+        });
+      }
+    } catch (_) {
+      // fallback to no filtering on unexpected error
+      state.visibleBooks = [];
+    }
   }
 }
 
@@ -678,7 +703,12 @@ function applyTheme(theme) {
   const isDark = theme === 'dark';
   document.body.classList.toggle('theme-dark', isDark);
   localStorage.setItem('theme', isDark ? 'dark' : 'light');
-  if (themeToggle) themeToggle.textContent = isDark ? 'Светлая тема' : 'Тёмная тема';
+  if (themeToggle) {
+    themeToggle.title = isDark ? 'Светлая тема' : 'Тёмная тема';
+    themeToggle.innerHTML = isDark
+      ? '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.8 1.42-1.42zM1 13h3v-2H1v2zm10 10h2v-3h-2v3zM4.96 19.78l1.41 1.41 1.8-1.79-1.42-1.42-1.79 1.8zM20 11V9h-3v2h3zm-3.76-6.16l1.79-1.8-1.41-1.41-1.8 1.79 1.42 1.42zM12 6a6 6 0 100 12A6 6 0 0012 6z"/></svg>'
+      : '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 9.54 6.63 1 1 0 0 0-1.51-.5A7 7 0 1 1 12 4a1 1 0 0 0 0-2z"/></svg>';
+  }
 }
 
 const savedTheme = localStorage.getItem('theme') || 'light';
@@ -695,24 +725,20 @@ if (themeToggle) {
 function setPressed(el, pressed) {
   if (!el) return;
   el.setAttribute('aria-pressed', pressed ? 'true' : 'false');
-  el.classList.toggle('bg-slate-100', !!pressed);
+  el.classList.toggle('active', !!pressed);
 }
 function applyViewMode() {
   if (!listEl) return;
   const mode = localStorage.getItem('viewMode') || 'grid';
-  const compact = localStorage.getItem('compact') === '1';
   listEl.classList.toggle('rows', mode === 'list');
-  listEl.classList.toggle('compact', compact);
+  listEl.classList.remove('compact');
   setPressed(btnViewGrid, mode === 'grid');
   setPressed(btnViewList, mode === 'list');
-  setPressed(btnDenseNormal, !compact);
-  setPressed(btnDenseCompact, compact);
 }
 applyViewMode();
 if (btnViewGrid) btnViewGrid.addEventListener('click', () => { localStorage.setItem('viewMode', 'grid'); applyViewMode(); render(); });
 if (btnViewList) btnViewList.addEventListener('click', () => { localStorage.setItem('viewMode', 'list'); applyViewMode(); render(); });
-if (btnDenseNormal) btnDenseNormal.addEventListener('click', () => { localStorage.setItem('compact', '0'); applyViewMode(); render(); });
-if (btnDenseCompact) btnDenseCompact.addEventListener('click', () => { localStorage.setItem('compact', '1'); applyViewMode(); render(); });
+
 
 // Drag & Drop for covers
 function setupDropzone(imgEl, setPathFn) {
