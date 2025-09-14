@@ -22,7 +22,8 @@ jobs:
           node-version: 20
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm install --no-audit --no-fund
 
       - name: Build and Publish with electron-builder
         run: npm run publish
