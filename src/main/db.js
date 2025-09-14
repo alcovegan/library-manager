@@ -5,6 +5,9 @@ const initSqlJs = require('sql.js');
 
 const DB_FILENAME = 'library.db';
 
+let _writeQueue = Promise.resolve();
+let _writeScheduled = false;
+
 async function openDb(userDataPath) {
   const SQL = await initSqlJs({
     locateFile: (file) => {
@@ -35,10 +38,34 @@ async function openDb(userDataPath) {
   };
 }
 
-function persist(ctx) {
+function persistAtomic(ctx) {
   const data = ctx.db.export();
   const buffer = Buffer.from(data);
-  fs.writeFileSync(ctx.path, buffer);
+  const dir = path.dirname(ctx.path);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  const tmp = ctx.path + '.tmp';
+  try {
+    fs.writeFileSync(tmp, buffer);
+    // Atomic replace on same filesystem
+    fs.renameSync(tmp, ctx.path);
+  } catch (e) {
+    try { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); } catch {}
+    console.error('DB persist failed:', e);
+    throw e;
+  }
+}
+
+function persist(ctx) {
+  // Serialize writes and coalesce multiple calls into one queued write
+  if (_writeScheduled) return; // a write is already queued
+  _writeScheduled = true;
+  _writeQueue = _writeQueue.then(() => {
+    _writeScheduled = false;
+    persistAtomic(ctx);
+  }).catch((e) => {
+    _writeScheduled = false;
+    console.error('DB write queue error:', e);
+  });
 }
 
 function getSchemaVersion(ctx) {

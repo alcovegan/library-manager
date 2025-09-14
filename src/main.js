@@ -184,6 +184,26 @@ ipcMain.handle('backup:export', async () => {
   return { ok: true, filePath };
 });
 
+function verifyBackupObject(payload) {
+  const errors = [];
+  if (!payload || typeof payload !== 'object') errors.push('backup is not an object');
+  if (!Array.isArray(payload?.books)) errors.push('books must be an array');
+  const books = Array.isArray(payload?.books) ? payload.books : [];
+  books.forEach((b, i) => {
+    if (typeof (b?.title ?? '') !== 'string') errors.push(`books[${i}].title invalid`);
+    if (b?.authors && !Array.isArray(b.authors)) errors.push(`books[${i}].authors must be array`);
+    if (b?.cover) {
+      const c = b.cover;
+      if (typeof c !== 'object' || typeof c.data !== 'string') {
+        errors.push(`books[${i}].cover invalid`);
+      } else {
+        try { Buffer.from(c.data, 'base64'); } catch { errors.push(`books[${i}].cover.data invalid base64`); }
+      }
+    }
+  });
+  return { ok: errors.length === 0, errors, count: books.length };
+}
+
 ipcMain.handle('backup:import', async () => {
   const { canceled, filePaths } = await dialog.showOpenDialog({
     title: 'Импорт бэкапа',
@@ -193,8 +213,13 @@ ipcMain.handle('backup:import', async () => {
   if (canceled || !filePaths[0]) return { ok: false };
   const p = filePaths[0];
   const raw = fs.readFileSync(p, 'utf8');
-  const parsed = JSON.parse(raw);
-  if (!Array.isArray(parsed.books)) throw new Error('Invalid backup');
+  let parsed;
+  try { parsed = JSON.parse(raw); } catch (e) { return { ok: false, error: 'Invalid JSON' }; }
+  const check = verifyBackupObject(parsed);
+  if (!check.ok) {
+    console.error('Backup verification failed:', check.errors.slice(0, 5).join('; '));
+    return { ok: false, error: 'Backup failed verification' };
+  }
 
   // restore books and covers
   const restored = parsed.books.map((b) => {
