@@ -243,6 +243,21 @@ function applyFilters(arr) {
   });
 }
 
+function hasAnyFilterSet() {
+  const f = getFilters();
+  return !!(f.author || f.format || (!Number.isNaN(f.y1)) || (!Number.isNaN(f.y2)) || f.genres.length || f.tags.length);
+}
+
+function clearAllFilters() {
+  if (filterAuthor) filterAuthor.value = '';
+  if (filterFormat) filterFormat.value = '';
+  if (filterYearFrom) filterYearFrom.value = '';
+  if (filterYearTo) filterYearTo.value = '';
+  if (filterGenres) filterGenres.value = '';
+  if (filterTags) filterTags.value = '';
+  if (collectionSelect) collectionSelect.value = '';
+}
+
 function uniqueAuthors(books) {
   const set = new Set();
   books.forEach(b => (b.authors || []).forEach(a => set.add(a)));
@@ -299,17 +314,8 @@ function attachFilterEvents() {
   const onChange = () => { render(); };
   [filterAuthor, filterFormat, filterYearFrom, filterYearTo, filterGenres, filterTags].forEach(el => { if (el) el.addEventListener('input', onChange); });
   [filterAuthor, filterFormat, filterYearFrom, filterYearTo, filterGenres, filterTags].forEach(el => { if (el) el && el.addEventListener('input', saveFiltersState); });
-  function clearFilters() {
-    if (filterAuthor) filterAuthor.value = '';
-    if (filterFormat) filterFormat.value = '';
-    if (filterYearFrom) filterYearFrom.value = '';
-    if (filterYearTo) filterYearTo.value = '';
-    if (filterGenres) filterGenres.value = '';
-    if (filterTags) filterTags.value = '';
-  }
   if (btnClearFilters) btnClearFilters.addEventListener('click', () => {
-    clearFilters();
-    if (collectionSelect) collectionSelect.value = '';
+    clearAllFilters();
     saveFiltersState();
     render();
   });
@@ -321,7 +327,7 @@ function attachFilterEvents() {
       render();
     } else {
       // When switched to empty option, reset all filters
-      clearFilters();
+      clearAllFilters();
       saveFiltersState();
       render();
     }
@@ -492,6 +498,12 @@ function openDetails(b) {
   if (isbnResultsList) isbnResultsList.innerHTML = '';
   // capture snapshot for dirty check
   state.modal.snapshot = captureModalSnapshot();
+  // init autocomplete (idempotent per element)
+  attachAutocomplete(modalAuthors, 'authors', { multiple: true });
+  attachAutocomplete(modalSeries, 'series', { multiple: false });
+  attachAutocomplete(modalPublisher, 'publisher', { multiple: false });
+  attachAutocomplete(modalGenres, 'genres', { multiple: true });
+  attachAutocomplete(modalTags, 'tags', { multiple: true });
 }
 
 function closeDetails() {
@@ -644,6 +656,16 @@ async function load() {
   populateAuthorFilter();
   restoreFiltersState();
   syncCollectionsUI();
+  rebuildSuggestStore();
+  // Safety: if saved filters hide everything and нет запроса — сбрасываем
+  try {
+    const noQuery = !(searchInput && String(searchInput.value || '').trim());
+    const filtered = applyFilters(state.books);
+    if (noQuery && hasAnyFilterSet() && filtered.length === 0) {
+      clearAllFilters();
+      saveFiltersState();
+    }
+  } catch {}
   render();
 }
 
