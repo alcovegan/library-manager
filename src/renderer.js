@@ -298,20 +298,32 @@ function attachFilterEvents() {
   const onChange = () => { render(); };
   [filterAuthor, filterFormat, filterYearFrom, filterYearTo, filterGenres, filterTags].forEach(el => { if (el) el.addEventListener('input', onChange); });
   [filterAuthor, filterFormat, filterYearFrom, filterYearTo, filterGenres, filterTags].forEach(el => { if (el) el && el.addEventListener('input', saveFiltersState); });
-  if (btnClearFilters) btnClearFilters.addEventListener('click', () => {
+  function clearFilters() {
     if (filterAuthor) filterAuthor.value = '';
     if (filterFormat) filterFormat.value = '';
     if (filterYearFrom) filterYearFrom.value = '';
     if (filterYearTo) filterYearTo.value = '';
     if (filterGenres) filterGenres.value = '';
     if (filterTags) filterTags.value = '';
+  }
+  if (btnClearFilters) btnClearFilters.addEventListener('click', () => {
+    clearFilters();
     if (collectionSelect) collectionSelect.value = '';
     saveFiltersState();
     render();
   });
   if (collectionSelect) collectionSelect.addEventListener('change', () => {
     const name = collectionSelect.value;
-    if (name) { applyCollection(name); saveFiltersState(); render(); }
+    if (name) {
+      applyCollection(name);
+      saveFiltersState();
+      render();
+    } else {
+      // When switched to empty option, reset all filters
+      clearFilters();
+      saveFiltersState();
+      render();
+    }
   });
   function showSaveInline(show) {
     if (!collectionSaveInline) return;
