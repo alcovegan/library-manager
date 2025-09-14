@@ -313,10 +313,17 @@ function attachFilterEvents() {
     const name = prompt('Название коллекции');
     if (!name) return;
     const cols = loadCollections();
+    if (cols[name]) {
+      const overwrite = confirm('Коллекция с таким именем уже есть. Перезаписать?');
+      if (!overwrite) return;
+    }
     cols[name] = getFilters();
     saveCollections(cols);
     syncCollectionsUI();
-    collectionSelect.value = name;
+    if (collectionSelect) collectionSelect.value = name;
+    saveFiltersState();
+    render();
+    try { alert('Коллекция сохранена'); } catch {}
   });
   if (deleteCollectionBtn) deleteCollectionBtn.addEventListener('click', () => {
     const name = collectionSelect && collectionSelect.value;
