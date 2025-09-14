@@ -74,6 +74,7 @@ const saveSettingsBtn = $('#saveSettingsBtn');
 const formTitle = $('#formTitle');
 const reloadBtn = document.querySelector('#reloadBtn');
 const sortSelect = document.querySelector('#sortSelect');
+const checkUpdatesBtn = document.querySelector('#checkUpdatesBtn');
 // Filters toolbar elements
 const filterAuthor = document.querySelector('#filterAuthor');
 const filterFormat = document.querySelector('#filterFormat');
@@ -979,6 +980,33 @@ attachFilterEvents();
 if (reloadBtn) {
   reloadBtn.addEventListener('click', async () => {
     try { await window.api.reloadIgnoringCache(); } catch {}
+  });
+}
+
+// Updates handlers
+if (checkUpdatesBtn) {
+  checkUpdatesBtn.addEventListener('click', async () => {
+    try {
+      const res = await window.api.checkForUpdates();
+      if (!res || !res.ok) alert('Не удалось проверить обновления');
+      else alert('Проверяем обновления…');
+    } catch { alert('Не удалось проверить обновления'); }
+  });
+}
+if (window.api && window.api.onUpdateAvailable) {
+  window.api.onUpdateAvailable(() => {
+    try { alert('Доступно обновление. Идёт загрузка…'); } catch {}
+  });
+}
+if (window.api && window.api.onUpdateReady) {
+  window.api.onUpdateReady(() => {
+    const ok = confirm('Обновление скачано. Установить сейчас?');
+    if (ok) { window.api.installUpdate(); }
+  });
+}
+if (window.api && window.api.onUpdateError) {
+  window.api.onUpdateError((msg) => {
+    alert('Ошибка обновления: ' + (msg || 'неизвестно'));
   });
 }
 

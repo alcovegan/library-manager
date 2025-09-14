@@ -1,4 +1,6 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+let autoUpdater = null;
+try { ({ autoUpdater } = require('electron-updater')); } catch {}
 const path = require('path');
 const fs = require('fs');
 // Load keys from .env (project root)
@@ -78,6 +80,24 @@ app.whenReady().then(async () => {
     console.error('Migration from JSON failed:', e);
   }
   createWindow();
+  // Setup auto-updates (if available)
+  try {
+    if (autoUpdater) {
+      autoUpdater.autoDownload = true;
+      autoUpdater.on('update-available', () => {
+        const w = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
+        if (w) w.webContents.send('update:available');
+      });
+      autoUpdater.on('update-downloaded', () => {
+        const w = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
+        if (w) w.webContents.send('update:ready');
+      });
+      autoUpdater.on('error', (e) => {
+        const w = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
+        if (w) w.webContents.send('update:error', String(e?.message || e));
+      });
+    }
+  } catch (e) { console.error('autoUpdater setup failed', e); }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -362,6 +382,26 @@ ipcMain.handle('ai:isbn:clearCache', async (evt, payload) => {
     } else {
       dbLayer.clearAiIsbnCacheAll(db);
     }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+});
+
+// Updates IPC
+ipcMain.handle('update:check', async () => {
+  try {
+    if (!autoUpdater) return { ok: false, error: 'updater unavailable' };
+    await autoUpdater.checkForUpdates();
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+});
+ipcMain.handle('update:install', async () => {
+  try {
+    if (!autoUpdater) return { ok: false, error: 'updater unavailable' };
+    autoUpdater.quitAndInstall();
     return { ok: true };
   } catch (e) {
     return { ok: false, error: String(e?.message || e) };

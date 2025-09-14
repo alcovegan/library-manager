@@ -29,6 +29,12 @@ contextBridge.exposeInMainWorld('api', {
   getSettings: () => ipcRenderer.invoke('settings:get'),
   updateSettings: (patch) => ipcRenderer.invoke('settings:update', patch),
   reloadIgnoringCache: () => ipcRenderer.invoke('app:reload-ignore-cache'),
+  // Updates
+  checkForUpdates: () => ipcRenderer.invoke('update:check'),
+  installUpdate: () => ipcRenderer.invoke('update:install'),
+  onUpdateAvailable: (cb) => { try { ipcRenderer.on('update:available', () => cb && cb()); } catch {} },
+  onUpdateReady: (cb) => { try { ipcRenderer.on('update:ready', () => cb && cb()); } catch {} },
+  onUpdateError: (cb) => { try { ipcRenderer.on('update:error', (_e, m) => cb && cb(m)); } catch {} },
   parseCsv: (arg) => {
     const opts = (typeof arg === 'object' && arg !== null) ? arg : { text: String(arg || '') };
     const text = String(opts.text || '');
