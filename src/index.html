@@ -187,6 +187,15 @@
       </section>
 
       <section class="card" style="min-height:0;">
+        <div class="row" style="margin-bottom:8px; align-items:center; gap:8px;">
+          <label for="sortSelect" style="margin:0; color:var(--muted); font-size:12px;">Сортировка</label>
+          <select id="sortSelect" class="input" style="width:auto;">
+            <option value="title">Название</option>
+            <option value="author">Автор</option>
+            <option value="date">Дата добавления</option>
+            <option value="series">Серия</option>
+          </select>
+        </div>
         <div id="listViewport" style="height:100%; max-height: calc(100vh - 160px); overflow-y: auto; padding-right: 8px;">
           <div id="list" class="list"></div>
         </div>

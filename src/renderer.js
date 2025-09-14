@@ -71,6 +71,7 @@ const settingsOpenAIKey = $('#settingsOpenAIKey');
 const saveSettingsBtn = $('#saveSettingsBtn');
 const formTitle = $('#formTitle');
 const reloadBtn = document.querySelector('#reloadBtn');
+const sortSelect = document.querySelector('#sortSelect');
 
 let state = {
   books: [],
@@ -135,9 +136,60 @@ function setModalPreview(path) {
   modalCoverPreview.src = toFileUrl(path);
 }
 
+function getSortMode() {
+  return localStorage.getItem('sortBy') || 'title';
+}
+
+function compareNullable(a, b) {
+  if (a == null && b == null) return 0;
+  if (a == null) return 1; // nulls last
+  if (b == null) return -1;
+  return 0; // let caller decide next
+}
+
+function sortBooks(arr) {
+  const mode = getSortMode();
+  const a = [...arr];
+  const collator = new Intl.Collator('ru', { sensitivity: 'base', numeric: true });
+  if (mode === 'author') {
+    a.sort((x, y) => {
+      const ax = (Array.isArray(x.authors) ? x.authors[0] : '') || '';
+      const ay = (Array.isArray(y.authors) ? y.authors[0] : '') || '';
+      return collator.compare(ax, ay) || collator.compare(x.title || '', y.title || '');
+    });
+  } else if (mode === 'date') {
+    a.sort((x, y) => {
+      const dx = new Date(x.createdAt || 0).getTime();
+      const dy = new Date(y.createdAt || 0).getTime();
+      return dy - dx; // newest first
+    });
+  } else if (mode === 'series') {
+    a.sort((x, y) => {
+      const c = compareNullable(x.series, y.series);
+      if (c !== 0) return c;
+      if (x.series && y.series) {
+        const sc = collator.compare(x.series, y.series);
+        if (sc !== 0) return sc;
+      }
+      const ix = Number(x.seriesIndex ?? Number.POSITIVE_INFINITY);
+      const iy = Number(y.seriesIndex ?? Number.POSITIVE_INFINITY);
+      if (Number.isFinite(ix) || Number.isFinite(iy)) {
+        const ic = (ix - iy);
+        if (ic !== 0) return ic;
+      }
+      return collator.compare(x.title || '', y.title || '');
+    });
+  } else {
+    // title (default)
+    a.sort((x, y) => collator.compare(x.title || '', y.title || ''));
+  }
+  return a;
+}
+
 function render() {
   listEl.innerHTML = '';
-  const list = state.visibleBooks.length ? state.visibleBooks : state.books;
+  const base = state.visibleBooks.length ? state.visibleBooks : state.books;
+  const list = sortBooks(base);
   if (!list.length) {
     emptyEl.style.display = 'block';
     return;
@@ -667,6 +719,20 @@ if (openEnrichBtn) {
   openEnrichBtn.addEventListener('click', () => {
     const isEnrich = enrichView && enrichView.style.display !== 'none';
     showEnrichView(!isEnrich);
+  });
+}
+
+// Sort selection
+function syncSortSelect() {
+  if (!sortSelect) return;
+  const mode = getSortMode();
+  sortSelect.value = mode;
+}
+syncSortSelect();
+if (sortSelect) {
+  sortSelect.addEventListener('change', () => {
+    localStorage.setItem('sortBy', sortSelect.value);
+    render();
   });
 }
 if (reloadBtn) {
