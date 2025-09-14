@@ -8,6 +8,8 @@ on:
 
 jobs:
   build:
+    permissions:
+      contents: write
     strategy:
       matrix:
         os: [macos-latest, windows-latest]
@@ -28,7 +30,9 @@ jobs:
       - name: Build and Publish with electron-builder
         run: npm run publish
         env:
+          # Use repo secret if set, otherwise built-in GITHUB_TOKEN
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Optional signing secrets (set only if you have them):
           # APPLE_ID: ${{ secrets.APPLE_ID }}
           # APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
