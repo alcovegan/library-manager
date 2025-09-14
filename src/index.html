@@ -268,15 +268,15 @@
                 </div>
               </div>
             </div>
-            <div class="row" style="gap:10px;">
-              <div style="flex:1;">
-                <label>ISBN</label>
-                <div class="row">
-                  <input id="modalIsbn" type="text" />
-                  <button id="isbnSearchBtn">Найти по ISBN</button>
-                  <button id="isbnRefreshBtn" title="Игнорировать кеш и обновить">Обновить</button>
-                </div>
+            <div>
+              <label>ISBN</label>
+              <div class="row" style="gap:8px;">
+                <input id="modalIsbn" type="text" style="flex:1;" />
+                <button id="isbnSearchBtn">Найти по ISBN</button>
+                <button id="isbnRefreshBtn" title="Игнорировать кеш и обновить">Обновить</button>
               </div>
+            </div>
+            <div class="row" style="gap:10px;">
               <div style="width:180px;">
                 <label>Язык</label>
                 <input id="modalLanguage" type="text" />
@@ -286,10 +286,6 @@
                 <input id="modalRating" type="text" placeholder="напр. 4.5" />
               </div>
             </div>
-            <label>Теги (через запятую)</label>
-            <input id="modalTags" type="text" />
-            <label>Заметки</label>
-            <input id="modalNotes" type="text" />
 
             <div id="isbnResults" class="card" style="margin-top:12px; display:none;">
               <div style="font-size:12px; color:var(--muted); margin-bottom:6px;">Результаты</div>
@@ -298,6 +294,13 @@
             <div class="row" style="margin-top:12px;">
               <button id="modalSaveBtn" class="primary">Сохранить</button>
             </div>
+          </div>
+          <!-- Tags and Notes moved under cover column to utilize space; placed last in DOM to keep tab order -->
+          <div style="grid-column: 1; display:flex; flex-direction:column; gap:0;">
+            <label>Теги (через запятую)</label>
+            <input id="modalTags" type="text" />
+            <label>Заметки</label>
+            <input id="modalNotes" type="text" />
           </div>
         </div>
       </div>
