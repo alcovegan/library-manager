@@ -84,6 +84,9 @@ let state = {
     titleAlt: null,
     authorsAlt: [],
     snapshot: null,
+  },
+  settings: {
+    snapshot: null,
   }
 };
 
@@ -363,6 +366,12 @@ function updateEnrichToggleButton() {
   if (!openEnrichBtn || !enrichView) return;
   const isEnrich = enrichView.style.display !== 'none';
   openEnrichBtn.title = isEnrich ? 'К библиотеке' : 'Обогащение';
+  openEnrichBtn.setAttribute('aria-pressed', isEnrich ? 'true' : 'false');
+  openEnrichBtn.classList.toggle('active', isEnrich);
+  // Swap icon: show a Home icon when enrichment is active
+  openEnrichBtn.innerHTML = isEnrich
+    ? '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>'
+    : '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3 7h7l-5.5 4 2.5 7-7-4.5L5 20l2.5-7L2 9h7z"/></svg>';
 }
 
 function debounce(fn, ms) {
@@ -608,6 +617,29 @@ function closeSettings() {
   if (settingsModal) settingsModal.style.display = 'none';
 }
 
+function captureSettingsSnapshot() {
+  return {
+    isbndb: settingsIsbndbKey ? settingsIsbndbKey.value.trim() : '',
+    google: settingsGoogleKey ? settingsGoogleKey.value.trim() : '',
+    openaiKey: settingsOpenAIKey ? settingsOpenAIKey.value.trim() : '',
+    openaiBase: settingsOpenAIBase ? settingsOpenAIBase.value.trim() : '',
+  };
+}
+
+function isSettingsDirty() {
+  const snap = state.settings?.snapshot || {};
+  const cur = captureSettingsSnapshot();
+  return JSON.stringify(snap) !== JSON.stringify(cur);
+}
+
+function tryCloseSettingsWithConfirm() {
+  if (settingsModal && settingsModal.style.display === 'flex' && isSettingsDirty()) {
+    const ok = confirm('Есть несохранённые изменения. Закрыть настройки без сохранения?');
+    if (!ok) return;
+  }
+  closeSettings();
+}
+
 async function loadSettings() {
   try {
     const res = await window.api.getSettings();
@@ -624,6 +656,8 @@ if (openSettingsBtn) {
   openSettingsBtn.addEventListener('click', async () => {
     await loadSettings();
     openSettings();
+    // snapshot current settings to detect unsaved changes
+    state.settings.snapshot = captureSettingsSnapshot();
   });
 }
 if (openEnrichBtn) {
@@ -638,7 +672,7 @@ if (reloadBtn) {
   });
 }
 
-if (closeSettingsBtn) closeSettingsBtn.addEventListener('click', closeSettings);
+if (closeSettingsBtn) closeSettingsBtn.addEventListener('click', tryCloseSettingsWithConfirm);
 
 if (saveSettingsBtn) {
   saveSettingsBtn.addEventListener('click', async () => {
@@ -663,7 +697,13 @@ if (saveSettingsBtn) {
 // Close details modal on Escape (with confirmation if dirty)
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
-    // only intercept when details modal is visible
+    // Settings modal: confirm if dirty
+    if (settingsModal && settingsModal.style.display === 'flex') {
+      e.preventDefault();
+      tryCloseSettingsWithConfirm();
+      return;
+    }
+    // Details modal: confirm if dirty
     if (modalEl && modalEl.style.display === 'flex') {
       e.preventDefault();
       tryCloseDetailsWithConfirm();
