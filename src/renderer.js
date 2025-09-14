@@ -325,6 +325,27 @@ function attachFilterEvents() {
     render();
     try { alert('Коллекция сохранена'); } catch {}
   });
+  // Robust delegation in case buttons are re-rendered
+  document.addEventListener('click', (e) => {
+    const saveBtn = e.target && e.target.closest && e.target.closest('#saveCollectionBtn');
+    if (saveBtn) {
+      e.preventDefault();
+      const name = prompt('Название коллекции');
+      if (!name) return;
+      const cols = loadCollections();
+      if (cols[name]) {
+        const overwrite = confirm('Коллекция с таким именем уже есть. Перезаписать?');
+        if (!overwrite) return;
+      }
+      cols[name] = getFilters();
+      saveCollections(cols);
+      syncCollectionsUI();
+      if (collectionSelect) collectionSelect.value = name;
+      saveFiltersState();
+      render();
+      try { alert('Коллекция сохранена'); } catch {}
+    }
+  }, true);
   if (deleteCollectionBtn) deleteCollectionBtn.addEventListener('click', () => {
     const name = collectionSelect && collectionSelect.value;
     if (!name) return;
