@@ -92,7 +92,7 @@ app.on('window-all-closed', () => {
 ipcMain.handle('books:list', async () => dbLayer.listBooks(db));
 
 ipcMain.handle('books:add', async (event, payload) => {
-  const { title, authors, coverSourcePath, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt } = payload;
+  const { title, authors, coverSourcePath, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres } = payload;
   const book = dbLayer.createBook(db, {
     title: String(title || '').trim(),
     authors: Array.isArray(authors) ? authors.map(a => String(a).trim()).filter(Boolean) : [],
@@ -101,12 +101,14 @@ ipcMain.handle('books:add', async (event, payload) => {
     tags: Array.isArray(tags) ? tags : [],
     titleAlt: titleAlt ? String(titleAlt) : null,
     authorsAlt: Array.isArray(authorsAlt) ? authorsAlt : [],
+    format: format ? String(format) : null,
+    genres: Array.isArray(genres) ? genres : [],
   });
   return book;
 });
 
 ipcMain.handle('books:update', async (event, payload) => {
-  const { id, title, authors, coverSourcePath, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt } = payload;
+  const { id, title, authors, coverSourcePath, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres } = payload;
   const row = db.db.exec(`SELECT id, coverPath FROM books WHERE id = '${String(id).replace(/'/g, "''")}'`);
   const current = row[0] && row[0].values[0] ? { id: row[0].values[0][0], coverPath: row[0].values[0][1] } : null;
   if (!current) throw new Error('Book not found');
@@ -127,6 +129,8 @@ ipcMain.handle('books:update', async (event, payload) => {
     tags: Array.isArray(tags) ? tags : [],
     titleAlt: titleAlt ? String(titleAlt) : null,
     authorsAlt: Array.isArray(authorsAlt) ? authorsAlt : [],
+    format: format ? String(format) : null,
+    genres: Array.isArray(genres) ? genres : [],
   });
   return updated;
 });
@@ -275,7 +279,7 @@ ipcMain.handle('backup:import', async () => {
         coverPath = dest;
       } catch {}
     }
-    const { cover, authors = [], title = '', series=null, seriesIndex=null, year=null, publisher=null, isbn=null, language=null, rating=null, notes=null, tags=[], titleAlt=null, authorsAlt=[] } = b;
+    const { cover, authors = [], title = '', series=null, seriesIndex=null, year=null, publisher=null, isbn=null, language=null, rating=null, notes=null, tags=[], titleAlt=null, authorsAlt=[], format=null, genres=[] } = b;
     // Skip if normalized ISBN already exists; otherwise, if no ISBN, skip by title+authors key
     let shouldSkip = false;
     const can = toCanonicalIsbn13(isbn);
@@ -289,7 +293,7 @@ ipcMain.handle('backup:import', async () => {
       skipped += 1;
       return null;
     }
-    const createdBook = dbLayer.createBook(db, { title, authors, coverPath, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt });
+    const createdBook = dbLayer.createBook(db, { title, authors, coverPath, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres });
     created += 1;
     // Update sets to prevent duplicates within the same import batch
     if (can) existingIsbnSet.add(can);

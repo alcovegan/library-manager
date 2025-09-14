@@ -36,6 +36,8 @@ const modalLanguage = $('#modalLanguage');
 const modalRating = $('#modalRating');
 const modalTags = $('#modalTags');
 const modalNotes = $('#modalNotes');
+const modalFormat = document.querySelector('#modalFormat');
+const modalGenres = document.querySelector('#modalGenres');
 const modalSaveBtn = $('#modalSaveBtn');
 const themeToggle = $('#themeToggle');
 const openSettingsBtn = $('#openSettingsBtn');
@@ -72,6 +74,17 @@ const saveSettingsBtn = $('#saveSettingsBtn');
 const formTitle = $('#formTitle');
 const reloadBtn = document.querySelector('#reloadBtn');
 const sortSelect = document.querySelector('#sortSelect');
+// Filters toolbar elements
+const filterAuthor = document.querySelector('#filterAuthor');
+const filterFormat = document.querySelector('#filterFormat');
+const filterYearFrom = document.querySelector('#filterYearFrom');
+const filterYearTo = document.querySelector('#filterYearTo');
+const filterGenres = document.querySelector('#filterGenres');
+const filterTags = document.querySelector('#filterTags');
+const btnClearFilters = document.querySelector('#btnClearFilters');
+const collectionSelect = document.querySelector('#collectionSelect');
+const saveCollectionBtn = document.querySelector('#saveCollectionBtn');
+const deleteCollectionBtn = document.querySelector('#deleteCollectionBtn');
 // Info modal (read-only)
 const infoModal = document.querySelector('#infoModal');
 const closeInfoBtn = document.querySelector('#closeInfoBtn');
@@ -191,10 +204,112 @@ function sortBooks(arr) {
   return a;
 }
 
+function getFilters() {
+  return {
+    author: filterAuthor ? filterAuthor.value : '',
+    format: filterFormat ? filterFormat.value : '',
+    y1: filterYearFrom ? Number(filterYearFrom.value || '') : NaN,
+    y2: filterYearTo ? Number(filterYearTo.value || '') : NaN,
+    genres: filterGenres ? filterGenres.value.split(',').map(s=>s.trim()).filter(Boolean) : [],
+    tags: filterTags ? filterTags.value.split(',').map(s=>s.trim()).filter(Boolean) : [],
+  };
+}
+
+function applyFilters(arr) {
+  const f = getFilters();
+  return arr.filter(b => {
+    if (f.author && !(Array.isArray(b.authors) && b.authors.includes(f.author))) return false;
+    if (f.format && (String(b.format || '') !== f.format)) return false;
+    if (!Number.isNaN(f.y1) && Number(b.year || 0) < f.y1) return false;
+    if (!Number.isNaN(f.y2) && Number(b.year || 0) > f.y2) return false;
+    if (f.genres.length) {
+      const have = new Set(Array.isArray(b.genres) ? b.genres.map(x=>x.toLowerCase()) : []);
+      if (!f.genres.every(g => have.has(g.toLowerCase()))) return false;
+    }
+    if (f.tags.length) {
+      const haveT = new Set(Array.isArray(b.tags) ? b.tags.map(x=>x.toLowerCase()) : []);
+      if (!f.tags.every(t => haveT.has(t.toLowerCase()))) return false;
+    }
+    return true;
+  });
+}
+
+function uniqueAuthors(books) {
+  const set = new Set();
+  books.forEach(b => (b.authors || []).forEach(a => set.add(a)));
+  return Array.from(set).sort((a,b)=> new Intl.Collator('ru',{sensitivity:'base',numeric:true}).compare(a,b));
+}
+
+function populateAuthorFilter() {
+  if (!filterAuthor) return;
+  const current = filterAuthor.value;
+  const options = uniqueAuthors(state.books).map(a => `<option value="${a}">${a}</option>`).join('');
+  filterAuthor.innerHTML = '<option value="">Автор…</option>' + options;
+  if (current) filterAuthor.value = current;
+}
+
+function loadCollections() { try { return JSON.parse(localStorage.getItem('collections') || '{}'); } catch { return {}; } }
+function saveCollections(obj) { localStorage.setItem('collections', JSON.stringify(obj)); }
+function syncCollectionsUI() {
+  if (!collectionSelect) return;
+  const cols = loadCollections();
+  const names = Object.keys(cols).sort();
+  collectionSelect.innerHTML = '<option value="">Коллекции…</option>' + names.map(n => `<option value="${n}">${n}</option>`).join('');
+}
+function applyCollection(name) {
+  const cols = loadCollections();
+  const f = cols[name];
+  if (!f) return;
+  if (filterAuthor) filterAuthor.value = f.author || '';
+  if (filterFormat) filterFormat.value = f.format || '';
+  if (filterYearFrom) filterYearFrom.value = f.y1 || '';
+  if (filterYearTo) filterYearTo.value = f.y2 || '';
+  if (filterGenres) filterGenres.value = (f.genres || []).join(', ');
+  if (filterTags) filterTags.value = (f.tags || []).join(', ');
+}
+
+function attachFilterEvents() {
+  const onChange = () => { render(); };
+  [filterAuthor, filterFormat, filterYearFrom, filterYearTo, filterGenres, filterTags].forEach(el => { if (el) el.addEventListener('input', onChange); });
+  if (btnClearFilters) btnClearFilters.addEventListener('click', () => {
+    if (filterAuthor) filterAuthor.value = '';
+    if (filterFormat) filterFormat.value = '';
+    if (filterYearFrom) filterYearFrom.value = '';
+    if (filterYearTo) filterYearTo.value = '';
+    if (filterGenres) filterGenres.value = '';
+    if (filterTags) filterTags.value = '';
+    if (collectionSelect) collectionSelect.value = '';
+    render();
+  });
+  if (collectionSelect) collectionSelect.addEventListener('change', () => {
+    const name = collectionSelect.value;
+    if (name) { applyCollection(name); render(); }
+  });
+  if (saveCollectionBtn) saveCollectionBtn.addEventListener('click', () => {
+    const name = prompt('Название коллекции');
+    if (!name) return;
+    const cols = loadCollections();
+    cols[name] = getFilters();
+    saveCollections(cols);
+    syncCollectionsUI();
+    collectionSelect.value = name;
+  });
+  if (deleteCollectionBtn) deleteCollectionBtn.addEventListener('click', () => {
+    const name = collectionSelect && collectionSelect.value;
+    if (!name) return;
+    const cols = loadCollections();
+    delete cols[name];
+    saveCollections(cols);
+    syncCollectionsUI();
+    if (collectionSelect) collectionSelect.value = '';
+  });
+}
+
 function render() {
   listEl.innerHTML = '';
   const base = state.visibleBooks.length ? state.visibleBooks : state.books;
-  const list = sortBooks(base);
+  const filtered = applyFilters(base);
+  const list = sortBooks(filtered);
   if (!list.length) {
     emptyEl.style.display = 'block';
     return;
@@ -299,6 +414,8 @@ function openDetails(b) {
   modalIsbn.value = b?.isbn || '';
   modalLanguage.value = b?.language || '';
   modalRating.value = b?.rating ?? '';
+  if (modalFormat) modalFormat.value = b?.format || '';
+  if (modalGenres) modalGenres.value = (Array.isArray(b?.genres) ? b.genres : []).join(', ');
   modalTags.value = (b?.tags || []).join(', ');
   modalNotes.value = b?.notes || '';
   state.modal.coverSourcePath = null;
@@ -460,6 +577,8 @@ async function load() {
     state.books = await window.api.getBooks();
   }
   applySearch(searchInput?.value || '');
+  populateAuthorFilter();
+  syncCollectionsUI();
   render();
 }
 
@@ -536,23 +655,25 @@ if (modalChooseCoverBtn) {
 if (modalSaveBtn) {
   modalSaveBtn.addEventListener('click', async () => {
     try {
-      const payload = {
-        id: state.modal.id,
-        title: modalTitle.value.trim(),
-        authors: modalAuthors.value.split(',').map(s => s.trim()).filter(Boolean),
-        coverSourcePath: state.modal.coverSourcePath || null,
-        series: modalSeries.value || null,
-        seriesIndex: modalSeriesIndex.value || null,
-        year: modalYear.value || null,
-        publisher: modalPublisher.value || null,
-        isbn: modalIsbn.value || null,
-        language: modalLanguage.value || null,
-        rating: modalRating.value || null,
-        notes: modalNotes.value || null,
-        tags: modalTags.value.split(',').map(s => s.trim()).filter(Boolean),
-        titleAlt: state.modal.titleAlt || null,
-        authorsAlt: Array.isArray(state.modal.authorsAlt) ? state.modal.authorsAlt : [],
-      };
+    const payload = {
+      id: state.modal.id,
+      title: modalTitle.value.trim(),
+      authors: modalAuthors.value.split(',').map(s => s.trim()).filter(Boolean),
+      coverSourcePath: state.modal.coverSourcePath || null,
+      series: modalSeries.value || null,
+      seriesIndex: modalSeriesIndex.value || null,
+      year: modalYear.value || null,
+      publisher: modalPublisher.value || null,
+      isbn: modalIsbn.value || null,
+      language: modalLanguage.value || null,
+      rating: modalRating.value || null,
+      notes: modalNotes.value || null,
+      tags: modalTags.value.split(',').map(s => s.trim()).filter(Boolean),
+      format: modalFormat ? (modalFormat.value || null) : null,
+      genres: modalGenres ? modalGenres.value.split(',').map(s => s.trim()).filter(Boolean) : [],
+      titleAlt: state.modal.titleAlt || null,
+      authorsAlt: Array.isArray(state.modal.authorsAlt) ? state.modal.authorsAlt : [],
+    };
       if (!payload.title) { alert('Введите название'); return; }
       if (payload.id) {
         await window.api.updateBook(payload);
@@ -789,6 +910,8 @@ if (sortSelect) {
     render();
   });
 }
+// Attach filter handlers on startup
+attachFilterEvents();
 if (reloadBtn) {
   reloadBtn.addEventListener('click', async () => {
     try { await window.api.reloadIgnoringCache(); } catch {}

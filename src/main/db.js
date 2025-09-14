@@ -156,6 +156,15 @@ async function migrate(ctx) {
     setSchemaVersion(ctx, 5);
     persist(ctx);
   }
+  // v6: format + genres
+  if (getSchemaVersion(ctx) === 5) {
+    ctx.db.exec(`
+      ALTER TABLE books ADD COLUMN format TEXT;
+      ALTER TABLE books ADD COLUMN genres TEXT;
+    `);
+    setSchemaVersion(ctx, 6);
+    persist(ctx);
+  }
 }
 
 function ensureAuthor(ctx, name) {
@@ -187,10 +196,10 @@ function authorsForBook(ctx, bookId) {
 }
 
 function listBooks(ctx) {
-  const res = ctx.db.exec('SELECT id, title, coverPath, createdAt, updatedAt, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt FROM books ORDER BY title COLLATE NOCASE');
+  const res = ctx.db.exec('SELECT id, title, coverPath, createdAt, updatedAt, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres FROM books ORDER BY title COLLATE NOCASE');
   const rows = res[0] ? res[0].values : [];
-  return rows.map(([id, title, coverPath, createdAt, updatedAt, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt]) => ({
-    id, title, coverPath, createdAt, updatedAt, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags: parseTags(tags), titleAlt: normStr(titleAlt), authorsAlt: parseJsonArray(authorsAlt), authors: authorsForBook(ctx, id),
+  return rows.map(([id, title, coverPath, createdAt, updatedAt, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres]) => ({
+    id, title, coverPath, createdAt, updatedAt, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags: parseTags(tags), titleAlt: normStr(titleAlt), authorsAlt: parseJsonArray(authorsAlt), format: normStr(format), genres: parseJsonArray(genres), authors: authorsForBook(ctx, id),
   }));
 }
 
@@ -206,10 +215,10 @@ function strTags(arr) { try { return JSON.stringify(Array.isArray(arr) ? arr : [
 function parseJsonArray(v) { try { const a = JSON.parse(v || '[]'); return Array.isArray(a) ? a : []; } catch { return []; } }
 function strArray(arr) { try { return JSON.stringify(Array.isArray(arr) ? arr : []); } catch { return '[]'; } }
 
-function createBook(ctx, { title, authors = [], coverPath = null, series=null, seriesIndex=null, year=null, publisher=null, isbn=null, language=null, rating=null, notes=null, tags=[], titleAlt=null, authorsAlt=[] }) {
+function createBook(ctx, { title, authors = [], coverPath = null, series=null, seriesIndex=null, year=null, publisher=null, isbn=null, language=null, rating=null, notes=null, tags=[], titleAlt=null, authorsAlt=[], format=null, genres=[] }) {
   const now = new Date().toISOString();
   const id = randomUUID();
-  const insBook = ctx.db.prepare('INSERT INTO books(id, title, coverPath, createdAt, updatedAt, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+  const insBook = ctx.db.prepare('INSERT INTO books(id, title, coverPath, createdAt, updatedAt, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
   insBook.bind([
     id,
     title,
@@ -227,6 +236,8 @@ function createBook(ctx, { title, authors = [], coverPath = null, series=null, s
     strTags(tags),
     normStr(titleAlt),
     strArray(authorsAlt),
+    normStr(format),
+    strArray(genres),
   ]);
   insBook.step();
   insBook.free();
@@ -239,12 +250,12 @@ function createBook(ctx, { title, authors = [], coverPath = null, series=null, s
   }
   insBA.free();
   persist(ctx);
-  return { id, title, coverPath, authors, createdAt: now, updatedAt: now, series, seriesIndex: normInt(seriesIndex), year: normInt(year), publisher, isbn, language, rating: normFloat(rating), notes, tags, titleAlt: normStr(titleAlt), authorsAlt: strArray(authorsAlt) };
+  return { id, title, coverPath, authors, createdAt: now, updatedAt: now, series, seriesIndex: normInt(seriesIndex), year: normInt(year), publisher, isbn, language, rating: normFloat(rating), notes, tags, titleAlt: normStr(titleAlt), authorsAlt: strArray(authorsAlt), format: normStr(format), genres };
 }
 
-function updateBook(ctx, { id, title, authors = [], coverPath = null, series=null, seriesIndex=null, year=null, publisher=null, isbn=null, language=null, rating=null, notes=null, tags=[], titleAlt=null, authorsAlt=[] }) {
+function updateBook(ctx, { id, title, authors = [], coverPath = null, series=null, seriesIndex=null, year=null, publisher=null, isbn=null, language=null, rating=null, notes=null, tags=[], titleAlt=null, authorsAlt=[], format=null, genres=[] }) {
   const now = new Date().toISOString();
-  const upd = ctx.db.prepare('UPDATE books SET title = ?, coverPath = ?, updatedAt = ?, series = ?, seriesIndex = ?, year = ?, publisher = ?, isbn = ?, language = ?, rating = ?, notes = ?, tags = ?, titleAlt = ?, authorsAlt = ? WHERE id = ?');
+  const upd = ctx.db.prepare('UPDATE books SET title = ?, coverPath = ?, updatedAt = ?, series = ?, seriesIndex = ?, year = ?, publisher = ?, isbn = ?, language = ?, rating = ?, notes = ?, tags = ?, titleAlt = ?, authorsAlt = ?, format = ?, genres = ? WHERE id = ?');
   upd.bind([
     title,
     coverPath,
@@ -260,6 +271,8 @@ function updateBook(ctx, { id, title, authors = [], coverPath = null, series=nul
     strTags(tags),
     normStr(titleAlt),
     strArray(authorsAlt),
+    normStr(format),
+    strArray(genres),
     id,
   ]);
   upd.step();
@@ -274,7 +287,7 @@ function updateBook(ctx, { id, title, authors = [], coverPath = null, series=nul
   }
   insBA.free();
   persist(ctx);
-  return { id, title, coverPath, authors, updatedAt: now, series, seriesIndex: normInt(seriesIndex), year: normInt(year), publisher, isbn, language, rating: normFloat(rating), notes, tags, titleAlt: normStr(titleAlt), authorsAlt: strArray(authorsAlt) };
+  return { id, title, coverPath, authors, updatedAt: now, series, seriesIndex: normInt(seriesIndex), year: normInt(year), publisher, isbn, language, rating: normFloat(rating), notes, tags, titleAlt: normStr(titleAlt), authorsAlt: strArray(authorsAlt), format: normStr(format), genres };
 }
 
 function deleteBook(ctx, id) {
