@@ -128,10 +128,6 @@
       <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
         <div class="flex items-center gap-3">
           <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500"></div>
-          <div>
-            <div class="text-slate-800 text-sm font-semibold">Домашняя библиотека</div>
-            <div class="text-slate-500 text-xs">учёт книг, обложки, бэкапы</div>
-          </div>
         </div>
         <div class="actions flex items-center gap-2">
           <input id="searchInput" type="text" placeholder="Поиск по названию или автору…" class="input" style="width:16rem;" />
@@ -230,9 +226,9 @@
     </main>
 
     <!-- details modal -->
-    <div id="detailsModal" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center;">
+    <div id="detailsModal" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:50; padding:24px 12px; box-sizing:border-box;">
       <div class="modal-backdrop" style="position:absolute; inset:0; background:rgba(0,0,0,0.35);"></div>
-      <div class="modal-card" style="position:relative; width: min(820px, 96vw); max-height: 90vh; overflow:auto; background: var(--surface); border:1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); padding: 16px;">
+      <div class="modal-card" style="position:relative; width: min(820px, 96vw); max-height: 100%; overflow:auto; background: var(--surface); border:1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); padding: 16px;">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
           <h3 style="margin:0;">Карточка книги</h3>
           <button id="closeModalBtn">Закрыть</button>
@@ -308,9 +304,9 @@
     </div>
 
     <!-- settings modal -->
-    <div id="settingsModal" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center;">
+    <div id="settingsModal" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:50; padding:24px 12px; box-sizing:border-box;">
       <div class="modal-backdrop" style="position:absolute; inset:0; background:rgba(0,0,0,0.35);"></div>
-      <div class="modal-card" style="position:relative; width: min(560px, 96vw); max-height: 80vh; overflow:auto; background: var(--surface); border:1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); padding: 16px;">
+      <div class="modal-card" style="position:relative; width: min(560px, 96vw); max-height: 100%; overflow:auto; background: var(--surface); border:1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); padding: 16px;">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
           <h3 style="margin:0;">Настройки</h3>
           <button id="closeSettingsBtn">Закрыть</button>
