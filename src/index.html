@@ -197,33 +197,38 @@
             </select>
           </div>
         </div>
-        <!-- Filters toolbar -->
-        <div id="filtersBar" class="row" style="flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:8px;">
-          <select id="filterAuthor" class="input" style="width:auto; min-width:12rem;">
-            <option value="">Автор…</option>
-          </select>
-          <select id="filterFormat" class="input" style="width:auto;">
-            <option value="">Формат…</option>
-            <option value="paper">Бумажная</option>
-            <option value="ebook">Электронная</option>
-            <option value="audiobook">Аудио</option>
-          </select>
-          <input id="filterYearFrom" class="input" type="number" placeholder="Год от" style="width:7rem;" />
-          <input id="filterYearTo" class="input" type="number" placeholder="Год до" style="width:7rem;" />
-          <input id="filterGenres" class="input" type="text" placeholder="Жанры, через запятую" style="width:16rem;" />
-          <input id="filterTags" class="input" type="text" placeholder="Теги, через запятую" style="width:16rem;" />
-          <button id="btnClearFilters" class="btn">Сбросить</button>
-          <div style="margin-left:auto; display:flex; align-items:center; gap:8px;">
+        <!-- Filters toolbar (refactored layout) -->
+        <div id="filtersBar" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:8px;">
+          <!-- Left group: actual filters -->
+          <div style="display:flex; flex-wrap:wrap; gap:8px; flex:1 1 auto; min-width:320px;">
+            <select id="filterAuthor" class="input" style="width:auto; min-width:12rem;">
+              <option value="">Автор…</option>
+            </select>
+            <select id="filterFormat" class="input" style="width:auto; min-width:10rem;">
+              <option value="">Формат…</option>
+              <option value="paper">Бумажная</option>
+              <option value="ebook">Электронная</option>
+              <option value="audiobook">Аудио</option>
+            </select>
+            <input id="filterYearFrom" class="input" type="number" placeholder="Год от" style="width:7rem;" />
+            <input id="filterYearTo" class="input" type="number" placeholder="Год до" style="width:7rem;" />
+            <input id="filterGenres" class="input" type="text" placeholder="Жанры, через запятую" style="min-width:14rem; flex:1 1 14rem;" />
+            <button id="btnClearFilters" class="btn" type="button">Сбросить</button>
+          </div>
+          <!-- Right group: collections controls -->
+          <div style="display:flex; gap:8px; align-items:center; flex:1 1 auto; justify-content:flex-end; min-width:360px;">
+            <input id="filterTags" class="input" type="text" placeholder="Теги, через запятую" style="min-width:14rem; flex:1 1 16rem;" />
             <select id="collectionSelect" class="input" style="width:auto; min-width:12rem;">
               <option value="">Коллекции…</option>
             </select>
             <button id="saveCollectionBtn" type="button" class="btn">Сохранить как…</button>
             <button id="deleteCollectionBtn" type="button" class="btn">Удалить</button>
-            <div id="collectionSaveInline" class="row" style="display:none; align-items:center; gap:6px;">
-              <input id="collectionNameInput" class="input" type="text" placeholder="Название коллекции" style="width:14rem;" />
-              <button id="collectionSaveConfirmBtn" type="button" class="btn">Ок</button>
-              <button id="collectionSaveCancelBtn" type="button" class="btn">Отмена</button>
-            </div>
+          </div>
+          <!-- Inline save input (appears when saving) -->
+          <div id="collectionSaveInline" class="row" style="display:none; align-items:center; gap:6px; width:100%;">
+            <input id="collectionNameInput" class="input" type="text" placeholder="Название коллекции" style="width:18rem;" />
+            <button id="collectionSaveConfirmBtn" type="button" class="btn">Ок</button>
+            <button id="collectionSaveCancelBtn" type="button" class="btn">Отмена</button>
           </div>
         </div>
         <div id="listViewport" style="flex:1; min-height:0; overflow-y: auto; padding-right: 8px;">
