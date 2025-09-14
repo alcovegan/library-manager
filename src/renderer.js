@@ -85,6 +85,10 @@ const btnClearFilters = document.querySelector('#btnClearFilters');
 const collectionSelect = document.querySelector('#collectionSelect');
 const saveCollectionBtn = document.querySelector('#saveCollectionBtn');
 const deleteCollectionBtn = document.querySelector('#deleteCollectionBtn');
+const collectionSaveInline = document.querySelector('#collectionSaveInline');
+const collectionNameInput = document.querySelector('#collectionNameInput');
+const collectionSaveConfirmBtn = document.querySelector('#collectionSaveConfirmBtn');
+const collectionSaveCancelBtn = document.querySelector('#collectionSaveCancelBtn');
 // Info modal (read-only)
 const infoModal = document.querySelector('#infoModal');
 const closeInfoBtn = document.querySelector('#closeInfoBtn');
@@ -309,43 +313,38 @@ function attachFilterEvents() {
     const name = collectionSelect.value;
     if (name) { applyCollection(name); saveFiltersState(); render(); }
   });
-  if (saveCollectionBtn) saveCollectionBtn.addEventListener('click', () => {
-    const name = prompt('Название коллекции');
-    if (!name) return;
-    const cols = loadCollections();
-    if (cols[name]) {
-      const overwrite = confirm('Коллекция с таким именем уже есть. Перезаписать?');
-      if (!overwrite) return;
+  function showSaveInline(show) {
+    if (!collectionSaveInline) return;
+    collectionSaveInline.style.display = show ? 'flex' : 'none';
+    if (show && collectionNameInput) {
+      collectionNameInput.value = collectionSelect && collectionSelect.value ? collectionSelect.value : '';
+      setTimeout(() => collectionNameInput && collectionNameInput.focus(), 0);
     }
-    cols[name] = getFilters();
+  }
+  if (saveCollectionBtn) saveCollectionBtn.addEventListener('click', () => {
+    showSaveInline(true);
+  });
+  function saveCollectionByName(name) {
+    const n = String(name || '').trim();
+    if (!n) return;
+    const cols = loadCollections();
+    // overwrite silently if exists
+    cols[n] = getFilters();
     saveCollections(cols);
     syncCollectionsUI();
-    if (collectionSelect) collectionSelect.value = name;
+    if (collectionSelect) collectionSelect.value = n;
     saveFiltersState();
     render();
-    try { alert('Коллекция сохранена'); } catch {}
+    showSaveInline(false);
+  }
+  if (collectionSaveConfirmBtn) collectionSaveConfirmBtn.addEventListener('click', () => {
+    saveCollectionByName(collectionNameInput ? collectionNameInput.value : '');
   });
-  // Robust delegation in case buttons are re-rendered
-  document.addEventListener('click', (e) => {
-    const saveBtn = e.target && e.target.closest && e.target.closest('#saveCollectionBtn');
-    if (saveBtn) {
-      e.preventDefault();
-      const name = prompt('Название коллекции');
-      if (!name) return;
-      const cols = loadCollections();
-      if (cols[name]) {
-        const overwrite = confirm('Коллекция с таким именем уже есть. Перезаписать?');
-        if (!overwrite) return;
-      }
-      cols[name] = getFilters();
-      saveCollections(cols);
-      syncCollectionsUI();
-      if (collectionSelect) collectionSelect.value = name;
-      saveFiltersState();
-      render();
-      try { alert('Коллекция сохранена'); } catch {}
-    }
-  }, true);
+  if (collectionSaveCancelBtn) collectionSaveCancelBtn.addEventListener('click', () => showSaveInline(false));
+  if (collectionNameInput) collectionNameInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); saveCollectionByName(collectionNameInput.value); }
+    if (e.key === 'Escape') { e.preventDefault(); showSaveInline(false); }
+  });
   if (deleteCollectionBtn) deleteCollectionBtn.addEventListener('click', () => {
     const name = collectionSelect && collectionSelect.value;
     if (!name) return;
