@@ -320,6 +320,23 @@
       </div>
     </div>
 
+    <!-- info modal (read-only) -->
+    <div id="infoModal" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:50; padding:24px 12px; box-sizing:border-box;">
+      <div class="modal-backdrop" style="position:absolute; inset:0; background:rgba(0,0,0,0.35);"></div>
+      <div class="modal-card" style="position:relative; width: min(820px, 96vw); max-height: 100%; overflow:auto; background: var(--surface); border:1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); padding: 16px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+          <h3 style="margin:0;">Информация о книге</h3>
+          <button id="closeInfoBtn">Закрыть</button>
+        </div>
+        <div style="display:grid; grid-template-columns: 220px 1fr; gap: 14px; margin-top: 12px;">
+          <div>
+            <img id="infoCover" alt="обложка" style="display:none; width:100%; height:auto; max-height: 320px; object-fit:contain; border:1px solid var(--border); border-radius:10px; background: var(--muted-surface);" />
+          </div>
+          <div id="infoContent" style="display:flex; flex-direction:column; gap:8px;"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- settings modal -->
     <div id="settingsModal" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:50; padding:24px 12px; box-sizing:border-box;">
       <div class="modal-backdrop" style="position:absolute; inset:0; background:rgba(0,0,0,0.35);"></div>

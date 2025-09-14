@@ -72,6 +72,11 @@ const saveSettingsBtn = $('#saveSettingsBtn');
 const formTitle = $('#formTitle');
 const reloadBtn = document.querySelector('#reloadBtn');
 const sortSelect = document.querySelector('#sortSelect');
+// Info modal (read-only)
+const infoModal = document.querySelector('#infoModal');
+const closeInfoBtn = document.querySelector('#closeInfoBtn');
+const infoCover = document.querySelector('#infoCover');
+const infoContent = document.querySelector('#infoContent');
 
 let state = {
   books: [],
@@ -232,12 +237,13 @@ function render() {
     editBtn.className = 'icon-btn';
     editBtn.title = 'Редактировать';
     editBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41L18.37 3.29a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>';
-    editBtn.onclick = () => openDetails(b);
+    editBtn.onclick = (ev) => { ev.stopPropagation(); openDetails(b); };
     const delBtn = document.createElement('button');
     delBtn.className = 'icon-btn';
     delBtn.title = 'Удалить';
     delBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1z"/></svg>';
-    delBtn.onclick = async () => {
+    delBtn.onclick = async (ev) => {
+      ev.stopPropagation();
       if (!confirm('Удалить книгу?')) return;
       await window.api.deleteBook(b.id);
       await load();
@@ -248,7 +254,7 @@ function render() {
     el.appendChild(img);
     el.appendChild(meta);
     el.appendChild(actions);
-    el.addEventListener('click', () => { state.selectedId = b.id; render(); });
+    el.addEventListener('click', () => { state.selectedId = b.id; openInfo(b); });
     listEl.appendChild(el);
   }
 }
@@ -328,6 +334,53 @@ function captureModalSnapshot() {
     titleAlt: state.modal.titleAlt || null,
     authorsAlt: Array.isArray(state.modal.authorsAlt) ? state.modal.authorsAlt.join(',') : '',
   };
+}
+
+// Read-only info popup
+function openInfo(b) {
+  if (!infoModal || !infoContent) return;
+  // cover
+  if (infoCover) {
+    if (b.coverPath) {
+      infoCover.style.display = 'none';
+      infoCover.onload = () => { infoCover.style.display = 'block'; };
+      infoCover.onerror = () => { infoCover.style.display = 'none'; };
+      infoCover.src = toFileUrl(b.coverPath);
+    } else {
+      infoCover.style.display = 'none';
+      infoCover.removeAttribute('src');
+    }
+  }
+  const esc = (s) => String(s || '');
+  const starsNum = Math.max(0, Math.min(5, Math.round(Number(b.rating || 0))));
+  const stars = starsNum > 0 ? ('★'.repeat(starsNum) + '☆'.repeat(5 - starsNum)) : '';
+  const metaRows = [];
+  if (b.series || b.seriesIndex != null) metaRows.push('<div><b>Серия:</b> ' + esc(b.series || '') + (b.seriesIndex!=null?(' (#' + b.seriesIndex + ')'):'') + '</div>');
+  if (b.year || b.publisher) metaRows.push('<div><b>Издательство/Год:</b> ' + esc(b.publisher || '') + (b.year?(' ('+b.year+')'):'') + '</div>');
+  if (b.isbn) metaRows.push('<div><b>ISBN:</b> ' + esc(b.isbn) + '</div>');
+  if (b.language) metaRows.push('<div><b>Язык:</b> ' + esc(b.language) + '</div>');
+  if (stars) metaRows.push('<div><b>Рейтинг:</b> <span style="color:#fbbf24;">' + stars + '</span></div>');
+  if (Array.isArray(b.tags) && b.tags.length) metaRows.push('<div><b>Теги:</b> ' + b.tags.map(t=>'<span style="display:inline-block; padding:2px 6px; border:1px solid var(--border); border-radius:999px; margin-right:6px;">'+esc(t)+'</span>').join('') + '</div>');
+  if (b.notes) metaRows.push('<div><b>Заметки:</b><br><div style="white-space:pre-wrap; background:var(--muted-surface); border:1px solid var(--border); border-radius:8px; padding:8px;">' + esc(b.notes) + '</div></div>');
+
+  infoContent.innerHTML = (
+    '<div style="font-size:16px; font-weight:650;">' + esc(b.title || '(без названия)') + '</div>' +
+    '<div style="color:var(--muted);">' + esc((b.authors||[]).join(', ')) + '</div>' +
+    metaRows.join('') +
+    '<div class="row" style="margin-top:8px; gap:8px;">' +
+    '  <button id="infoEditBtn">Редактировать</button>' +
+    '  <button id="infoCloseBtn2">Закрыть</button>' +
+    '</div>'
+  );
+  infoModal.style.display = 'flex';
+  const editBtn = document.querySelector('#infoEditBtn');
+  const closeBtn2 = document.querySelector('#infoCloseBtn2');
+  if (editBtn) editBtn.addEventListener('click', () => { closeInfo(); openDetails(b); });
+  if (closeBtn2) closeBtn2.addEventListener('click', closeInfo);
+}
+
+function closeInfo() {
+  if (infoModal) infoModal.style.display = 'none';
 }
 
 function isModalDirty() {
@@ -467,6 +520,7 @@ if (searchInput) {
 }
 
 if (closeModalBtn) closeModalBtn.addEventListener('click', tryCloseDetailsWithConfirm);
+if (closeInfoBtn) closeInfoBtn.addEventListener('click', closeInfo);
 if (modalChooseCoverBtn) {
   modalChooseCoverBtn.addEventListener('click', async () => {
     try {
@@ -770,6 +824,12 @@ document.addEventListener('keydown', (e) => {
     if (settingsModal && settingsModal.style.display === 'flex') {
       e.preventDefault();
       tryCloseSettingsWithConfirm();
+      return;
+    }
+    // Info modal: close without confirmation
+    if (infoModal && infoModal.style.display === 'flex') {
+      e.preventDefault();
+      closeInfo();
       return;
     }
     // Details modal: confirm if dirty
