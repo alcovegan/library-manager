@@ -114,6 +114,9 @@ let state = {
   }
 };
 
+// Skip applying filters on the very first render to avoid stale-localStorage hiding all
+let skipFiltersOnce = true;
+
 const enrichState = {
   headers: [],
   rows: [],
@@ -378,7 +381,8 @@ function attachFilterEvents() {
 function render() {
   listEl.innerHTML = '';
   const base = state.visibleBooks.length ? state.visibleBooks : state.books;
-  const filtered = applyFilters(base);
+  const filtered = skipFiltersOnce ? base : applyFilters(base);
+  skipFiltersOnce = false;
   const list = sortBooks(filtered);
   if (!list.length) {
     emptyEl.style.display = 'block';
@@ -657,11 +661,10 @@ async function load() {
   restoreFiltersState();
   syncCollectionsUI();
   rebuildSuggestStore();
-  // Safety: if saved filters hide everything and нет запроса — сбрасываем
+  // Safety: стартуем без сохранённых фильтров, если нет запроса
   try {
     const noQuery = !(searchInput && String(searchInput.value || '').trim());
-    const filtered = applyFilters(state.books);
-    if (noQuery && hasAnyFilterSet() && filtered.length === 0) {
+    if (noQuery && hasAnyFilterSet()) {
       clearAllFilters();
       saveFiltersState();
     }
