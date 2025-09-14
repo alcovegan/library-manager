@@ -30,8 +30,8 @@ jobs:
       - name: Build and Publish with electron-builder
         run: npm run publish
         env:
-          # Use repo secret if set, otherwise built-in GITHUB_TOKEN
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          # Use your PAT stored as LIBRARYMANAGER; fallback to GITHUB_TOKEN
+          GH_TOKEN: ${{ secrets.LIBRARYMANAGER }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Optional signing secrets (set only if you have them):
           # APPLE_ID: ${{ secrets.APPLE_ID }}
