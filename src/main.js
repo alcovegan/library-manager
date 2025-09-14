@@ -221,7 +221,48 @@ ipcMain.handle('backup:import', async () => {
     return { ok: false, error: 'Backup failed verification' };
   }
 
-  // restore books and covers with duplicate handling (skip by ISBN)
+  // Helpers for normalization/dedup
+  const toCanonicalIsbn13 = (isbn) => {
+    if (!isbn) return null;
+    const s = String(isbn).toUpperCase().replace(/[^0-9X]/g, '');
+    if (!s) return null;
+    const compute13 = (twelve) => {
+      const digits = twelve.split('').map(d => Number(d));
+      if (digits.some(n => !Number.isFinite(n))) return null;
+      const sum = digits.reduce((acc, n, i) => acc + n * (i % 2 === 0 ? 1 : 3), 0);
+      const cd = (10 - (sum % 10)) % 10;
+      return twelve + String(cd);
+    };
+    if (s.length === 13 && /^\d{13}$/.test(s)) {
+      return compute13(s.slice(0, 12));
+    }
+    if (s.length === 10) {
+      // Convert ISBN-10 → ISBN-13 (prefix 978 + first 9 digits)
+      const core9 = s.slice(0, 9);
+      if (!/^\d{9}$/.test(core9)) return null;
+      const twelve = '978' + core9;
+      return compute13(twelve);
+    }
+    return null;
+  };
+  const normText = (t) => String(t || '').toLowerCase().normalize('NFKD').replace(/[\s\p{P}\p{S}]+/gu, ' ').trim();
+  const taKey = (title, authorsArr) => {
+    const titleKey = normText(title);
+    const authors = Array.isArray(authorsArr) ? authorsArr.map(a => normText(a)).filter(Boolean).sort().join(',') : '';
+    return titleKey + '|' + authors;
+  };
+
+  // Build existing dedup sets
+  const existingBooks = dbLayer.listBooks(db);
+  const existingIsbnSet = new Set();
+  const existingTaSet = new Set();
+  for (const b of existingBooks) {
+    const can = toCanonicalIsbn13(b.isbn);
+    if (can) existingIsbnSet.add(can);
+    existingTaSet.add(taKey(b.title, b.authors || []));
+  }
+
+  // restore books and covers with duplicate handling (skip by normalized ISBN; fallback to title+authors if no ISBN)
   let created = 0;
   let skipped = 0;
   const restored = parsed.books.map((b) => {
@@ -235,12 +276,14 @@ ipcMain.handle('backup:import', async () => {
       } catch {}
     }
     const { cover, authors = [], title = '', series=null, seriesIndex=null, year=null, publisher=null, isbn=null, language=null, rating=null, notes=null, tags=[], titleAlt=null, authorsAlt=[] } = b;
-    // Skip if ISBN already exists
+    // Skip if normalized ISBN already exists; otherwise, if no ISBN, skip by title+authors key
     let shouldSkip = false;
-    if (isbn) {
-      const safe = String(isbn).replace(/'/g, "''");
-      const r = db.db.exec(`SELECT 1 FROM books WHERE isbn='${safe}' LIMIT 1`);
-      shouldSkip = !!(r[0] && r[0].values && r[0].values.length);
+    const can = toCanonicalIsbn13(isbn);
+    if (can) {
+      shouldSkip = existingIsbnSet.has(can);
+    } else {
+      const key = taKey(title, authors);
+      shouldSkip = existingTaSet.has(key);
     }
     if (shouldSkip) {
       skipped += 1;
@@ -248,6 +291,9 @@ ipcMain.handle('backup:import', async () => {
     }
     const createdBook = dbLayer.createBook(db, { title, authors, coverPath, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt });
     created += 1;
+    // Update sets to prevent duplicates within the same import batch
+    if (can) existingIsbnSet.add(can);
+    existingTaSet.add(taKey(title, authors));
     return createdBook;
   });
   return { ok: true, count: restored.length, created, skipped };
