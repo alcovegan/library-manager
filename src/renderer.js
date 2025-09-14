@@ -250,6 +250,24 @@ function populateAuthorFilter() {
 
 function loadCollections() { try { return JSON.parse(localStorage.getItem('collections') || '{}'); } catch { return {}; } }
 function saveCollections(obj) { localStorage.setItem('collections', JSON.stringify(obj)); }
+const FILTERS_KEY = 'filters:v1';
+function saveFiltersState() {
+  const f = getFilters();
+  localStorage.setItem(FILTERS_KEY, JSON.stringify(f));
+}
+function restoreFiltersState() {
+  try {
+    const raw = localStorage.getItem(FILTERS_KEY);
+    if (!raw) return; // no saved filters — keep defaults (show all)
+    const f = JSON.parse(raw);
+    if (filterAuthor) filterAuthor.value = f.author || '';
+    if (filterFormat) filterFormat.value = f.format || '';
+    if (filterYearFrom) filterYearFrom.value = f.y1 || '';
+    if (filterYearTo) filterYearTo.value = f.y2 || '';
+    if (filterGenres) filterGenres.value = (f.genres || []).join(', ');
+    if (filterTags) filterTags.value = (f.tags || []).join(', ');
+  } catch {}
+}
 function syncCollectionsUI() {
   if (!collectionSelect) return;
   const cols = loadCollections();
@@ -271,6 +289,7 @@ function applyCollection(name) {
 function attachFilterEvents() {
   const onChange = () => { render(); };
   [filterAuthor, filterFormat, filterYearFrom, filterYearTo, filterGenres, filterTags].forEach(el => { if (el) el.addEventListener('input', onChange); });
+  [filterAuthor, filterFormat, filterYearFrom, filterYearTo, filterGenres, filterTags].forEach(el => { if (el) el && el.addEventListener('input', saveFiltersState); });
   if (btnClearFilters) btnClearFilters.addEventListener('click', () => {
     if (filterAuthor) filterAuthor.value = '';
     if (filterFormat) filterFormat.value = '';
@@ -279,11 +298,12 @@ function attachFilterEvents() {
     if (filterGenres) filterGenres.value = '';
     if (filterTags) filterTags.value = '';
     if (collectionSelect) collectionSelect.value = '';
+    saveFiltersState();
     render();
   });
   if (collectionSelect) collectionSelect.addEventListener('change', () => {
     const name = collectionSelect.value;
-    if (name) { applyCollection(name); render(); }
+    if (name) { applyCollection(name); saveFiltersState(); render(); }
   });
   if (saveCollectionBtn) saveCollectionBtn.addEventListener('click', () => {
     const name = prompt('Название коллекции');
@@ -578,6 +598,7 @@ async function load() {
   }
   applySearch(searchInput?.value || '');
   populateAuthorFilter();
+  restoreFiltersState();
   syncCollectionsUI();
   render();
 }
