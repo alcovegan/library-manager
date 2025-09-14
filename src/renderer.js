@@ -356,6 +356,13 @@ function showEnrichView(show) {
   if (!libraryView || !enrichView) return;
   libraryView.style.display = show ? 'none' : 'block';
   enrichView.style.display = show ? 'block' : 'none';
+  updateEnrichToggleButton();
+}
+
+function updateEnrichToggleButton() {
+  if (!openEnrichBtn || !enrichView) return;
+  const isEnrich = enrichView.style.display !== 'none';
+  openEnrichBtn.title = isEnrich ? 'К библиотеке' : 'Обогащение';
 }
 
 function debounce(fn, ms) {
@@ -620,7 +627,10 @@ if (openSettingsBtn) {
   });
 }
 if (openEnrichBtn) {
-  openEnrichBtn.addEventListener('click', () => showEnrichView(true));
+  openEnrichBtn.addEventListener('click', () => {
+    const isEnrich = enrichView && enrichView.style.display !== 'none';
+    showEnrichView(!isEnrich);
+  });
 }
 if (reloadBtn) {
   reloadBtn.addEventListener('click', async () => {
