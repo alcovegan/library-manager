@@ -74,8 +74,13 @@
 - [ ] [P2] Верификация импортов: проверка расширений/размеров, защита от zip‑slip при распаковке.
 
 ## Сборка и обновления
-- [ ] [P1] Пакетирование: `electron-builder`/`electron-forge` для dmg/exe/AppImage; автообновления (при возможности) и подпись.
+- [ ] [P1] Пакетирование: `electron-builder` для dmg/exe/AppImage; базовая конфигурация (`appId`, `productName`, targets, files).
+- [ ] [P1] GitHub Releases + CI: сборки для macOS/Windows/Linux по тегу (GitHub Actions), публикация артефактов/релизов.
+- [ ] [P1] Автообновления: `electron-updater` (проверка при старте, пункт «Проверить обновления…», уведомления, канал `latest`/`beta`).
+- [ ] [P1] Подпись/нотаризация: macOS (Developer ID + notarize), Windows (код‑подпись), Linux (AppImage/DEB metadata).
 - [ ] [P1] Модульная структура: разделить `src/main/*` (ipc, storage, covers, importers) и `src/renderer/*` (views, state, components).
+
+См. подробности: RELEASE.md
 
 ## Как реализовать ключевые блоки
 - [x] [P0] SQLite (main): `src/main/db.js` — инициализация, миграции, CRUD; IPC: `books:list|create|update|delete`.
