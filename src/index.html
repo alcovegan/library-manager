@@ -58,7 +58,8 @@
       /* remove legacy margin that created inner padding in segments */
       /* header .actions button { margin-left: 8px; } */
 
-      main { display: grid; grid-template-columns: 380px 1fr; gap: 18px; padding: 18px; }
+      /* Main layout sizing (columns handled by Tailwind classes on <main>) */
+      main { box-sizing: border-box; padding: 18px; gap: 18px; }
       .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; box-shadow: var(--shadow); }
       .card h3 { margin: 0 0 6px; font-size: 15px; font-weight: 600; }
       label { display:block; font-size: 12px; color: var(--muted); margin-top: 8px; margin-bottom: 6px; }
@@ -159,7 +160,7 @@
         </div>
       </div>
     </header>
-    <main class="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 md:grid-cols-[380px,1fr] gap-5">
+    <main class="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 xl:grid-cols-[380px,1fr] gap-5">
       <section id="libraryView" class="card">
         <h3 id="formTitle">Добавить книгу</h3>
         <label>Название</label>
@@ -180,7 +181,7 @@
         </div>
       </section>
 
-      <section class="card" style="min-height:0; display:flex; flex-direction:column;">
+      <section class="card" style="min-height:0; min-width:0; display:flex; flex-direction:column;">
         <div class="row" style="margin-bottom:8px; align-items:center; gap:8px;">
           <div class="seg" role="group" aria-label="Вид">
             <button id="btnViewGrid" type="button" class="active" aria-pressed="true" title="Сетка">
@@ -203,7 +204,7 @@
         <!-- Filters toolbar (refactored layout) -->
         <div id="filtersBar" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:8px;">
           <!-- Left group: actual filters -->
-          <div style="display:flex; flex-wrap:wrap; gap:8px; flex:1 1 auto; min-width:320px;">
+          <div style="display:flex; flex-wrap:wrap; gap:8px; flex:1 1 auto; min-width:0;">
             <select id="filterAuthor" class="input" style="width:auto; min-width:12rem;">
               <option value="">Автор…</option>
             </select>
@@ -218,7 +219,7 @@
             <input id="filterGenres" class="input" type="text" placeholder="Жанры, через запятую" style="min-width:14rem; flex:1 1 14rem;" />
           </div>
           <!-- Right group: collections controls -->
-          <div style="display:flex; gap:8px; align-items:center; flex:1 1 auto; justify-content:flex-end; min-width:360px;">
+          <div style="display:flex; gap:8px; align-items:center; flex:1 1 auto; justify-content:flex-end; min-width:0; flex-wrap:wrap;">
             <input id="filterTags" class="input" type="text" placeholder="Теги, через запятую" style="min-width:12rem; flex:1 1 12rem;" />
             <select id="collectionSelect" class="input" style="width:auto; min-width:12rem;">
               <option value="">Коллекции…</option>
