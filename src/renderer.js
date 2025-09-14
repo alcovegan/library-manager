@@ -205,11 +205,15 @@ function sortBooks(arr) {
 }
 
 function getFilters() {
+  const v1 = filterYearFrom ? String(filterYearFrom.value || '').trim() : '';
+  const v2 = filterYearTo ? String(filterYearTo.value || '').trim() : '';
+  const y1 = v1 === '' ? NaN : Number(v1);
+  const y2 = v2 === '' ? NaN : Number(v2);
   return {
     author: filterAuthor ? filterAuthor.value : '',
     format: filterFormat ? filterFormat.value : '',
-    y1: filterYearFrom ? Number(filterYearFrom.value || '') : NaN,
-    y2: filterYearTo ? Number(filterYearTo.value || '') : NaN,
+    y1: Number.isFinite(y1) ? y1 : NaN,
+    y2: Number.isFinite(y2) ? y2 : NaN,
     genres: filterGenres ? filterGenres.value.split(',').map(s=>s.trim()).filter(Boolean) : [],
     tags: filterTags ? filterTags.value.split(',').map(s=>s.trim()).filter(Boolean) : [],
   };
