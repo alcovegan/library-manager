@@ -221,7 +221,9 @@ ipcMain.handle('backup:import', async () => {
     return { ok: false, error: 'Backup failed verification' };
   }
 
-  // restore books and covers
+  // restore books and covers with duplicate handling (skip by ISBN)
+  let created = 0;
+  let skipped = 0;
   const restored = parsed.books.map((b) => {
     let coverPath = null;
     if (b.cover && b.cover.data) {
@@ -233,10 +235,22 @@ ipcMain.handle('backup:import', async () => {
       } catch {}
     }
     const { cover, authors = [], title = '', series=null, seriesIndex=null, year=null, publisher=null, isbn=null, language=null, rating=null, notes=null, tags=[], titleAlt=null, authorsAlt=[] } = b;
-    const created = dbLayer.createBook(db, { title, authors, coverPath, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt });
-    return created;
+    // Skip if ISBN already exists
+    let shouldSkip = false;
+    if (isbn) {
+      const safe = String(isbn).replace(/'/g, "''");
+      const r = db.db.exec(`SELECT 1 FROM books WHERE isbn='${safe}' LIMIT 1`);
+      shouldSkip = !!(r[0] && r[0].values && r[0].values.length);
+    }
+    if (shouldSkip) {
+      skipped += 1;
+      return null;
+    }
+    const createdBook = dbLayer.createBook(db, { title, authors, coverPath, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt });
+    created += 1;
+    return createdBook;
   });
-  return { ok: true, count: restored.length };
+  return { ok: true, count: restored.length, created, skipped };
 });
 
 // ISBN metadata lookup

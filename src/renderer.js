@@ -339,7 +339,10 @@ exportBtn.addEventListener('click', async () => {
 importBtn.addEventListener('click', async () => {
   const res = await window.api.importBackup();
   if (res?.ok) {
-    alert('Импорт завершён');
+    const created = res.created ?? 0;
+    const skipped = res.skipped ?? 0;
+    const total = res.count ?? (created + skipped);
+    alert(`Импорт завершён: добавлено ${created}, пропущено ${skipped}, всего ${total}`);
     await load();
   }
 });
