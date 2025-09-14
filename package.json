@@ -6,6 +6,9 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "publish": "electron-builder -p always",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -13,7 +16,8 @@
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
-    "electron": "^38.1.0"
+    "electron": "^38.1.0",
+    "electron-builder": "^24.13.3"
   },
   "dependencies": {
     "dotenv": "^17.2.2",
@@ -22,5 +26,28 @@
     "papaparse": "^5.5.3",
     "sql.js": "^1.13.0",
     "uuid": "^13.0.0"
+  }
+  ,
+  "build": {
+    "appId": "com.example.librarymanager",
+    "productName": "Library Manager",
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "!**/*.map"
+    ],
+    "mac": {
+      "target": ["dmg", "zip"]
+    },
+    "win": {
+      "target": ["nsis", "portable"]
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "category": "Utility"
+    },
+    "publish": [
+      { "provider": "github" }
+    ]
   }
 }
