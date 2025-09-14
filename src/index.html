@@ -135,15 +135,6 @@
         </div>
         <div class="actions flex items-center gap-2">
           <input id="searchInput" type="text" placeholder="Поиск по названию или автору…" class="input" style="width:16rem;" />
-          <div class="seg" role="group" aria-label="Вид">
-            <button id="btnViewGrid" type="button" class="active" aria-pressed="true" title="Сетка">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h8v8H3zM13 3h8v8h-8zM3 13h8v8H3zM13 13h8v8h-8z"/></svg>
-            </button>
-            <button id="btnViewList" type="button" aria-pressed="false" title="Список">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg>
-            </button>
-          </div>
-          
           <button id="themeToggle" class="icon-btn" title="Тёмная тема">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 9.54 6.63 1 1 0 0 0-1.51-.5A7 7 0 1 1 12 4a1 1 0 0 0 0-2z"/></svg>
           </button>
@@ -188,13 +179,23 @@
 
       <section class="card" style="min-height:0;">
         <div class="row" style="margin-bottom:8px; align-items:center; gap:8px;">
-          <label for="sortSelect" style="margin:0; color:var(--muted); font-size:12px;">Сортировка</label>
-          <select id="sortSelect" class="input" style="width:auto;">
-            <option value="title">Название</option>
-            <option value="author">Автор</option>
-            <option value="date">Дата добавления</option>
-            <option value="series">Серия</option>
-          </select>
+          <div class="seg" role="group" aria-label="Вид">
+            <button id="btnViewGrid" type="button" class="active" aria-pressed="true" title="Сетка">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h8v8H3zM13 3h8v8h-8zM3 13h8v8H3zM13 13h8v8h-8z"/></svg>
+            </button>
+            <button id="btnViewList" type="button" aria-pressed="false" title="Список">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg>
+            </button>
+          </div>
+          <div style="margin-left:auto; display:flex; align-items:center; gap:8px;">
+            <label for="sortSelect" style="margin:0; color:var(--muted); font-size:12px;">Сортировка</label>
+            <select id="sortSelect" class="input" style="width:auto;">
+              <option value="title">Название</option>
+              <option value="author">Автор</option>
+              <option value="date">Дата добавления</option>
+              <option value="series">Серия</option>
+            </select>
+          </div>
         </div>
         <div id="listViewport" style="height:100%; max-height: calc(100vh - 160px); overflow-y: auto; padding-right: 8px;">
           <div id="list" class="list"></div>
