@@ -38,12 +38,15 @@
       "!**/*.map"
     ],
     "mac": {
+      "icon": "assets/icons/icon.icns",
       "target": ["dmg", "zip"]
     },
     "win": {
+      "icon": "assets/icons/icon.ico",
       "target": ["nsis", "portable"]
     },
     "linux": {
+      "icon": "assets/icons/512x512.png",
       "target": ["AppImage", "deb"],
       "category": "Utility"
     },

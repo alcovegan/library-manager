@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Notification } = require('electron');
 let autoUpdater = null;
 try { ({ autoUpdater } = require('electron-updater')); } catch {}
 const path = require('path');
@@ -28,6 +28,16 @@ function uniqId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function showNotification(title, body) {
+  if (Notification.isSupported()) {
+    new Notification({
+      title,
+      body,
+      icon: path.join(__dirname, '../assets/icons/64x64.png')
+    }).show();
+  }
+}
+
 function copyCoverIfProvided(sourcePath) {
   if (!sourcePath) return null;
   try {
@@ -46,6 +56,7 @@ function createWindow() {
   const win = new BrowserWindow({
     width: 1000,
     height: 700,
+    icon: path.join(__dirname, '../assets/icons/256x256.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -423,6 +434,15 @@ ipcMain.handle('settings:update', async (evt, patch) => {
       openaiApiBaseUrl: String(patch?.openaiApiBaseUrl ?? ''),
     });
     return { ok: true, settings: saved };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+});
+
+ipcMain.handle('notification:show', async (evt, { title, body }) => {
+  try {
+    showNotification(title, body);
+    return { ok: true };
   } catch (e) {
     return { ok: false, error: String(e?.message || e) };
   }

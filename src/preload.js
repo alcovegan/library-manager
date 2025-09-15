@@ -35,6 +35,8 @@ contextBridge.exposeInMainWorld('api', {
   onUpdateAvailable: (cb) => { try { ipcRenderer.on('update:available', () => cb && cb()); } catch {} },
   onUpdateReady: (cb) => { try { ipcRenderer.on('update:ready', () => cb && cb()); } catch {} },
   onUpdateError: (cb) => { try { ipcRenderer.on('update:error', (_e, m) => cb && cb(m)); } catch {} },
+  // Notifications
+  showNotification: (title, body) => ipcRenderer.invoke('notification:show', { title, body }),
   parseCsv: (arg) => {
     const opts = (typeof arg === 'object' && arg !== null) ? arg : { text: String(arg || '') };
     const text = String(opts.text || '');
