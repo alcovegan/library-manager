@@ -85,15 +85,21 @@ function createWindow() {
 app.whenReady().then(async () => {
   // Set app icon for macOS dock and Alt+Tab (development mode)
   if (process.platform === 'darwin') {
-    const iconPath = path.join(__dirname, '../assets/icons/icon.icns');
-    if (fs.existsSync(iconPath)) {
-      app.dock.setIcon(iconPath);
-    } else {
-      // Fallback to PNG if ICNS not available
+    try {
+      // In development, prefer PNG as it's more reliable
       const pngIconPath = path.join(__dirname, '../assets/icons/1024x1024.png');
+      const icnsIconPath = path.join(__dirname, '../assets/icons/icon.icns');
+
       if (fs.existsSync(pngIconPath)) {
-        app.dock.setIcon(pngIconPath);
+        await app.dock.setIcon(pngIconPath);
+        console.log('Dock icon set successfully (PNG)');
+      } else if (fs.existsSync(icnsIconPath)) {
+        await app.dock.setIcon(icnsIconPath);
+        console.log('Dock icon set successfully (ICNS)');
       }
+    } catch (error) {
+      console.warn('Failed to set dock icon:', error.message);
+      // Continue without dock icon - not critical
     }
   }
 
