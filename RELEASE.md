@@ -1,4 +1,187 @@
-# Releases and Auto‑Updates
+# Релизы и автообновления (RU)
+
+Этот документ описывает, как упаковать Electron‑приложение для macOS/Windows/Linux, публиковать сборки в GitHub Releases и включить автообновления внутри приложения.
+
+Используемые инструменты: electron-builder (упаковка/публикация) и electron-updater (клиент обновлений).
+
+## 1) Предварительные требования
+
+- Node.js 18+
+- Репозиторий GitHub для проекта
+- Секреты в GitHub (Settings → Secrets → Actions):
+  - `GH_TOKEN`: персональный токен с правами `repo` (electron-builder загрузит релизные артефакты)
+  - Опционально для подписи:
+    - macOS: `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD` (или `CSC_LINK`/`CSC_KEY_PASSWORD` для сертификата), сертификаты Developer ID, включённая нотарификация
+    - Windows: `CSC_LINK` (base64/URL на `.p12`/`.pfx`), `CSC_KEY_PASSWORD`
+
+## 2) Установка инструментов
+
+Добавьте зависимости:
+
+```
+npm i -D electron-builder
+npm i electron-updater
+```
+
+Скрипты в `package.json`:
+
+```json
+{
+  "scripts": {
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "publish": "electron-builder -p always",
+    "release": "npm run dist"
+  }
+}
+```
+
+## 3) Конфигурация electron-builder
+
+Добавьте секцию `build` в `package.json` (или файл `electron-builder.yml`). Минимальный пример с публикацией в GitHub:
+
+```json
+{
+  "build": {
+    "appId": "com.example.librarymanager",
+    "productName": "Library Manager",
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "!**/*.map"
+    ],
+    "directories": {
+      "buildResources": "build"
+    },
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": ["dmg", "zip"],
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mac.plist"
+    },
+    "win": {
+      "target": ["nsis", "portable"]
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "category": "Utility"
+    },
+    "publish": [{ "provider": "github" }]
+  }
+}
+```
+
+Примечания:
+- Подкорректируйте `files`, чтобы включать только необходимые для рантайма файлы.
+- Для macOS оставьте `hardenedRuntime: true` и пропишите entitlements, если нужно.
+
+## 4) Автообновления в main‑процессе
+
+Используем electron-updater. В `src/main.js` добавьте:
+
+```js
+const { app, BrowserWindow } = require('electron');
+const { autoUpdater } = require('electron-updater');
+
+function setupAutoUpdates() {
+  try { autoUpdater.logger = require('electron-log'); autoUpdater.logger.transports.file.level = 'info'; } catch {}
+
+  autoUpdater.on('update-available', () => {
+    const win = BrowserWindow.getFocusedWindow();
+    if (win) win.webContents.send('update:available');
+  });
+  autoUpdater.on('update-downloaded', () => {
+    const win = BrowserWindow.getFocusedWindow();
+    if (win) win.webContents.send('update:ready');
+  });
+  autoUpdater.on('error', (e) => {
+    const win = BrowserWindow.getFocusedWindow();
+    if (win) win.webContents.send('update:error', String(e?.message || e));
+  });
+
+  autoUpdater.checkForUpdatesAndNotify();
+}
+
+app.whenReady().then(() => {
+  // ... createWindow()
+  setupAutoUpdates();
+});
+```
+
+В рендерере подпишитесь на события IPC (`update:available` / `update:ready`) и покажите UI (баннер, кнопка «Перезагрузить для обновления»). Для мгновенной установки вызовите `autoUpdater.quitAndInstall()` через IPC в main.
+
+### Каналы обновлений
+
+- По умолчанию используется канал `latest`. Предрелизы (теги вида `v1.2.0-beta.1`) относятся к каналу `beta`, если релиз в GitHub помечен как pre-release.
+- Канал можно менять через `publish/channel` или `autoUpdater.allowPrerelease`.
+
+## 5) CI GitHub Actions
+
+Создайте `.github/workflows/release.yml`, чтобы собирать по тэгам и публиковать артефакты в GitHub Releases:
+
+```yaml
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm run publish
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+```
+
+Матрица соберёт и загрузит установщики в релиз GitHub, соответствующий тегу (например, `v1.2.3`). electron-builder создаст файлы метаданных (`latest.yml`, `latest-mac.yml`) для electron-updater.
+
+## 6) Подпись и нотарификация (обзор)
+
+macOS:
+- Сертификат Developer ID Application
+- Включить Hardened Runtime и entitlements
+- Данные для подписи: `APPLE_ID` + `APPLE_APP_SPECIFIC_PASSWORD` или `CSC_LINK`/`CSC_KEY_PASSWORD`
+- electron-builder умеет нотарифицировать автоматически
+
+Windows:
+- Сертификат подписи кода (`.p12`/`.pfx`) через `CSC_LINK` + `CSC_KEY_PASSWORD`
+- Инсталлятор NSIS — основной таргет; `portable` — переносимая сборка
+
+Linux:
+- Обычно AppImage и DEB; подпись опциональна
+
+## 7) Ручная проверка обновлений (опционально)
+
+Добавьте пункт меню/кнопку, вызывающую `autoUpdater.checkForUpdates()` через IPC. Показывайте прогресс и ошибки небольшим тостом.
+
+## 8) Диагностика
+
+- Если автообновления не приходят, убедитесь, что релиз опубликован (не draft) и содержит файлы метаданных платформ.
+- За прокси может потребоваться настроить переменные окружения или флаг `ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES=true`.
+- Для beta‑канала пометьте релиз как pre-release или установите `autoUpdater.allowPrerelease = true`.
+
+—
+
+С такими настройками тэг (например, `v1.0.0`) запустит сборку установщиков для всех платформ, загрузит их в GitHub Releases, а пользователи получат предложение обновиться при следующем запуске.
+
+---
+
+# Releases and Auto‑Updates (EN)
 
 This document describes how to package the Electron app for macOS/Windows/Linux, publish builds to GitHub Releases, and enable in‑app auto‑updates.
 
@@ -183,4 +366,3 @@ Add a menu item or a toolbar button to call `autoUpdater.checkForUpdates()` via 
 ---
 
 With the steps above, tagging a commit (e.g., `git tag v1.0.0 && git push --tags`) will build installers for all platforms, publish them to GitHub Releases, and existing users will be offered an in‑app update on next launch.
-

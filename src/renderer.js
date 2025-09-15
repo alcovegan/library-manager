@@ -275,6 +275,147 @@ function populateAuthorFilter() {
   if (current) filterAuthor.value = current;
 }
 
+// Suggestion store for autocompletion
+let _suggest = { authors: [], series: [], publisher: [], genres: [], tags: [] };
+
+function rebuildSuggestStore() {
+  try {
+    const authors = new Set();
+    const series = new Set();
+    const publisher = new Set();
+    const tags = new Set();
+    const genres = new Set();
+    (state.books || []).forEach((b) => {
+      (Array.isArray(b.authors) ? b.authors : []).forEach((a) => { const s = String(a || '').trim(); if (s) authors.add(s); });
+      const s = String(b.series || '').trim(); if (s) series.add(s);
+      const p = String(b.publisher || '').trim(); if (p) publisher.add(p);
+      (Array.isArray(b.tags) ? b.tags : []).forEach((t) => { const s = String(t || '').trim(); if (s) tags.add(s); });
+      (Array.isArray(b.genres) ? b.genres : []).forEach((g) => { const s = String(g || '').trim(); if (s) genres.add(s); });
+    });
+    const collator = new Intl.Collator('ru', { sensitivity: 'base', numeric: true });
+    _suggest = {
+      authors: Array.from(authors).sort(collator.compare),
+      series: Array.from(series).sort(collator.compare),
+      publisher: Array.from(publisher).sort(collator.compare),
+      tags: Array.from(tags).sort(collator.compare),
+      genres: Array.from(genres).sort(collator.compare),
+    };
+  } catch (e) { console.error(e); }
+}
+
+function attachAutocomplete(el, domain, { multiple = false } = {}) {
+  if (!el || !domain) return;
+  if (el._autocompleteAttached) return;
+  el._autocompleteAttached = true;
+  const dropdown = document.createElement('div');
+  dropdown.style.position = 'fixed';
+  dropdown.style.zIndex = '1000';
+  dropdown.style.background = 'var(--surface)';
+  dropdown.style.border = '1px solid var(--border)';
+  dropdown.style.borderRadius = '8px';
+  dropdown.style.boxShadow = 'var(--shadow)';
+  dropdown.style.padding = '4px';
+  dropdown.style.display = 'none';
+  dropdown.style.maxHeight = '220px';
+  dropdown.style.overflowY = 'auto';
+  document.body.appendChild(dropdown);
+
+  let activeIndex = -1;
+  let items = [];
+
+  function position() {
+    const r = el.getBoundingClientRect();
+    dropdown.style.left = `${Math.round(r.left)}px`;
+    dropdown.style.top = `${Math.round(r.bottom + 4)}px`;
+    dropdown.style.minWidth = `${Math.round(r.width)}px`;
+  }
+
+  function hide() { dropdown.style.display = 'none'; activeIndex = -1; items = []; }
+  function show() { position(); dropdown.style.display = 'block'; }
+
+  function currentTokens() {
+    const raw = String(el.value || '');
+    const parts = raw.split(',').map(s => s.trim()).filter(Boolean);
+    return parts;
+  }
+
+  function render() {
+    dropdown.innerHTML = '';
+    if (!items.length) { hide(); return; }
+    items.slice(0, 8).forEach((text, i) => {
+      const opt = document.createElement('div');
+      opt.textContent = text;
+      opt.style.padding = '6px 8px';
+      opt.style.borderRadius = '6px';
+      opt.style.cursor = 'pointer';
+      opt.style.whiteSpace = 'nowrap';
+      opt.className = i === activeIndex ? 'active' : '';
+      if (i === activeIndex) opt.style.background = 'var(--muted-surface)';
+      opt.addEventListener('mouseenter', () => { activeIndex = i; render(); });
+      opt.addEventListener('mousedown', (e) => { e.preventDefault(); commit(text); });
+      dropdown.appendChild(opt);
+    });
+    show();
+  }
+
+  function search() {
+    const all = Array.isArray(_suggest[domain]) ? _suggest[domain] : [];
+    if (!multiple) {
+      const q = String(el.value || '').trim().toLowerCase();
+      if (!q) { items = []; hide(); return; }
+      items = all.filter(x => String(x).toLowerCase().includes(q));
+    } else {
+      const parts = String(el.value || '').split(',');
+      const last = (parts[parts.length - 1] || '').trim().toLowerCase();
+      if (!last) { items = []; hide(); return; }
+      const chosen = new Set(currentTokens().map(s => s.toLowerCase()));
+      items = all.filter(x => {
+        const l = String(x).toLowerCase();
+        return l.includes(last) && !chosen.has(l);
+      });
+    }
+    activeIndex = items.length ? 0 : -1;
+    render();
+  }
+
+  function commit(text) {
+    if (!multiple) {
+      el.value = text;
+    } else {
+      const parts = String(el.value || '').split(',');
+      parts[parts.length - 1] = ` ${text}`; // keep a space before token
+      const next = parts.map(s => s.trim()).filter(Boolean).join(', ');
+      el.value = next;
+    }
+    hide();
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  el.addEventListener('input', () => search());
+  el.addEventListener('focus', () => { search(); });
+  el.addEventListener('blur', () => { setTimeout(hide, 100); });
+  el.addEventListener('keydown', (e) => {
+    const visible = dropdown.style.display !== 'none';
+    if (!visible) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault(); e.stopPropagation();
+      activeIndex = Math.min((activeIndex + 1), items.length - 1); render();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault(); e.stopPropagation();
+      activeIndex = Math.max((activeIndex - 1), 0); render();
+    } else if (e.key === 'Enter') {
+      // If dropdown is open, consume Enter to avoid global save handler
+      e.preventDefault(); e.stopPropagation();
+      if (activeIndex >= 0 && items[activeIndex] != null) commit(items[activeIndex]);
+    } else if (e.key === 'Escape') {
+      e.preventDefault(); e.stopPropagation();
+      hide();
+    }
+  });
+
+  window.addEventListener('scroll', () => { if (dropdown.style.display !== 'none') position(); }, true);
+}
+
 function loadCollections() { try { return JSON.parse(localStorage.getItem('collections') || '{}'); } catch { return {}; } }
 function saveCollections(obj) { localStorage.setItem('collections', JSON.stringify(obj)); }
 const FILTERS_KEY = 'filters:v1';
@@ -661,15 +802,36 @@ async function load() {
   restoreFiltersState();
   syncCollectionsUI();
   rebuildSuggestStore();
-  // Safety: стартуем без сохранённых фильтров, если нет запроса
+  // Safety: если сохранённые фильтры на старте скрывают все книги — сбрасываем их автоматически
   try {
-    const noQuery = !(searchInput && String(searchInput.value || '').trim());
-    if (noQuery && hasAnyFilterSet()) {
-      clearAllFilters();
-      saveFiltersState();
+    const query = (searchInput && String(searchInput.value || '').trim()) || '';
+    // С учётом поискового запроса: проверяем ту базу, которая реально попадёт в фильтрацию
+    const baseForCheck = query ? (Array.isArray(state.visibleBooks) ? state.visibleBooks : []) : state.books;
+    if (Array.isArray(baseForCheck) && baseForCheck.length && hasAnyFilterSet()) {
+      const after = applyFilters(baseForCheck);
+      if (after.length === 0) {
+        clearAllFilters();
+        saveFiltersState();
+      }
     }
   } catch {}
   render();
+  // Доп. защита: если книги есть, но рендер показал пусто — сбросить фильтры и перерендерить
+  try {
+    setTimeout(() => {
+      try {
+        const hasBooks = Array.isArray(state.books) && state.books.length > 0;
+        const shown = listEl && listEl.children ? listEl.children.length : 0;
+        if (hasBooks && shown === 0) {
+          clearAllFilters();
+          saveFiltersState();
+          // На всякий случай один раз проигнорируем фильтры
+          skipFiltersOnce = true;
+          render();
+        }
+      } catch {}
+    }, 0);
+  } catch {}
 }
 
 function showEnrichView(show) {
@@ -741,6 +903,9 @@ if (modalChooseCoverBtn) {
     } catch (e) { console.error(e); }
   });
 }
+
+// Autocomplete for quick-add form (left panel)
+attachAutocomplete(authorsInput, 'authors', { multiple: true });
 
 if (modalSaveBtn) {
   modalSaveBtn.addEventListener('click', async () => {

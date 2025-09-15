@@ -4,8 +4,9 @@
   "description": "",
   "main": "src/main.js",
   "scripts": {
-    "start": "electron .",
-    "dev": "electron .",
+    "start": "ELECTRON_ENABLE_STACK_DUMPING=1 electron .",
+    "start-named": "./start-library-manager.sh",
+    "dev": "ELECTRON_ENABLE_STACK_DUMPING=1 electron .",
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
     "publish": "electron-builder -p always",
@@ -38,12 +39,15 @@
       "!**/*.map"
     ],
     "mac": {
+      "icon": "assets/icons/icon.icns",
       "target": ["dmg", "zip"]
     },
     "win": {
+      "icon": "assets/icons/icon.ico",
       "target": ["nsis", "portable"]
     },
     "linux": {
+      "icon": "assets/icons/512x512.png",
       "target": ["AppImage", "deb"],
       "category": "Utility"
     },

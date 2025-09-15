@@ -22,3 +22,6 @@ pnpm-debug.log*
 
 # env
 .env
+.cursorindexingignore
+.cursorrules
+.specstory/

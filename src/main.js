@@ -1,8 +1,12 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Notification } = require('electron');
 let autoUpdater = null;
 try { ({ autoUpdater } = require('electron-updater')); } catch {}
 const path = require('path');
 const fs = require('fs');
+
+// Set app name early for proper display in dock and Alt+Tab
+app.setName('Library Manager');
+process.title = 'Library Manager';
 // Load keys from .env (project root)
 try { require('dotenv').config(); } catch {}
 const dbLayer = require('./main/db');
@@ -28,6 +32,16 @@ function uniqId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function showNotification(title, body) {
+  if (Notification.isSupported()) {
+    new Notification({
+      title,
+      body,
+      icon: path.join(__dirname, '../assets/icons/64x64.png')
+    }).show();
+  }
+}
+
 function copyCoverIfProvided(sourcePath) {
   if (!sourcePath) return null;
   try {
@@ -43,9 +57,26 @@ function copyCoverIfProvided(sourcePath) {
 }
 
 function createWindow() {
+  // Choose best icon for the platform
+  let windowIcon;
+  if (process.platform === 'darwin') {
+    // macOS prefers ICNS but PNG works too
+    windowIcon = path.join(__dirname, '../assets/icons/icon.icns');
+    if (!fs.existsSync(windowIcon)) {
+      windowIcon = path.join(__dirname, '../assets/icons/512x512.png');
+    }
+  } else if (process.platform === 'win32') {
+    windowIcon = path.join(__dirname, '../assets/icons/icon.ico');
+  } else {
+    // Linux
+    windowIcon = path.join(__dirname, '../assets/icons/512x512.png');
+  }
+
   const win = new BrowserWindow({
     width: 1000,
     height: 700,
+    title: 'Library Manager',
+    icon: windowIcon,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -54,9 +85,49 @@ function createWindow() {
   });
 
   win.loadFile(path.join(__dirname, 'index.html'));
+
+  // Force set window title for macOS
+  win.setTitle('Library Manager');
+
+  // Additional attempt to set process name
+  if (process.platform === 'darwin') {
+    process.title = 'Library Manager';
+    app.setName('Library Manager');
+  }
 }
 
 app.whenReady().then(async () => {
+  // Set app name for dock and Alt+Tab display (multiple attempts for development mode)
+  app.setName('Library Manager');
+
+  // Set app icon for macOS dock and Alt+Tab (development mode)
+  if (process.platform === 'darwin') {
+    try {
+      // Force set app name again for macOS
+      app.setName('Library Manager');
+
+      // Set dock badge and title
+      if (app.dock) {
+        app.dock.setBadge('');
+      }
+
+      // In development, prefer PNG as it's more reliable
+      const pngIconPath = path.join(__dirname, '../assets/icons/1024x1024.png');
+      const icnsIconPath = path.join(__dirname, '../assets/icons/icon.icns');
+
+      if (fs.existsSync(pngIconPath)) {
+        await app.dock.setIcon(pngIconPath);
+        console.log('Dock icon set successfully (PNG)');
+      } else if (fs.existsSync(icnsIconPath)) {
+        await app.dock.setIcon(icnsIconPath);
+        console.log('Dock icon set successfully (ICNS)');
+      }
+    } catch (error) {
+      console.warn('Failed to set dock icon:', error.message);
+      // Continue without dock icon - not critical
+    }
+  }
+
   ensureDirs();
   settings.init(app.getPath('userData'));
   db = await dbLayer.openDb(app.getPath('userData'));
@@ -423,6 +494,15 @@ ipcMain.handle('settings:update', async (evt, patch) => {
       openaiApiBaseUrl: String(patch?.openaiApiBaseUrl ?? ''),
     });
     return { ok: true, settings: saved };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+});
+
+ipcMain.handle('notification:show', async (evt, { title, body }) => {
+  try {
+    showNotification(title, body);
+    return { ok: true };
   } catch (e) {
     return { ok: false, error: String(e?.message || e) };
   }
