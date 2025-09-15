@@ -3,6 +3,9 @@ let autoUpdater = null;
 try { ({ autoUpdater } = require('electron-updater')); } catch {}
 const path = require('path');
 const fs = require('fs');
+
+// Set app name early for proper display in dock and Alt+Tab
+app.setName('Library Manager');
 // Load keys from .env (project root)
 try { require('dotenv').config(); } catch {}
 const dbLayer = require('./main/db');
@@ -83,6 +86,9 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  // Set app name for dock and Alt+Tab display
+  app.setName('Library Manager');
+
   // Set app icon for macOS dock and Alt+Tab (development mode)
   if (process.platform === 'darwin') {
     try {
