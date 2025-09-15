@@ -1571,4 +1571,54 @@ if (clearAiCacheBtn) {
   });
 }
 
-load().then(() => {});
+// Try to load app icon
+function loadAppIcon() {
+  const iconImg = document.getElementById('appIcon');
+  const iconFallback = document.getElementById('iconFallback');
+
+  if (!iconImg || !iconFallback) return;
+
+  // Try different paths
+  const iconPaths = [
+    'assets/icon.png',
+    'assets/icons/256x256.png',
+    '../assets/icon.png',
+    '../assets/icons/256x256.png',
+    './assets/icon.png',
+    './assets/icons/256x256.png'
+  ];
+
+  let currentPathIndex = 0;
+
+  function tryNextPath() {
+    if (currentPathIndex >= iconPaths.length) {
+      // All paths failed, show fallback
+      console.log('All icon paths failed, using fallback');
+      return;
+    }
+
+    const path = iconPaths[currentPathIndex];
+    iconImg.src = path;
+    currentPathIndex++;
+  }
+
+  iconImg.onload = function() {
+    // Icon loaded successfully
+    iconImg.style.display = 'block';
+    iconFallback.style.display = 'none';
+    console.log('Icon loaded from:', iconImg.src);
+  };
+
+  iconImg.onerror = function() {
+    // This path failed, try next
+    console.log('Failed to load icon from:', iconImg.src);
+    tryNextPath();
+  };
+
+  // Start trying paths
+  tryNextPath();
+}
+
+load().then(() => {
+  loadAppIcon();
+});

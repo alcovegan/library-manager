@@ -133,7 +133,10 @@
   </head>
   <body>
     <header class="sticky top-0 z-10 bg-white/70 backdrop-blur border-b border-slate-200">
-      <h1 class="sr-only">Домашняя библиотека</h1>
+      <h1 class="flex items-center justify-center p-2">
+        <img id="appIcon" src="" alt="Домашняя библиотека" width="48" height="48" style="display: none;" />
+        <div id="iconFallback" style="width: 48px; height: 48px; background: linear-gradient(135deg, #4f46e5, #7c3aed, #f43f5e); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 20px;">📚</div>
+      </h1>
       <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
         <div class="actions flex items-center gap-2">
           <input id="searchInput" type="text" placeholder="Поиск по названию или автору…" class="input" style="width:16rem;" />
