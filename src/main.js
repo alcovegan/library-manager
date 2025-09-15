@@ -53,10 +53,25 @@ function copyCoverIfProvided(sourcePath) {
 }
 
 function createWindow() {
+  // Choose best icon for the platform
+  let windowIcon;
+  if (process.platform === 'darwin') {
+    // macOS prefers ICNS but PNG works too
+    windowIcon = path.join(__dirname, '../assets/icons/icon.icns');
+    if (!fs.existsSync(windowIcon)) {
+      windowIcon = path.join(__dirname, '../assets/icons/512x512.png');
+    }
+  } else if (process.platform === 'win32') {
+    windowIcon = path.join(__dirname, '../assets/icons/icon.ico');
+  } else {
+    // Linux
+    windowIcon = path.join(__dirname, '../assets/icons/512x512.png');
+  }
+
   const win = new BrowserWindow({
     width: 1000,
     height: 700,
-    icon: path.join(__dirname, '../assets/icons/256x256.png'),
+    icon: windowIcon,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -68,6 +83,20 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  // Set app icon for macOS dock and Alt+Tab (development mode)
+  if (process.platform === 'darwin') {
+    const iconPath = path.join(__dirname, '../assets/icons/icon.icns');
+    if (fs.existsSync(iconPath)) {
+      app.dock.setIcon(iconPath);
+    } else {
+      // Fallback to PNG if ICNS not available
+      const pngIconPath = path.join(__dirname, '../assets/icons/1024x1024.png');
+      if (fs.existsSync(pngIconPath)) {
+        app.dock.setIcon(pngIconPath);
+      }
+    }
+  }
+
   ensureDirs();
   settings.init(app.getPath('userData'));
   db = await dbLayer.openDb(app.getPath('userData'));
