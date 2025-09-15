@@ -6,6 +6,7 @@ const fs = require('fs');
 
 // Set app name early for proper display in dock and Alt+Tab
 app.setName('Library Manager');
+process.title = 'Library Manager';
 // Load keys from .env (project root)
 try { require('dotenv').config(); } catch {}
 const dbLayer = require('./main/db');
@@ -74,6 +75,7 @@ function createWindow() {
   const win = new BrowserWindow({
     width: 1000,
     height: 700,
+    title: 'Library Manager',
     icon: windowIcon,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -83,15 +85,32 @@ function createWindow() {
   });
 
   win.loadFile(path.join(__dirname, 'index.html'));
+
+  // Force set window title for macOS
+  win.setTitle('Library Manager');
+
+  // Additional attempt to set process name
+  if (process.platform === 'darwin') {
+    process.title = 'Library Manager';
+    app.setName('Library Manager');
+  }
 }
 
 app.whenReady().then(async () => {
-  // Set app name for dock and Alt+Tab display
+  // Set app name for dock and Alt+Tab display (multiple attempts for development mode)
   app.setName('Library Manager');
 
   // Set app icon for macOS dock and Alt+Tab (development mode)
   if (process.platform === 'darwin') {
     try {
+      // Force set app name again for macOS
+      app.setName('Library Manager');
+
+      // Set dock badge and title
+      if (app.dock) {
+        app.dock.setBadge('');
+      }
+
       // In development, prefer PNG as it's more reliable
       const pngIconPath = path.join(__dirname, '../assets/icons/1024x1024.png');
       const icnsIconPath = path.join(__dirname, '../assets/icons/icon.icns');
