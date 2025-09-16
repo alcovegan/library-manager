@@ -395,7 +395,7 @@ function attachAutocomplete(el, domain, { multiple = false } = {}) {
       el.value = next;
     }
     hide();
-    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('input', { bubbles: false }));
   }
 
   el.addEventListener('input', () => search());
@@ -1418,11 +1418,19 @@ document.addEventListener('keydown', (e) => {
   }
   // Focus search with '/'
   if (e.key === '/' && !e.ctrlKey && !e.metaKey) {
+    // Don't trigger if user is typing in an input field
+    if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
+      return;
+    }
     e.preventDefault();
     if (searchInput) searchInput.focus();
   }
   // New book with 'N'
   if ((e.key === 'n' || e.key === 'N') && !e.ctrlKey && !e.metaKey) {
+    // Don't trigger if user is typing in an input field
+    if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
+      return;
+    }
     e.preventDefault();
     openDetails({});
   }
@@ -1440,6 +1448,10 @@ document.addEventListener('keydown', (e) => {
   }
   // Delete key to delete selected or current
   if (e.key === 'Delete') {
+    // Don't trigger if user is typing in an input field (allow normal text deletion)
+    if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
+      return;
+    }
     if (modalEl && modalEl.style.display === 'flex' && state.modal.id) {
       e.preventDefault();
       if (confirm('Удалить книгу?')) {
