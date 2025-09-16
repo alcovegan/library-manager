@@ -425,10 +425,12 @@ ipcMain.handle('covers:download', async (evt, url) => {
 // AI enrichment
 ipcMain.handle('ai:isbn:enrich', async (evt, payload) => {
   try {
+    console.log('🤖 [MAIN] AI ISBN enrich called with payload:', payload);
     const res = await aiIsbn.enrich(db, payload || {});
+    console.log('🤖 [MAIN] AI enrich result:', res);
     return res;
   } catch (e) {
-    console.error('ai:isbn:enrich failed', e);
+    console.error('❌ [MAIN] ai:isbn:enrich failed', e);
     return { ok: false, error: String(e?.message || e) };
   }
 });
@@ -492,6 +494,8 @@ ipcMain.handle('settings:update', async (evt, patch) => {
       googleBooksApiKey: String(patch?.googleBooksApiKey ?? ''),
       openaiApiKey: String(patch?.openaiApiKey ?? ''),
       openaiApiBaseUrl: String(patch?.openaiApiBaseUrl ?? ''),
+      openaiModel: String(patch?.openaiModel ?? ''),
+      openaiDisableCache: Boolean(patch?.openaiDisableCache ?? false),
     });
     return { ok: true, settings: saved };
   } catch (e) {

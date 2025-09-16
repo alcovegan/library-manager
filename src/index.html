@@ -328,6 +328,7 @@
               <label>ISBN</label>
               <div class="row" style="gap:8px;">
                 <input id="modalIsbn" type="text" style="flex:1;" />
+                <button id="aiIsbnSearchBtn" title="Найти ISBN через AI по названию и автору">🤖 Найти ISBN</button>
                 <button id="isbnSearchBtn">Найти по ISBN</button>
                 <button id="isbnRefreshBtn" title="Игнорировать кеш и обновить">Обновить</button>
               </div>
@@ -417,6 +418,24 @@
           <div>
             <label>OpenAI API Base URL (опционально)</label>
             <input id="settingsOpenAIBase" type="text" placeholder="https://api.openai.com/v1" />
+          </div>
+          <div>
+            <label>OpenAI Model (опционально)</label>
+            <select id="settingsOpenAIModel" class="input">
+              <option value="gpt-5">GPT-5 (новейшая) 🚀</option>
+              <option value="o1-preview">o1-preview (reasoning) 🧠</option>
+              <option value="gpt-4o">gpt-4o (стабильная)</option>
+              <option value="o1-mini">o1-mini (reasoning, быстрая) ⚡</option>
+              <option value="gpt-4o-mini">gpt-4o-mini (быстрая, дешевая) 💰</option>
+              <option value="gpt-4-turbo">gpt-4-turbo</option>
+              <option value="gpt-4">gpt-4 (классическая)</option>
+            </select>
+          </div>
+          <div style="margin-top:8px;">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+              <input id="settingsOpenAIDisableCache" type="checkbox" />
+              <span>Отключить кэширование AI запросов (для тестирования)</span>
+            </label>
           </div>
           <div class="row" style="margin-top:6px;">
             <button id="saveSettingsBtn" class="primary">Сохранить</button>

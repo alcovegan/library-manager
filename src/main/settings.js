@@ -9,6 +9,8 @@ const DEFAULTS = {
   googleBooksApiKey: process.env.GOOGLE_BOOKS_API_KEY || '',
   openaiApiKey: process.env.OPENAI_API_KEY || '',
   openaiApiBaseUrl: process.env.OPENAI_BASE_URL || process.env.OPENAI_API_BASE_URL || '',
+  openaiModel: process.env.OPENAI_MODEL || 'gpt-5',
+  openaiDisableCache: process.env.OPENAI_DISABLE_CACHE === 'true' || false,
 };
 
 function init(userDataPath) {

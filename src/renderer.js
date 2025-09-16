@@ -28,6 +28,7 @@ const modalYear = $('#modalYear');
 const modalPublisher = $('#modalPublisher');
 const publisherCyrBtn = $('#publisherCyrBtn');
 const modalIsbn = $('#modalIsbn');
+const aiIsbnSearchBtn = $('#aiIsbnSearchBtn');
 const isbnSearchBtn = $('#isbnSearchBtn');
 const isbnRefreshBtn = $('#isbnRefreshBtn');
 const isbnResults = $('#isbnResults');
@@ -69,6 +70,8 @@ const closeSettingsBtn = $('#closeSettingsBtn');
 const settingsIsbndbKey = $('#settingsIsbndbKey');
 const settingsGoogleKey = $('#settingsGoogleKey');
 const settingsOpenAIBase = document.querySelector('#settingsOpenAIBase');
+const settingsOpenAIModel = document.querySelector('#settingsOpenAIModel');
+const settingsOpenAIDisableCache = document.querySelector('#settingsOpenAIDisableCache');
 const settingsOpenAIKey = $('#settingsOpenAIKey');
 const saveSettingsBtn = $('#saveSettingsBtn');
 const formTitle = $('#formTitle');
@@ -1052,6 +1055,118 @@ if (isbnRefreshBtn) {
   isbnRefreshBtn.addEventListener('click', () => runIsbnSearch(true));
 }
 
+// AI ISBN search functionality
+async function runAiIsbnSearch() {
+  const title = modalTitle?.value?.trim() || '';
+  const authors = modalAuthors?.value?.trim() || '';
+  const publisher = modalPublisher?.value?.trim() || '';
+  const year = modalYear?.value?.trim() || '';
+
+  console.log('🤖 AI ISBN Search - Input data:', {
+    title,
+    authors,
+    publisher,
+    year
+  });
+
+  if (!title && !authors) {
+    alert('Введите хотя бы название или автора для поиска ISBN');
+    return;
+  }
+
+  try {
+    // Show loading state
+    if (aiIsbnSearchBtn) {
+      aiIsbnSearchBtn.disabled = true;
+      aiIsbnSearchBtn.textContent = '🔄 Поиск...';
+    }
+
+    console.log('🤖 Calling AI enrichment API...');
+
+    // Call AI enrichment
+    const result = await window.api.aiEnrichIsbn({
+      title,
+      authors,
+      publisher,
+      year,
+      force: false // Use cache if available
+    });
+
+    console.log('🤖 AI enrichment result:', result);
+
+    if (result.raw) {
+      console.log('🤖 Raw OpenAI response:', result.raw);
+    }
+
+    if (result.prompt) {
+      console.log('🤖 Prompt sent to OpenAI:', result.prompt);
+    }
+
+    if (result.ok && result.result?.isbn13) {
+      // Success - populate ISBN field
+      console.log('✅ ISBN found:', result.result.isbn13, 'confidence:', result.result.confidence);
+
+      if (modalIsbn) {
+        modalIsbn.value = result.result.isbn13;
+        modalIsbn.focus();
+      }
+
+      // Show success notification
+      const confidence = result.result.confidence || 0;
+      const confidencePercent = Math.round(confidence * 100);
+      let message = `ISBN найден: ${result.result.isbn13}`;
+      if (confidence > 0) {
+        message += ` (уверенность: ${confidencePercent}%)`;
+      }
+      if (result.result.rationale) {
+        message += `\n${result.result.rationale}`;
+        console.log('🤖 AI rationale:', result.result.rationale);
+      }
+
+      if (window.api?.showNotification) {
+        window.api.showNotification('ISBN найден', message);
+      } else {
+        alert(message);
+      }
+    } else {
+      // No ISBN found
+      console.log('❌ No ISBN found in AI response');
+      console.log('🤖 Full result object:', result);
+
+      const message = 'ISBN не найден. Попробуйте уточнить данные или найти вручную.';
+      if (window.api?.showNotification) {
+        window.api.showNotification('ISBN не найден', message);
+      } else {
+        alert(message);
+      }
+    }
+  } catch (error) {
+    console.error('❌ AI ISBN search failed:', error);
+    console.log('🤖 Error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
+
+    const message = `Ошибка поиска: ${error.message || 'Неизвестная ошибка'}`;
+    if (window.api?.showNotification) {
+      window.api.showNotification('Ошибка поиска ISBN', message);
+    } else {
+      alert(message);
+    }
+  } finally {
+    // Restore button state
+    if (aiIsbnSearchBtn) {
+      aiIsbnSearchBtn.disabled = false;
+      aiIsbnSearchBtn.textContent = '🤖 Найти ISBN';
+    }
+  }
+}
+
+if (aiIsbnSearchBtn) {
+  aiIsbnSearchBtn.addEventListener('click', runAiIsbnSearch);
+}
+
 function hasCyrillic(text) { return /[\u0400-\u04FF]/.test(text || ''); }
 function isLikelyRussian(c) {
   const lang = String(c.language || '').toLowerCase();
@@ -1133,6 +1248,8 @@ async function loadSettings() {
       if (settingsGoogleKey) settingsGoogleKey.value = res.settings.googleBooksApiKey || '';
       if (settingsOpenAIKey) settingsOpenAIKey.value = res.settings.openaiApiKey || '';
       if (settingsOpenAIBase) settingsOpenAIBase.value = res.settings.openaiApiBaseUrl || '';
+      if (settingsOpenAIModel) settingsOpenAIModel.value = res.settings.openaiModel || 'gpt-5';
+      if (settingsOpenAIDisableCache) settingsOpenAIDisableCache.checked = res.settings.openaiDisableCache || false;
     }
   } catch (e) { console.error(e); }
 }
@@ -1210,6 +1327,8 @@ if (saveSettingsBtn) {
         googleBooksApiKey: settingsGoogleKey ? settingsGoogleKey.value.trim() : '',
         openaiApiKey: settingsOpenAIKey ? settingsOpenAIKey.value.trim() : '',
         openaiApiBaseUrl: settingsOpenAIBase ? settingsOpenAIBase.value.trim() : '',
+        openaiModel: settingsOpenAIModel ? settingsOpenAIModel.value.trim() : '',
+        openaiDisableCache: settingsOpenAIDisableCache ? settingsOpenAIDisableCache.checked : false,
       };
       const res = await window.api.updateSettings(payload);
       if (!res || !res.ok) { alert('Не удалось сохранить настройки'); return; }
