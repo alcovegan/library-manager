@@ -72,6 +72,7 @@ const settingsGoogleKey = $('#settingsGoogleKey');
 const settingsOpenAIBase = document.querySelector('#settingsOpenAIBase');
 const settingsOpenAIModel = document.querySelector('#settingsOpenAIModel');
 const settingsOpenAIDisableCache = document.querySelector('#settingsOpenAIDisableCache');
+const settingsAiStrictMode = document.querySelector('#settingsAiStrictMode');
 const settingsOpenAIKey = $('#settingsOpenAIKey');
 const settingsAiProvider = document.querySelector('#settingsAiProvider');
 const settingsPerplexityKey = document.querySelector('#settingsPerplexityKey');
@@ -1346,6 +1347,7 @@ async function loadSettings() {
       if (settingsOpenAIBase) settingsOpenAIBase.value = res.settings.openaiApiBaseUrl || '';
       if (settingsOpenAIModel) settingsOpenAIModel.value = res.settings.openaiModel || 'gpt-5';
       if (settingsOpenAIDisableCache) settingsOpenAIDisableCache.checked = res.settings.openaiDisableCache || false;
+    if (settingsAiStrictMode) settingsAiStrictMode.checked = res.settings.aiStrictMode || false;
       if (settingsAiProvider) settingsAiProvider.value = res.settings.aiProvider || 'openai';
       if (settingsPerplexityKey) settingsPerplexityKey.value = res.settings.perplexityApiKey || '';
       if (settingsPerplexityModel) settingsPerplexityModel.value = res.settings.perplexityModel || 'sonar';
@@ -1429,6 +1431,7 @@ if (saveSettingsBtn) {
         openaiApiBaseUrl: settingsOpenAIBase ? settingsOpenAIBase.value.trim() : '',
         openaiModel: settingsOpenAIModel ? settingsOpenAIModel.value.trim() : '',
         openaiDisableCache: settingsOpenAIDisableCache ? settingsOpenAIDisableCache.checked : false,
+      aiStrictMode: settingsAiStrictMode ? settingsAiStrictMode.checked : false,
         aiProvider: settingsAiProvider ? settingsAiProvider.value.trim() : 'openai',
         perplexityApiKey: settingsPerplexityKey ? settingsPerplexityKey.value.trim() : '',
         perplexityModel: settingsPerplexityModel ? settingsPerplexityModel.value.trim() : '',
