@@ -1108,22 +1108,42 @@ async function runAiIsbnSearch() {
 
     if (result.ok && result.result?.isbn13) {
       // Success - populate ISBN field
-      console.log('✅ ISBN found:', result.result.isbn13, 'confidence:', result.result.confidence);
+      console.log('✅ AI result:', result.result);
 
       if (modalIsbn) {
         modalIsbn.value = result.result.isbn13;
         modalIsbn.focus();
       }
 
-      // Show success notification
+      // Show success notification with additional data option
       const confidence = result.result.confidence || 0;
       const confidencePercent = Math.round(confidence * 100);
       let message = `ISBN найден: ${result.result.isbn13}`;
       if (confidence > 0) {
         message += ` (уверенность: ${confidencePercent}%)`;
       }
+
+      // Add found additional data to message
+      const additionalData = [];
+      if (result.result.year) additionalData.push(`год: ${result.result.year}`);
+      if (result.result.publisher) additionalData.push(`издательство: ${result.result.publisher}`);
+
+      if (additionalData.length > 0) {
+        message += `\nНайдено: ${additionalData.join(', ')}`;
+
+        // Ask user if they want to fill additional fields
+        const fillAdditional = confirm(`${message}\n\nЗаполнить найденные поля автоматически?`);
+        if (fillAdditional) {
+          if (result.result.year && modalYear && !modalYear.value.trim()) {
+            modalYear.value = result.result.year;
+          }
+          if (result.result.publisher && modalPublisher && !modalPublisher.value.trim()) {
+            modalPublisher.value = result.result.publisher;
+          }
+        }
+      }
+
       if (result.result.rationale) {
-        message += `\n${result.result.rationale}`;
         console.log('🤖 AI rationale:', result.result.rationale);
       }
 
@@ -1133,11 +1153,40 @@ async function runAiIsbnSearch() {
         alert(message);
       }
     } else {
-      // No ISBN found
+      // No ISBN found, but check if we have other useful data
       console.log('❌ No ISBN found in AI response');
       console.log('🤖 Full result object:', result);
 
-      const message = 'ISBN не найден. Попробуйте уточнить данные или найти вручную.';
+      let message = 'ISBN не найден.';
+      let hasAdditionalData = false;
+
+      // Check if we found additional data even without ISBN
+      if (result.ok && result.result) {
+        const additionalData = [];
+        if (result.result.year) additionalData.push(`год: ${result.result.year}`);
+        if (result.result.publisher) additionalData.push(`издательство: ${result.result.publisher}`);
+
+        if (additionalData.length > 0) {
+          hasAdditionalData = true;
+          message += ` Но найдено: ${additionalData.join(', ')}.`;
+
+          // Ask user if they want to fill additional fields
+          const fillAdditional = confirm(`${message}\n\nЗаполнить найденные поля?`);
+          if (fillAdditional) {
+            if (result.result.year && modalYear && !modalYear.value.trim()) {
+              modalYear.value = result.result.year;
+            }
+            if (result.result.publisher && modalPublisher && !modalPublisher.value.trim()) {
+              modalPublisher.value = result.result.publisher;
+            }
+          }
+        }
+      }
+
+      if (!hasAdditionalData) {
+        message += ' Попробуйте уточнить данные или найти вручную.';
+      }
+
       if (window.api?.showNotification) {
         window.api.showNotification('ISBN не найден', message);
       } else {

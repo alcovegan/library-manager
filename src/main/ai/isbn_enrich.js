@@ -20,18 +20,20 @@ function buildPrompt({ title, authors, publisher, year }) {
   lines.push('- Приоритет: крупные издательства, популярные переводы, новые издания');
   lines.push('- Если есть несколько вариантов - выбери наиболее вероятный для покупки/поиска');
   lines.push('- НЕ изобретай несуществующие ISBN');
+  lines.push('- Верни также год издания и название издательства если найдешь');
   lines.push('');
   lines.push('ПРАВИЛА:');
   lines.push('- ISBN должен начинаться с 978 или 979 и содержать 13 цифр');
   lines.push('- Если нашел подходящий ISBN - укажи confidence 0.7-0.9');
   lines.push('- Если книга очень редкая/неизвестная - верни null с confidence 0.0');
+  lines.push('- Год должен быть числом (например: 2019), издательство - строкой');
   lines.push('');
   lines.push('Отвечай строго JSON:');
-  lines.push('{ "isbn13": string|null, "confidence": number (0..1), "rationale": string }');
+  lines.push('{ "isbn13": string|null, "year": number|null, "publisher": string|null, "confidence": number (0..1), "rationale": string }');
   lines.push('');
   lines.push('Примеры:');
-  lines.push('- {"isbn13": "9785170123456", "confidence": 0.8, "rationale": "Популярное издание АСТ"}');
-  lines.push('- {"isbn13": null, "confidence": 0.0, "rationale": "Книга не найдена в известных каталогах"}');
+  lines.push('- {"isbn13": "9785170123456", "year": 2019, "publisher": "АСТ", "confidence": 0.8, "rationale": "Популярное издание АСТ"}');
+  lines.push('- {"isbn13": null, "year": null, "publisher": null, "confidence": 0.0, "rationale": "Книга не найдена в известных каталогах"}');
   lines.push('');
   lines.push('Данные для поиска:');
   lines.push(`Название: ${normalizeStr(title)}`);
@@ -92,6 +94,8 @@ async function enrich(ctx, payload) {
   // minimal validation
   const result = {
     isbn13: typeof parsed.isbn13 === 'string' ? parsed.isbn13 : null,
+    year: Number.isFinite(parsed.year) ? parsed.year : null,
+    publisher: typeof parsed.publisher === 'string' ? parsed.publisher.trim() : null,
     confidence: Number.isFinite(parsed.confidence) ? Math.max(0, Math.min(1, parsed.confidence)) : 0,
     rationale: typeof parsed.rationale === 'string' ? parsed.rationale : undefined,
   };
