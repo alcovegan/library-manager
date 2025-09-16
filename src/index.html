@@ -412,24 +412,53 @@
             <input id="settingsGoogleKey" type="text" placeholder="AIza..." />
           </div>
           <div>
-            <label>OpenAI API Key (для обогащения)</label>
+            <label>AI провайдер для поиска ISBN</label>
+            <select id="settingsAiProvider" class="input">
+              <option value="openai">OpenAI (GPT-5, o1-preview)</option>
+              <option value="perplexity">Perplexity (дешевле, с поиском) 💰</option>
+            </select>
+          </div>
+          <div id="openaiSettings">
+            <label>OpenAI API Key</label>
             <input id="settingsOpenAIKey" type="text" placeholder="sk-..." />
           </div>
-          <div>
-            <label>OpenAI API Base URL (опционально)</label>
-            <input id="settingsOpenAIBase" type="text" placeholder="https://api.openai.com/v1" />
+          <div id="perplexitySettings" style="display:none;">
+            <label>Perplexity API Key</label>
+            <input id="settingsPerplexityKey" type="text" placeholder="pplx-..." />
           </div>
-          <div>
-            <label>OpenAI Model (опционально)</label>
-            <select id="settingsOpenAIModel" class="input">
-              <option value="gpt-5">GPT-5 (новейшая) 🚀</option>
-              <option value="o1-preview">o1-preview (reasoning) 🧠</option>
-              <option value="gpt-4o">gpt-4o (стабильная)</option>
-              <option value="o1-mini">o1-mini (reasoning, быстрая) ⚡</option>
-              <option value="gpt-4o-mini">gpt-4o-mini (быстрая, дешевая) 💰</option>
-              <option value="gpt-4-turbo">gpt-4-turbo</option>
-              <option value="gpt-4">gpt-4 (классическая)</option>
-            </select>
+          <div id="openaiExtraSettings">
+            <div>
+              <label>OpenAI API Base URL (опционально)</label>
+              <input id="settingsOpenAIBase" type="text" placeholder="https://api.openai.com/v1" />
+            </div>
+            <div>
+              <label>OpenAI Model (опционально)</label>
+              <select id="settingsOpenAIModel" class="input">
+                <option value="gpt-5">GPT-5 (новейшая) 🚀</option>
+                <option value="o1-preview">o1-preview (reasoning) 🧠</option>
+                <option value="gpt-4o">gpt-4o (стабильная)</option>
+                <option value="o1-mini">o1-mini (reasoning, быстрая) ⚡</option>
+                <option value="gpt-4o-mini">gpt-4o-mini (быстрая, дешевая) 💰</option>
+                <option value="gpt-4-turbo">gpt-4-turbo</option>
+                <option value="gpt-4">gpt-4 (классическая)</option>
+              </select>
+            </div>
+          </div>
+          <div id="perplexityExtraSettings" style="display:none;">
+            <div>
+              <label>Perplexity Model</label>
+              <select id="settingsPerplexityModel" class="input">
+                <option value="sonar">Sonar ($1/$1) - дешево, быстро 💰</option>
+                <option value="sonar-reasoning">Sonar Reasoning ($1/$5) - с логикой</option>
+                <option value="sonar-reasoning-pro">Sonar Reasoning Pro ($2/$8) - умное рассуждение</option>
+                <option value="sonar-pro">Sonar Pro ($3/$15) - продвинутый поиск</option>
+              </select>
+            </div>
+            <div style="margin-top:8px;">
+              <button id="checkPerplexityBalance" type="button" class="secondary">
+                💰 Открыть биллинг Perplexity
+              </button>
+            </div>
           </div>
           <div style="margin-top:8px;">
             <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">

@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const settings = require('../settings');
 const db = require('../db');
+const { callAI } = require('./universal_provider');
 
 const POSITIVE_TTL_MS = 1000 * 60 * 60 * 24 * 30; // 30 days
 
@@ -40,52 +41,7 @@ function buildPrompt({ title, authors, publisher, year }) {
   return lines.join('\n');
 }
 
-async function callOpenAI(prompt) {
-  const s = settings.getSettings();
-  const apiKey = s.openaiApiKey || process.env.OPENAI_API_KEY;
-  const baseURL = s.openaiApiBaseUrl || process.env.OPENAI_BASE_URL || process.env.OPENAI_API_BASE_URL;
-  const model = s.openaiModel || 'gpt-5';
 
-  console.log('🤖 [OpenAI] API config:', {
-    hasApiKey: !!apiKey,
-    baseURL: baseURL || 'default',
-    model: model
-  });
-
-  if (!apiKey) throw new Error('OPENAI_API_KEY not configured');
-
-  const { OpenAI } = require('openai');
-  const client = new OpenAI({ apiKey, baseURL });
-
-  // o1 models don't support system messages and temperature
-  const isO1Model = model.startsWith('o1-');
-
-  const requestParams = {
-    model: model,  // Use configurable model from settings
-    messages: isO1Model ? [
-      { role: 'user', content: `You are a strict JSON-only bibliographic assistant.\n\n${prompt}` }
-    ] : [
-      { role: 'system', content: 'You return only strict JSON. No prose.' },
-      { role: 'user', content: prompt },
-    ],
-  };
-
-  // Only add temperature for non-o1 models
-  if (!isO1Model) {
-    requestParams.temperature = 0.1;  // Reduced temperature for more deterministic results
-  }
-
-  console.log('🤖 [OpenAI] Request params:', requestParams);
-
-  const completion = await client.chat.completions.create(requestParams);
-
-  console.log('🤖 [OpenAI] Full completion response:', completion);
-
-  const content = completion.choices?.[0]?.message?.content || '';
-  console.log('🤖 [OpenAI] Extracted content:', content);
-
-  return content;
-}
 
 function safeParseJson(text) {
   try { return JSON.parse(text); } catch { return null; }
@@ -127,8 +83,8 @@ async function enrich(ctx, payload) {
   const prompt = buildPrompt(query);
   console.log('🤖 [AI] Generated prompt:\n', prompt);
 
-  const raw = await callOpenAI(prompt);
-  console.log('🤖 [AI] Raw OpenAI response:', raw);
+  const raw = await callAI(prompt);
+  console.log('🤖 [AI] Raw AI response:', raw);
 
   const parsed = safeParseJson(raw) || {};
   console.log('🤖 [AI] Parsed JSON:', parsed);

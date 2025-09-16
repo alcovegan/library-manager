@@ -26,6 +26,7 @@ contextBridge.exposeInMainWorld('api', {
   downloadCover: (url) => ipcRenderer.invoke('covers:download', url),
   aiEnrichIsbn: (payload) => ipcRenderer.invoke('ai:isbn:enrich', payload),
   aiClearCache: (payload) => ipcRenderer.invoke('ai:isbn:clearCache', payload),
+  checkPerplexityBalance: () => ipcRenderer.invoke('perplexity:balance'),
   getSettings: () => ipcRenderer.invoke('settings:get'),
   updateSettings: (patch) => ipcRenderer.invoke('settings:update', patch),
   reloadIgnoringCache: () => ipcRenderer.invoke('app:reload-ignore-cache'),

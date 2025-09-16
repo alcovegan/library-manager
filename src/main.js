@@ -496,6 +496,9 @@ ipcMain.handle('settings:update', async (evt, patch) => {
       openaiApiBaseUrl: String(patch?.openaiApiBaseUrl ?? ''),
       openaiModel: String(patch?.openaiModel ?? ''),
       openaiDisableCache: Boolean(patch?.openaiDisableCache ?? false),
+      perplexityApiKey: String(patch?.perplexityApiKey ?? ''),
+      perplexityModel: String(patch?.perplexityModel ?? ''),
+      aiProvider: String(patch?.aiProvider ?? 'openai'),
     });
     return { ok: true, settings: saved };
   } catch (e) {
@@ -506,6 +509,17 @@ ipcMain.handle('settings:update', async (evt, patch) => {
 ipcMain.handle('notification:show', async (evt, { title, body }) => {
   try {
     showNotification(title, body);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+});
+
+// Open Perplexity billing page
+ipcMain.handle('perplexity:balance', async () => {
+  try {
+    const { shell } = require('electron');
+    await shell.openExternal('https://www.perplexity.ai/account/api/billing');
     return { ok: true };
   } catch (e) {
     return { ok: false, error: String(e?.message || e) };

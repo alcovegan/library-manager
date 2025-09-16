@@ -73,6 +73,10 @@ const settingsOpenAIBase = document.querySelector('#settingsOpenAIBase');
 const settingsOpenAIModel = document.querySelector('#settingsOpenAIModel');
 const settingsOpenAIDisableCache = document.querySelector('#settingsOpenAIDisableCache');
 const settingsOpenAIKey = $('#settingsOpenAIKey');
+const settingsAiProvider = document.querySelector('#settingsAiProvider');
+const settingsPerplexityKey = document.querySelector('#settingsPerplexityKey');
+const settingsPerplexityModel = document.querySelector('#settingsPerplexityModel');
+const checkPerplexityBalanceBtn = document.querySelector('#checkPerplexityBalance');
 const saveSettingsBtn = $('#saveSettingsBtn');
 const formTitle = $('#formTitle');
 const reloadBtn = document.querySelector('#reloadBtn');
@@ -1217,6 +1221,49 @@ function closeSettings() {
   if (settingsModal) settingsModal.style.display = 'none';
 }
 
+// Toggle AI provider settings
+function toggleAiProviderSettings() {
+  const provider = settingsAiProvider?.value || 'openai';
+  const openaiSettings = document.querySelector('#openaiSettings');
+  const openaiExtraSettings = document.querySelector('#openaiExtraSettings');
+  const perplexitySettings = document.querySelector('#perplexitySettings');
+  const perplexityExtraSettings = document.querySelector('#perplexityExtraSettings');
+
+  if (provider === 'perplexity') {
+    if (openaiSettings) openaiSettings.style.display = 'none';
+    if (openaiExtraSettings) openaiExtraSettings.style.display = 'none';
+    if (perplexitySettings) perplexitySettings.style.display = 'block';
+    if (perplexityExtraSettings) perplexityExtraSettings.style.display = 'block';
+  } else {
+    if (openaiSettings) openaiSettings.style.display = 'block';
+    if (openaiExtraSettings) openaiExtraSettings.style.display = 'block';
+    if (perplexitySettings) perplexitySettings.style.display = 'none';
+    if (perplexityExtraSettings) perplexityExtraSettings.style.display = 'none';
+  }
+}
+
+if (settingsAiProvider) {
+  settingsAiProvider.addEventListener('change', toggleAiProviderSettings);
+}
+
+// Open Perplexity billing page
+async function openPerplexityBilling() {
+  if (!checkPerplexityBalanceBtn) return;
+
+  try {
+    const result = await window.api.checkPerplexityBalance();
+    if (!result.ok) {
+      console.error('Failed to open billing page:', result.error);
+    }
+  } catch (error) {
+    console.error('Failed to open billing page:', error);
+  }
+}
+
+if (checkPerplexityBalanceBtn) {
+  checkPerplexityBalanceBtn.addEventListener('click', openPerplexityBilling);
+}
+
 function captureSettingsSnapshot() {
   return {
     isbndb: settingsIsbndbKey ? settingsIsbndbKey.value.trim() : '',
@@ -1250,6 +1297,10 @@ async function loadSettings() {
       if (settingsOpenAIBase) settingsOpenAIBase.value = res.settings.openaiApiBaseUrl || '';
       if (settingsOpenAIModel) settingsOpenAIModel.value = res.settings.openaiModel || 'gpt-5';
       if (settingsOpenAIDisableCache) settingsOpenAIDisableCache.checked = res.settings.openaiDisableCache || false;
+      if (settingsAiProvider) settingsAiProvider.value = res.settings.aiProvider || 'openai';
+      if (settingsPerplexityKey) settingsPerplexityKey.value = res.settings.perplexityApiKey || '';
+      if (settingsPerplexityModel) settingsPerplexityModel.value = res.settings.perplexityModel || 'sonar';
+      toggleAiProviderSettings(); // Update UI based on current provider
     }
   } catch (e) { console.error(e); }
 }
@@ -1329,6 +1380,9 @@ if (saveSettingsBtn) {
         openaiApiBaseUrl: settingsOpenAIBase ? settingsOpenAIBase.value.trim() : '',
         openaiModel: settingsOpenAIModel ? settingsOpenAIModel.value.trim() : '',
         openaiDisableCache: settingsOpenAIDisableCache ? settingsOpenAIDisableCache.checked : false,
+        aiProvider: settingsAiProvider ? settingsAiProvider.value.trim() : 'openai',
+        perplexityApiKey: settingsPerplexityKey ? settingsPerplexityKey.value.trim() : '',
+        perplexityModel: settingsPerplexityModel ? settingsPerplexityModel.value.trim() : '',
       };
       const res = await window.api.updateSettings(payload);
       if (!res || !res.ok) { alert('Не удалось сохранить настройки'); return; }

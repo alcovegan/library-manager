@@ -11,6 +11,9 @@ const DEFAULTS = {
   openaiApiBaseUrl: process.env.OPENAI_BASE_URL || process.env.OPENAI_API_BASE_URL || '',
   openaiModel: process.env.OPENAI_MODEL || 'gpt-5',
   openaiDisableCache: process.env.OPENAI_DISABLE_CACHE === 'true' || false,
+  perplexityApiKey: process.env.PERPLEXITY_API_KEY || '',
+  perplexityModel: process.env.PERPLEXITY_MODEL || 'sonar',
+  aiProvider: process.env.AI_PROVIDER || 'openai', // 'openai' or 'perplexity'
 };
 
 function init(userDataPath) {
