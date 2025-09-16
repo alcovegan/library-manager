@@ -496,6 +496,7 @@ ipcMain.handle('settings:update', async (evt, patch) => {
       openaiApiBaseUrl: String(patch?.openaiApiBaseUrl ?? ''),
       openaiModel: String(patch?.openaiModel ?? ''),
       openaiDisableCache: Boolean(patch?.openaiDisableCache ?? false),
+      aiStrictMode: Boolean(patch?.aiStrictMode ?? true),
       perplexityApiKey: String(patch?.perplexityApiKey ?? ''),
       perplexityModel: String(patch?.perplexityModel ?? ''),
       aiProvider: String(patch?.aiProvider ?? 'openai'),

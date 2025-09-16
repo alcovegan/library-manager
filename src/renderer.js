@@ -1347,7 +1347,11 @@ async function loadSettings() {
       if (settingsOpenAIBase) settingsOpenAIBase.value = res.settings.openaiApiBaseUrl || '';
       if (settingsOpenAIModel) settingsOpenAIModel.value = res.settings.openaiModel || 'gpt-5';
       if (settingsOpenAIDisableCache) settingsOpenAIDisableCache.checked = res.settings.openaiDisableCache || false;
-    if (settingsAiStrictMode) settingsAiStrictMode.checked = res.settings.aiStrictMode || false;
+    if (settingsAiStrictMode) {
+      const strictMode = res.settings.aiStrictMode !== undefined ? res.settings.aiStrictMode : true;
+      console.log('📋 Loading aiStrictMode setting:', res.settings.aiStrictMode, '→', strictMode);
+      settingsAiStrictMode.checked = strictMode;
+    }
       if (settingsAiProvider) settingsAiProvider.value = res.settings.aiProvider || 'openai';
       if (settingsPerplexityKey) settingsPerplexityKey.value = res.settings.perplexityApiKey || '';
       if (settingsPerplexityModel) settingsPerplexityModel.value = res.settings.perplexityModel || 'sonar';
@@ -1424,6 +1428,9 @@ if (closeSettingsBtn) closeSettingsBtn.addEventListener('click', tryCloseSetting
 if (saveSettingsBtn) {
   saveSettingsBtn.addEventListener('click', async () => {
     try {
+            const aiStrictModeValue = settingsAiStrictMode ? settingsAiStrictMode.checked : true;
+      console.log('💾 Saving aiStrictMode setting:', aiStrictModeValue);
+
       const payload = {
         isbndbApiKey: settingsIsbndbKey ? settingsIsbndbKey.value.trim() : '',
         googleBooksApiKey: settingsGoogleKey ? settingsGoogleKey.value.trim() : '',
@@ -1431,7 +1438,7 @@ if (saveSettingsBtn) {
         openaiApiBaseUrl: settingsOpenAIBase ? settingsOpenAIBase.value.trim() : '',
         openaiModel: settingsOpenAIModel ? settingsOpenAIModel.value.trim() : '',
         openaiDisableCache: settingsOpenAIDisableCache ? settingsOpenAIDisableCache.checked : false,
-      aiStrictMode: settingsAiStrictMode ? settingsAiStrictMode.checked : false,
+        aiStrictMode: aiStrictModeValue,
         aiProvider: settingsAiProvider ? settingsAiProvider.value.trim() : 'openai',
         perplexityApiKey: settingsPerplexityKey ? settingsPerplexityKey.value.trim() : '',
         perplexityModel: settingsPerplexityModel ? settingsPerplexityModel.value.trim() : '',
