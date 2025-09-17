@@ -13,6 +13,7 @@ const dbLayer = require('./main/db');
 const settings = require('./main/settings');
 const isbnProvider = require('./main/providers/isbn');
 const aiIsbn = require('./main/ai/isbn_enrich');
+const syncManager = require('./main/sync/sync_manager');
 
 const DATA_DIR = () => path.join(app.getPath('userData'), 'data');
 const BOOKS_FILE = () => path.join(DATA_DIR(), 'books.json');
@@ -132,6 +133,16 @@ app.whenReady().then(async () => {
   settings.init(app.getPath('userData'));
   db = await dbLayer.openDb(app.getPath('userData'));
   await dbLayer.migrate(db);
+
+  // Initialize sync manager
+  try {
+    await syncManager.initialize(app.getPath('userData'));
+    console.log('✅ Sync manager initialized successfully');
+  } catch (error) {
+    console.error('⚠️ Sync manager initialization failed:', error.message);
+    console.error('⚠️ Full error details:', error);
+    // Continue without sync - it's not critical for app functionality
+  }
   // One-time migration from JSON storage if DB is empty but JSON exists
   try {
     const has = db.db.exec('SELECT 1 FROM books LIMIT 1');
@@ -497,6 +508,7 @@ ipcMain.handle('settings:update', async (evt, patch) => {
       openaiModel: String(patch?.openaiModel ?? ''),
       openaiDisableCache: Boolean(patch?.openaiDisableCache ?? false),
       aiStrictMode: Boolean(patch?.aiStrictMode ?? true),
+      autoSync: Boolean(patch?.autoSync ?? false),
       perplexityApiKey: String(patch?.perplexityApiKey ?? ''),
       perplexityModel: String(patch?.perplexityModel ?? ''),
       aiProvider: String(patch?.aiProvider ?? 'openai'),
@@ -522,6 +534,47 @@ ipcMain.handle('perplexity:balance', async () => {
     const { shell } = require('electron');
     await shell.openExternal('https://www.perplexity.ai/account/api/billing');
     return { ok: true };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+});
+
+// Sync IPC handlers
+ipcMain.handle('sync:status', async () => {
+  try {
+    return await syncManager.getSyncStatus();
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+});
+
+ipcMain.handle('sync:test', async () => {
+  try {
+    return await syncManager.testConnection();
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+});
+
+ipcMain.handle('sync:up', async () => {
+  try {
+    return await syncManager.syncUp();
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+});
+
+ipcMain.handle('sync:down', async () => {
+  try {
+    return await syncManager.syncDown();
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+});
+
+ipcMain.handle('sync:cleanup', async () => {
+  try {
+    return await syncManager.cleanupOrphanedCovers();
   } catch (e) {
     return { ok: false, error: String(e?.message || e) };
   }

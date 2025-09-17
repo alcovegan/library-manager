@@ -73,6 +73,12 @@ contextBridge.exposeInMainWorld('api', {
     });
     return { headers, rows };
   },
+  // Sync
+  getSyncStatus: () => ipcRenderer.invoke('sync:status'),
+  testSync: () => ipcRenderer.invoke('sync:test'),
+  syncUp: () => ipcRenderer.invoke('sync:up'),
+  syncDown: () => ipcRenderer.invoke('sync:down'),
+  cleanupCovers: () => ipcRenderer.invoke('sync:cleanup'),
 });
 
 contextBridge.exposeInMainWorld('search', {
@@ -99,3 +105,6 @@ contextBridge.exposeInMainWorld('search', {
     ));
   },
 });
+
+// Debug: log that sync API functions are exposed
+console.log('🔧 [PRELOAD] Sync API functions loaded successfully');

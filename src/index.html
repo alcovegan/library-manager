@@ -149,6 +149,9 @@
           <button id="importBtn" class="icon-btn" title="Импорт">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 8l-4 5h3v7h2v-7h3l-4-5zM4 5h16V3H4v2z"/></svg>
           </button>
+          <button id="syncBtn" class="icon-btn" title="Синхронизация">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>
+          </button>
           <button id="openSettingsBtn" class="icon-btn" title="Настройки">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94a7.49 7.49 0 0 0 .05-.94 7.49 7.49 0 0 0-.05-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.5 7.5 0 0 0-1.63-.94l-.36-2.54A.5.5 0 0 0 13.31 1h-3.62a.5.5 0 0 0-.5.42l-.36 2.54c-.58.23-1.12.54-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.69 7.98a.5.5 0 0 0 .12.64l2.03 1.58c-.03.31-.05.62-.05.94s.02.63.05.94L2.81 13.7a.5.5 0 0 0-.12.64l1.92 3.32c.14.24.43.34.69.22l2.39-.96c.51.39 1.05.71 1.63.94l.36 2.54c.04.24.25.42.5.42h3.62c.25 0 .46-.18.5-.42l.36-2.54c.58-.23 1.12-.54 1.63-.94l2.39.96c.26.12.55.02.69-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/></svg>
           </button>
@@ -471,6 +474,32 @@
               <input id="settingsAiStrictMode" type="checkbox" />
               <span>🎯 Строгий режим AI поиска (меньше результатов, но точнее)</span>
             </label>
+          </div>
+
+          <div style="margin-top:16px; padding:12px; background:var(--muted-surface); border-radius:8px;">
+            <h4 style="margin:0 0 8px 0; font-size:14px; font-weight:600;">🔄 Синхронизация</h4>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                <input id="settingsAutoSync" type="checkbox" />
+                <span>Автоматическая синхронизация при запуске</span>
+              </label>
+              <div style="font-size:11px; color:var(--muted); margin-left:24px;">
+                💡 При включении будет автоматически скачивать обновления с сервера
+              </div>
+              <div style="margin-top:8px;">
+                <button id="testSyncBtn" type="button" class="btn">
+                  🔗 Проверить подключение к S3
+                </button>
+              </div>
+              <div style="margin-top:8px;">
+                <button id="cleanupCoversBtn" type="button" class="btn secondary">
+                  🧹 Очистить неиспользуемые обложки
+                </button>
+                <div style="font-size:11px; color:var(--muted); margin-top:4px;">
+                  💡 Удаляет с сервера обложки удалённых книг
+                </div>
+              </div>
+            </div>
           </div>
 
           <div style="margin-top:16px; padding:12px; background:var(--muted-surface); border-radius:8px;">

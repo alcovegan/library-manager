@@ -21,15 +21,16 @@
     "electron-builder": "^24.13.3"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.891.0",
     "dotenv": "^17.2.2",
     "electron-updater": "^6.3.9",
     "fuse.js": "^7.1.0",
     "openai": "^5.20.2",
     "papaparse": "^5.5.3",
     "sql.js": "^1.13.0",
+    "sqlite3": "^5.1.7",
     "uuid": "^13.0.0"
-  }
-  ,
+  },
   "build": {
     "appId": "com.example.librarymanager",
     "productName": "Library Manager",
@@ -40,19 +41,30 @@
     ],
     "mac": {
       "icon": "assets/icons/icon.icns",
-      "target": ["dmg", "zip"]
+      "target": [
+        "dmg",
+        "zip"
+      ]
     },
     "win": {
       "icon": "assets/icons/icon.ico",
-      "target": ["nsis", "portable"]
+      "target": [
+        "nsis",
+        "portable"
+      ]
     },
     "linux": {
       "icon": "assets/icons/512x512.png",
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "category": "Utility"
     },
     "publish": [
-      { "provider": "github" }
+      {
+        "provider": "github"
+      }
     ]
   }
 }

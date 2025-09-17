@@ -64,6 +64,8 @@ const exportCsvBtn = $('#exportCsvBtn');
 const csvHeaderless = $('#csvHeaderless');
 const enrichIgnoreCache = $('#enrichIgnoreCache');
 const clearAiCacheBtn = $('#clearAiCacheBtn');
+// Sync button
+const syncBtn = $('#syncBtn');
 // Settings modal elements
 const settingsModal = $('#settingsModal');
 const closeSettingsBtn = $('#closeSettingsBtn');
@@ -73,6 +75,8 @@ const settingsOpenAIBase = document.querySelector('#settingsOpenAIBase');
 const settingsOpenAIModel = document.querySelector('#settingsOpenAIModel');
 const settingsOpenAIDisableCache = document.querySelector('#settingsOpenAIDisableCache');
 const settingsAiStrictMode = document.querySelector('#settingsAiStrictMode');
+const settingsAutoSync = $('#settingsAutoSync');
+const testSyncBtn = $('#testSyncBtn');
 const settingsOpenAIKey = $('#settingsOpenAIKey');
 const settingsAiProvider = document.querySelector('#settingsAiProvider');
 const settingsPerplexityKey = document.querySelector('#settingsPerplexityKey');
@@ -103,6 +107,7 @@ const infoModal = document.querySelector('#infoModal');
 const closeInfoBtn = document.querySelector('#closeInfoBtn');
 const infoCover = document.querySelector('#infoCover');
 const infoContent = document.querySelector('#infoContent');
+const cleanupCoversBtn = $('#cleanupCoversBtn');
 
 let state = {
   books: [],
@@ -1352,6 +1357,7 @@ async function loadSettings() {
       console.log('📋 Loading aiStrictMode setting:', res.settings.aiStrictMode, '→', strictMode);
       settingsAiStrictMode.checked = strictMode;
     }
+    if (settingsAutoSync) settingsAutoSync.checked = res.settings.autoSync || false;
       if (settingsAiProvider) settingsAiProvider.value = res.settings.aiProvider || 'openai';
       if (settingsPerplexityKey) settingsPerplexityKey.value = res.settings.perplexityApiKey || '';
       if (settingsPerplexityModel) settingsPerplexityModel.value = res.settings.perplexityModel || 'sonar';
@@ -1439,6 +1445,7 @@ if (saveSettingsBtn) {
         openaiModel: settingsOpenAIModel ? settingsOpenAIModel.value.trim() : '',
         openaiDisableCache: settingsOpenAIDisableCache ? settingsOpenAIDisableCache.checked : false,
         aiStrictMode: aiStrictModeValue,
+        autoSync: settingsAutoSync ? settingsAutoSync.checked : false,
         aiProvider: settingsAiProvider ? settingsAiProvider.value.trim() : 'openai',
         perplexityApiKey: settingsPerplexityKey ? settingsPerplexityKey.value.trim() : '',
         perplexityModel: settingsPerplexityModel ? settingsPerplexityModel.value.trim() : '',
@@ -1866,3 +1873,438 @@ function loadAppIcon() {
 load().then(() => {
   loadAppIcon();
 });
+
+  // Sync choice dialog with custom buttons
+  async function showSyncChoiceDialog(statusInfo) {
+    return new Promise((resolve) => {
+      // Create modal dialog
+      const overlay = document.createElement('div');
+      overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(4px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        animation: fadeIn 0.2s ease-out;
+      `;
+
+      const dialog = document.createElement('div');
+      dialog.style.cssText = `
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 32px;
+        max-width: 520px;
+        width: 90%;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15), 0 8px 16px rgba(0, 0, 0, 0.1);
+        animation: slideUp 0.3s ease-out;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        position: relative;
+      `;
+
+      // Add CSS animations
+      const style = document.createElement('style');
+      style.textContent = `
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes slideUp {
+          from {
+            opacity: 0;
+            transform: translateY(20px) scale(0.95);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+        .sync-btn {
+          padding: 16px 24px;
+          font-size: 15px;
+          font-weight: 600;
+          border-radius: 12px;
+          border: none;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          min-height: 52px;
+          font-family: inherit;
+        }
+        .sync-btn:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        .sync-btn:active {
+          transform: translateY(0);
+        }
+        .sync-btn-primary {
+          background: linear-gradient(135deg, #4f46e5, #7c3aed);
+          color: white;
+        }
+        .sync-btn-primary:hover {
+          background: linear-gradient(135deg, #4338ca, #6d28d9);
+        }
+        .sync-btn-secondary {
+          background: var(--surface);
+          color: var(--text);
+          border: 2px solid var(--border);
+        }
+        .sync-btn-secondary:hover {
+          background: var(--muted-surface);
+          border-color: var(--accent);
+        }
+        .sync-close-btn {
+          position: absolute;
+          top: 16px;
+          right: 16px;
+          width: 32px;
+          height: 32px;
+          border: none;
+          background: var(--muted-surface);
+          color: var(--muted);
+          border-radius: 50%;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 16px;
+          transition: all 0.2s ease;
+          font-family: inherit;
+        }
+        .sync-close-btn:hover {
+          background: var(--border);
+          color: var(--text);
+          transform: scale(1.05);
+        }
+        .sync-close-btn:active {
+          transform: scale(0.95);
+        }
+        @media (max-width: 480px) {
+          .sync-btn-row {
+            flex-direction: column !important;
+          }
+          .sync-btn {
+            font-size: 14px;
+            padding: 14px 20px;
+          }
+        }
+      `;
+      document.head.appendChild(style);
+
+            dialog.innerHTML = `
+        <button id="closeBtn" class="sync-close-btn" title="Закрыть (Esc)">×</button>
+
+        <div style="text-align: center; margin-bottom: 24px;">
+          <div style="font-size: 24px; margin-bottom: 8px;">🔄</div>
+          <h3 style="margin: 0; font-size: 20px; font-weight: 700; color: var(--text);">Синхронизация</h3>
+        </div>
+
+        <div style="
+          margin-bottom: 28px;
+          white-space: pre-line;
+          color: var(--muted);
+          font-size: 14px;
+          line-height: 1.5;
+          background: var(--muted-surface);
+          padding: 16px;
+          border-radius: 8px;
+          border-left: 4px solid var(--accent);
+        ">${statusInfo}</div>
+
+        <div class="sync-btn-row" style="display: flex; gap: 12px;">
+          <button id="uploadBtn" class="sync-btn sync-btn-primary" style="flex: 1;">
+            <span style="font-size: 18px;">📤</span>
+            <span>Загрузить НА сервер</span>
+          </button>
+          <button id="downloadBtn" class="sync-btn sync-btn-secondary" style="flex: 1;">
+            <span style="font-size: 18px;">📥</span>
+            <span>Скачать С сервера</span>
+          </button>
+        </div>
+      `;
+
+          const uploadBtn = dialog.querySelector('#uploadBtn');
+      const downloadBtn = dialog.querySelector('#downloadBtn');
+      const closeBtn = dialog.querySelector('#closeBtn');
+
+      const cleanup = () => {
+        document.body.removeChild(overlay);
+        document.head.removeChild(style);
+        document.removeEventListener('keydown', handleEscape);
+      };
+
+      // Handle Escape key
+      const handleEscape = (e) => {
+        if (e.key === 'Escape') {
+          cleanup();
+          resolve('cancel');
+        }
+      };
+
+      uploadBtn.onclick = () => { cleanup(); resolve('upload'); };
+      downloadBtn.onclick = () => { cleanup(); resolve('download'); };
+      closeBtn.onclick = () => { cleanup(); resolve('cancel'); };
+
+      // Close on overlay click
+      overlay.onclick = (e) => {
+        if (e.target === overlay) {
+          cleanup();
+          resolve('cancel');
+        }
+      };
+
+      // Add keyboard listener
+      document.addEventListener('keydown', handleEscape);
+
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+  });
+}
+
+// Sync functionality
+async function showSyncDialog() {
+  try {
+    // Debug: check if API functions are available
+    console.log('🔍 Available sync API functions:', {
+      getSyncStatus: typeof window.api.getSyncStatus,
+      testSync: typeof window.api.testSync,
+      syncUp: typeof window.api.syncUp,
+      syncDown: typeof window.api.syncDown
+    });
+
+    if (typeof window.api.testSync !== 'function') {
+      const shouldReload = confirm('❌ Sync API не инициализирован.\n\nПерезагрузить приложение без кэша?');
+      if (shouldReload && window.api?.reloadIgnoringCache) {
+        window.api.reloadIgnoringCache();
+      }
+      return;
+    }
+
+    // Test connection first
+    console.log('🔄 Testing sync connection...');
+    const testResult = await window.api.testSync();
+
+    if (!testResult.ok) {
+      alert(`Ошибка подключения к S3:\n${testResult.error}\n\nПроверьте настройки S3 в файле .env`);
+      return;
+    }
+
+    // Get sync status
+    const statusResult = await window.api.getSyncStatus();
+    if (!statusResult.ok) {
+      alert(`Ошибка получения статуса синхронизации:\n${statusResult.error}`);
+      return;
+    }
+
+    const status = statusResult.status;
+    const deviceInfo = `Устройство: ${status.deviceId}\nСоединение: ${status.connectionOk ? '✅ Подключено' : '❌ Ошибка'}`;
+
+    let devicesInfo = '';
+    if (status.devices && status.devices.length > 0) {
+      devicesInfo = '\n\nДругие устройства:\n' +
+        status.devices
+          .filter(d => !d.isCurrentDevice)
+          .map(d => `• ${d.deviceName} (${d.platform}) - ${new Date(d.timestamp).toLocaleString()}`)
+          .join('\n');
+    }
+
+        // Create a more intuitive dialog
+    const choice = await showSyncChoiceDialog(deviceInfo + devicesInfo);
+
+    if (choice === 'upload') {
+      await syncUp();
+    } else if (choice === 'download') {
+      await syncDown();
+    } // If cancelled, do nothing
+  } catch (error) {
+    console.error('❌ Sync dialog error:', error);
+    alert(`Ошибка синхронизации: ${error.message}`);
+  }
+}
+
+async function syncUp() {
+  try {
+    if (syncBtn) {
+      syncBtn.disabled = true;
+      syncBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16zm-1-4h2v-6h-2v6zm0-8h2V6h-2v2z"/></svg>';
+    }
+
+    console.log('📤 Starting upload sync...');
+    const result = await window.api.syncUp();
+
+    if (result.success) {
+      alert('✅ Данные успешно загружены на сервер!\n\nЗагружено:\n• База данных\n• Настройки\n• Обложки книг');
+    } else {
+      console.error('Upload sync errors:', result);
+      alert(`⚠️ Синхронизация завершена с ошибками:\n\n${Object.entries(result)
+        .filter(([key, value]) => key !== 'success' && value && !value.ok)
+        .map(([key, value]) => `• ${key}: ${value.error || 'Ошибка'}`)
+        .join('\n')}`);
+    }
+  } catch (error) {
+    console.error('❌ Upload sync failed:', error);
+    alert(`❌ Ошибка загрузки на сервер: ${error.message}`);
+  } finally {
+    if (syncBtn) {
+      syncBtn.disabled = false;
+      syncBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>';
+    }
+  }
+}
+
+async function syncDown() {
+  try {
+    if (syncBtn) {
+      syncBtn.disabled = true;
+      syncBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16zm-1-4h2v-6h-2v6zm0-8h2V6h-2v2z"/></svg>';
+    }
+
+    console.log('📥 Starting download sync...');
+    const result = await window.api.syncDown();
+
+    if (result.success) {
+      alert('✅ Данные успешно загружены с сервера!\n\nЗагружено:\n• База данных\n• Настройки\n• Обложки книг\n\nПерезагрузите приложение для применения изменений.');
+
+      // Reload app to apply downloaded data
+      if (window.api?.reloadIgnoringCache) {
+        window.api.reloadIgnoringCache();
+      }
+    } else {
+      console.error('Download sync errors:', result);
+      alert(`⚠️ Синхронизация завершена с ошибками:\n\n${Object.entries(result)
+        .filter(([key, value]) => key !== 'success' && value && !value.ok && !value.notFound)
+        .map(([key, value]) => `• ${key}: ${value.error || 'Ошибка'}`)
+        .join('\n')}`);
+    }
+  } catch (error) {
+    console.error('❌ Download sync failed:', error);
+    alert(`❌ Ошибка загрузки с сервера: ${error.message}`);
+  } finally {
+    if (syncBtn) {
+      syncBtn.disabled = false;
+      syncBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>';
+    }
+  }
+}
+
+// Test sync connection
+async function testSyncConnection() {
+  if (!testSyncBtn) return;
+
+  const originalText = testSyncBtn.textContent;
+  testSyncBtn.disabled = true;
+  testSyncBtn.textContent = '🔄 Проверка...';
+
+  try {
+    const result = await window.api.testSync();
+    if (result.ok) {
+      testSyncBtn.textContent = '✅ Подключение OK';
+      setTimeout(() => {
+        testSyncBtn.textContent = originalText;
+        testSyncBtn.disabled = false;
+      }, 2000);
+    } else {
+      alert(`❌ Ошибка подключения к S3:\n${result.error}`);
+      testSyncBtn.textContent = '❌ Ошибка';
+      setTimeout(() => {
+        testSyncBtn.textContent = originalText;
+        testSyncBtn.disabled = false;
+      }, 2000);
+    }
+  } catch (error) {
+    alert(`❌ Ошибка: ${error.message}`);
+    testSyncBtn.textContent = originalText;
+    testSyncBtn.disabled = false;
+  }
+}
+
+// Auto sync on app start
+async function autoSyncOnStart() {
+  try {
+    const res = await window.api.getSettings();
+    if (res?.settings?.autoSync) {
+      console.log('🔄 Auto-sync enabled, checking for updates...');
+
+      const statusResult = await window.api.getSyncStatus();
+      if (statusResult.ok && statusResult.status.connectionOk) {
+        console.log('🔄 Auto-syncing from server...');
+        const result = await window.api.syncDown();
+
+        if (result.success) {
+          // Show subtle notification instead of alert
+          if (window.api?.showNotification) {
+            window.api.showNotification('Синхронизация', 'Данные обновлены с сервера');
+          }
+          // Auto-reload to apply changes
+          setTimeout(() => {
+            if (window.api?.reloadIgnoringCache) {
+              window.api.reloadIgnoringCache();
+            }
+          }, 1000);
+        }
+      }
+    }
+  } catch (error) {
+    console.log('⚠️ Auto-sync failed:', error.message);
+    // Don't show alert for auto-sync failures
+  }
+}
+
+// Attach event listeners
+if (syncBtn) {
+  syncBtn.addEventListener('click', showSyncDialog);
+}
+
+if (testSyncBtn) {
+  testSyncBtn.addEventListener('click', testSyncConnection);
+}
+
+// Run auto-sync after app loads
+setTimeout(autoSyncOnStart, 2000); // Wait 2 seconds for app to fully load
+
+// Cleanup covers functionality
+async function cleanupCovers() {
+  try {
+    if (cleanupCoversBtn) {
+      cleanupCoversBtn.disabled = true;
+      cleanupCoversBtn.textContent = '🔄 Очистка...';
+    }
+
+    console.log('🧹 Starting covers cleanup...');
+    const result = await window.api.cleanupCovers();
+
+    if (result.ok) {
+      if (result.deleted > 0) {
+        alert(`✅ Очистка завершена!\n\nУдалено неиспользуемых обложек: ${result.deleted}${result.total ? `/${result.total}` : ''}\n\n💰 Освобождено место на сервере`);
+      } else {
+        alert('ℹ️ Очистка завершена\n\nНеиспользуемых обложек не найдено');
+      }
+    } else {
+      console.error('Cleanup failed:', result);
+      alert(`❌ Ошибка очистки обложек:\n\n${result.error}`);
+    }
+  } catch (error) {
+    console.error('❌ Cleanup covers failed:', error);
+    alert(`❌ Ошибка очистки обложек: ${error.message}`);
+  } finally {
+    if (cleanupCoversBtn) {
+      cleanupCoversBtn.disabled = false;
+      cleanupCoversBtn.textContent = '🧹 Очистить неиспользуемые обложки';
+    }
+  }
+}
+
+// Attach cleanup button event listener
+if (cleanupCoversBtn) {
+  cleanupCoversBtn.addEventListener('click', cleanupCovers);
+}

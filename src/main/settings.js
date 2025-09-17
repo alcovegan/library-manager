@@ -12,6 +12,7 @@ const DEFAULTS = {
   openaiModel: process.env.OPENAI_MODEL || 'gpt-5',
   openaiDisableCache: process.env.OPENAI_DISABLE_CACHE === 'true' || false,
   aiStrictMode: process.env.AI_STRICT_MODE === 'true' || true, // Default to strict mode
+  autoSync: process.env.AUTO_SYNC === 'true' || false,
   perplexityApiKey: process.env.PERPLEXITY_API_KEY || '',
   perplexityModel: process.env.PERPLEXITY_MODEL || 'sonar',
   aiProvider: process.env.AI_PROVIDER || 'openai', // 'openai' or 'perplexity'
