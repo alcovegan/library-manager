@@ -40,6 +40,7 @@ const modalNotes = $('#modalNotes');
 const modalFormat = document.querySelector('#modalFormat');
 const modalGenres = document.querySelector('#modalGenres');
 const modalSaveBtn = $('#modalSaveBtn');
+const modalCollectionsBtn = $('#modalCollectionsBtn');
 const themeToggle = $('#themeToggle');
 const openSettingsBtn = $('#openSettingsBtn');
 const btnViewGrid = document.querySelector('#btnViewGrid');
@@ -96,8 +97,26 @@ const filterGenres = document.querySelector('#filterGenres');
 const filterTags = document.querySelector('#filterTags');
 const btnClearFilters = document.querySelector('#btnClearFilters');
 const collectionSelect = document.querySelector('#collectionSelect');
+const createCollectionBtn = document.querySelector('#createCollectionBtn');
 const saveCollectionBtn = document.querySelector('#saveCollectionBtn');
 const deleteCollectionBtn = document.querySelector('#deleteCollectionBtn');
+
+// Debug: Check if collection buttons are found
+console.log('🔍 Collection buttons found:', {
+  createCollectionBtn: !!createCollectionBtn,
+  saveCollectionBtn: !!saveCollectionBtn,
+  deleteCollectionBtn: !!deleteCollectionBtn,
+  collectionSelect: !!collectionSelect
+});
+
+// Additional debug after a brief delay
+setTimeout(() => {
+  const createBtnLater = document.querySelector('#createCollectionBtn');
+  console.log('🔍 createCollectionBtn after timeout:', !!createBtnLater);
+  if (createBtnLater && !createCollectionBtn) {
+    console.warn('⚠️ Button found after timeout but not initially!');
+  }
+}, 100);
 const collectionSaveInline = document.querySelector('#collectionSaveInline');
 const collectionNameInput = document.querySelector('#collectionNameInput');
 const collectionSaveConfirmBtn = document.querySelector('#collectionSaveConfirmBtn');
@@ -115,6 +134,7 @@ let state = {
   editId: null,
   coverSourcePath: null,
   selectedId: null,
+  currentStaticCollection: null, // Name of currently active static collection
   modal: {
     id: null,
     coverSourcePath: null,
@@ -241,6 +261,18 @@ function getFilters() {
 }
 
 function applyFilters(arr) {
+  // First check if we're viewing a static collection
+  if (state.currentStaticCollection) {
+    const collections = loadCollections();
+    const collection = collections[state.currentStaticCollection];
+    if (collection && collection.type === 'static') {
+      // Filter books by IDs in the static collection
+      const bookIds = new Set(collection.books);
+      arr = arr.filter(b => bookIds.has(b.id));
+    }
+  }
+
+  // Then apply regular filters
   const f = getFilters();
   return arr.filter(b => {
     if (f.author && !(Array.isArray(b.authors) && b.authors.includes(f.author))) return false;
@@ -261,7 +293,53 @@ function applyFilters(arr) {
 
 function hasAnyFilterSet() {
   const f = getFilters();
-  return !!(f.author || f.format || (!Number.isNaN(f.y1)) || (!Number.isNaN(f.y2)) || f.genres.length || f.tags.length);
+  return !!(f.author || f.format || (!Number.isNaN(f.y1)) || (!Number.isNaN(f.y2)) || f.genres.length || f.tags.length || state.currentStaticCollection);
+}
+
+function filtersMatchCollection(collectionName) {
+  if (!collectionName || !collectionSelect || collectionSelect.value !== collectionName) {
+    return false;
+  }
+
+  const collections = loadCollections();
+  const collection = collections[collectionName];
+  if (!collection) return false;
+
+  // Static collections don't depend on filters
+  if (collection.type === 'static') {
+    return state.currentStaticCollection === collectionName;
+  }
+
+  // For filter collections, compare current filters with saved filters
+  if (collection.type === 'filter') {
+    const currentFilters = getFilters();
+    const savedFilters = collection.filters || collection; // Support old format
+
+    // Compare each filter field
+    const authorMatch = (currentFilters.author || '') === (savedFilters.author || '');
+    const formatMatch = (currentFilters.format || '') === (savedFilters.format || '');
+    const y1Match = (Number.isNaN(currentFilters.y1) ? '' : currentFilters.y1) === (Number.isNaN(savedFilters.y1) ? '' : savedFilters.y1);
+    const y2Match = (Number.isNaN(currentFilters.y2) ? '' : currentFilters.y2) === (Number.isNaN(savedFilters.y2) ? '' : savedFilters.y2);
+
+    // Compare arrays
+    const genresMatch = JSON.stringify((currentFilters.genres || []).sort()) === JSON.stringify((savedFilters.genres || []).sort());
+    const tagsMatch = JSON.stringify((currentFilters.tags || []).sort()) === JSON.stringify((savedFilters.tags || []).sort());
+
+    return authorMatch && formatMatch && y1Match && y2Match && genresMatch && tagsMatch;
+  }
+
+  return false;
+}
+
+function checkAndResetCollectionIfNeeded() {
+  if (!collectionSelect || !collectionSelect.value) return;
+
+  const currentCollection = collectionSelect.value;
+  if (!filtersMatchCollection(currentCollection)) {
+    console.log('🔄 Filters changed, resetting collection:', currentCollection);
+    collectionSelect.value = '';
+    state.currentStaticCollection = null;
+  }
 }
 
 function clearAllFilters() {
@@ -271,6 +349,11 @@ function clearAllFilters() {
   if (filterYearTo) filterYearTo.value = '';
   if (filterGenres) filterGenres.value = '';
   if (filterTags) filterTags.value = '';
+  state.currentStaticCollection = null; // Clear static collection
+}
+
+function clearAllFiltersAndCollections() {
+  clearAllFilters();
   if (collectionSelect) collectionSelect.value = '';
 }
 
@@ -429,8 +512,524 @@ function attachAutocomplete(el, domain, { multiple = false } = {}) {
   window.addEventListener('scroll', () => { if (dropdown.style.display !== 'none') position(); }, true);
 }
 
-function loadCollections() { try { return JSON.parse(localStorage.getItem('collections') || '{}'); } catch { return {}; } }
+function loadCollections() {
+  try {
+    const collections = JSON.parse(localStorage.getItem('collections') || '{}');
+    // Migrate old collections to new format
+    Object.keys(collections).forEach(name => {
+      const collection = collections[name];
+      if (!collection.type) {
+        // Old format - convert to filter collection
+        collections[name] = {
+          type: 'filter',
+          name: name,
+          filters: collection,
+          books: [],
+          createdAt: new Date().toISOString()
+        };
+      }
+    });
+    return collections;
+  } catch {
+    return {};
+  }
+}
+
 function saveCollections(obj) { localStorage.setItem('collections', JSON.stringify(obj)); }
+
+function createCollection(name, type = 'static', filters = null, books = []) {
+  console.log('🔧 createCollection called:', { name, type, filters, books });
+  const collections = loadCollections();
+  console.log('🔧 Current collections:', Object.keys(collections));
+  const cleanName = String(name || '').trim();
+  if (!cleanName) {
+    console.error('❌ Empty name provided to createCollection');
+    return false;
+  }
+
+  const newCollection = {
+    type: type, // 'filter' or 'static'
+    name: cleanName,
+    filters: filters || {},
+    books: books || [], // Array of book IDs for static collections
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+
+  console.log('🔧 Creating collection object:', newCollection);
+  collections[cleanName] = newCollection;
+
+  try {
+    saveCollections(collections);
+    console.log('✅ Collection saved successfully');
+
+    // Verify it was saved
+    const saved = loadCollections();
+    console.log('🔧 Verification - collection exists:', cleanName in saved);
+    return true;
+  } catch (error) {
+    console.error('❌ Error saving collection:', error);
+    return false;
+  }
+}
+
+function addBookToCollection(bookId, collectionName) {
+  const collections = loadCollections();
+  const collection = collections[collectionName];
+  if (!collection) return false;
+
+  if (collection.type === 'static') {
+    if (!collection.books.includes(bookId)) {
+      collection.books.push(bookId);
+      collection.updatedAt = new Date().toISOString();
+      saveCollections(collections);
+      return true;
+    }
+  }
+  return false;
+}
+
+function removeBookFromCollection(bookId, collectionName) {
+  const collections = loadCollections();
+  const collection = collections[collectionName];
+  if (!collection) return false;
+
+  if (collection.type === 'static') {
+    const index = collection.books.indexOf(bookId);
+    if (index > -1) {
+      collection.books.splice(index, 1);
+      collection.updatedAt = new Date().toISOString();
+      saveCollections(collections);
+      return true;
+    }
+  }
+  return false;
+}
+
+function updateBookCollections(bookId, selectedCollectionNames) {
+  const collections = loadCollections();
+
+  // Get all static collections
+  const staticCollections = Object.keys(collections)
+    .filter(name => collections[name].type === 'static');
+
+  // Remove book from all static collections first
+  staticCollections.forEach(name => {
+    const collection = collections[name];
+    const index = collection.books.indexOf(bookId);
+    if (index > -1) {
+      collection.books.splice(index, 1);
+      collection.updatedAt = new Date().toISOString();
+    }
+  });
+
+  // Add book to selected collections
+  selectedCollectionNames.forEach(name => {
+    const collection = collections[name];
+    if (collection && collection.type === 'static') {
+      if (!collection.books.includes(bookId)) {
+        collection.books.push(bookId);
+        collection.updatedAt = new Date().toISOString();
+      }
+    }
+  });
+
+  saveCollections(collections);
+}
+
+function getBookCollections(bookId) {
+  const collections = loadCollections();
+  return Object.keys(collections)
+    .filter(name => collections[name].type === 'static' &&
+                   collections[name].books.includes(bookId));
+}
+
+async function reloadDataOnly() {
+  if (!window.api || !window.api.getBooks) {
+    console.error('preload bridge not available');
+    state.books = [];
+  } else {
+    state.books = await window.api.getBooks();
+  }
+  applySearch(searchInput?.value || '');
+  populateAuthorFilter();
+  rebuildSuggestStore();
+}
+
+async function deleteBookSmart(bookId) {
+  // Save current state
+  const currentCollection = collectionSelect ? collectionSelect.value : null;
+  const currentStaticCollection = state.currentStaticCollection;
+
+  // Remove book from all collections first
+  const collections = loadCollections();
+  const staticCollections = Object.keys(collections)
+    .filter(name => collections[name].type === 'static');
+
+  staticCollections.forEach(name => {
+    removeBookFromCollection(bookId, name);
+  });
+
+  // Delete the book
+  await window.api.deleteBook(bookId);
+
+  // Reload data without resetting filters/collections
+  await reloadDataOnly();
+
+  // Update collections UI to reflect new counts
+  syncCollectionsUI();
+
+  // Restore collection state if needed
+  if (currentStaticCollection) {
+    state.currentStaticCollection = currentStaticCollection;
+    // Only set dropdown if syncCollectionsUI didn't restore it
+    if (collectionSelect && collectionSelect.value !== currentStaticCollection) {
+      collectionSelect.value = currentStaticCollection;
+    }
+  } else if (currentCollection && currentCollection !== '') {
+    // Only set dropdown if syncCollectionsUI didn't restore it
+    if (collectionSelect && collectionSelect.value !== currentCollection) {
+      collectionSelect.value = currentCollection;
+      applyCollection(currentCollection);
+    }
+  }
+
+  // Always render to update the view
+  render();
+}
+
+function showPromptDialog(message, defaultValue = '') {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    `;
+
+    const dialog = document.createElement('div');
+    dialog.style.cssText = `
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      min-width: 320px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    `;
+
+    dialog.innerHTML = `
+      <h3 style="margin: 0 0 16px 0; font-size: 16px;">${message}</h3>
+      <input type="text" id="promptInput" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 16px; box-sizing: border-box;" value="${defaultValue}" />
+      <div style="display: flex; gap: 8px; justify-content: flex-end;">
+        <button id="promptCancel" class="btn">Отмена</button>
+        <button id="promptOk" class="btn primary">OK</button>
+      </div>
+    `;
+
+    const input = dialog.querySelector('#promptInput');
+    const okBtn = dialog.querySelector('#promptOk');
+    const cancelBtn = dialog.querySelector('#promptCancel');
+
+    const cleanup = () => {
+      document.body.removeChild(overlay);
+    };
+
+    okBtn.onclick = () => {
+      const value = input.value.trim();
+      cleanup();
+      resolve(value || null);
+    };
+
+    cancelBtn.onclick = () => {
+      cleanup();
+      resolve(null);
+    };
+
+    input.onkeydown = (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        okBtn.click();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        cancelBtn.click();
+      }
+    };
+
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    // Focus input after a brief delay
+    setTimeout(() => {
+      input.focus();
+      input.select();
+    }, 100);
+  });
+}
+
+function showCollectionSelectionDialog(staticCollections, collections, bookId) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      animation: fadeIn 0.2s ease-out;
+    `;
+
+    const dialog = document.createElement('div');
+    dialog.style.cssText = `
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      min-width: 450px;
+      max-width: 550px;
+      width: 90%;
+      max-height: 70vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15), 0 8px 16px rgba(0, 0, 0, 0.1);
+      animation: slideUp 0.3s ease-out;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    `;
+
+    // Determine which collections currently contain this book
+    const bookCollections = new Set();
+    staticCollections.forEach(name => {
+      if (collections[name].books.includes(bookId)) {
+        bookCollections.add(name);
+      }
+    });
+
+    let collectionsHtml = '';
+    if (staticCollections.length > 0) {
+      collectionsHtml = staticCollections.map(name => {
+        const count = collections[name].books.length;
+        const isChecked = bookCollections.has(name);
+        return `
+          <label style="
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: ${isChecked ? 'var(--muted-surface)' : 'var(--surface)'};
+          " onmouseover="this.style.background='var(--muted-surface)'" onmouseout="this.style.background='${isChecked ? 'var(--muted-surface)' : 'var(--surface)'}'">
+            <input type="checkbox" value="${name}" ${isChecked ? 'checked' : ''} style="
+              width: 16px;
+              height: 16px;
+              accent-color: #4f46e5;
+            ">
+            <div style="flex: 1;">
+              <div style="font-weight: 500; font-size: 14px;">${name}</div>
+              <div style="font-size: 12px; color: var(--muted);">${count} книг</div>
+            </div>
+            ${isChecked ? '<span style="color: #10b981; font-size: 12px;">✓ В коллекции</span>' : ''}
+          </label>
+        `;
+      }).join('');
+    } else {
+      collectionsHtml = `
+        <div style="
+          text-align: center;
+          padding: 24px;
+          color: var(--muted);
+          font-style: italic;
+        ">
+          📭 У вас пока нет коллекций
+        </div>
+      `;
+    }
+
+    dialog.innerHTML = `
+      <div style="text-align: center; margin-bottom: 24px;">
+        <div style="font-size: 24px; margin-bottom: 8px;">📚</div>
+        <h3 style="margin: 0; font-size: 18px; font-weight: 600;">Управление коллекциями</h3>
+        <p style="margin: 8px 0 0 0; font-size: 13px; color: var(--muted);">Выберите коллекции для этой книги</p>
+      </div>
+
+      <div style="margin-bottom: 20px;">
+        <div id="collectionsContainer">
+          ${collectionsHtml}
+        </div>
+
+        <button id="createNewBtn" style="
+          width: 100%;
+          padding: 12px;
+          border: 2px dashed var(--border);
+          border-radius: 8px;
+          background: transparent;
+          color: var(--muted);
+          cursor: pointer;
+          font-size: 14px;
+          margin-top: 12px;
+          transition: all 0.2s ease;
+        " onmouseover="this.style.borderColor='var(--accent)'; this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'; this.style.color='var(--muted)'">
+          + Создать новую коллекцию
+        </button>
+      </div>
+
+      <div style="display: flex; gap: 12px; justify-content: flex-end;">
+        <button id="cancelBtn" style="
+          padding: 10px 20px;
+          border: 1px solid var(--border);
+          border-radius: 8px;
+          background: var(--surface);
+          cursor: pointer;
+          font-size: 14px;
+        ">
+          Отмена
+        </button>
+        <button id="saveBtn" style="
+          padding: 10px 20px;
+          border: none;
+          border-radius: 8px;
+          background: linear-gradient(135deg, #4f46e5, #7c3aed);
+          color: white;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 500;
+        ">
+          Сохранить
+        </button>
+      </div>
+    `;
+
+    const saveBtn = dialog.querySelector('#saveBtn');
+    const cancelBtn = dialog.querySelector('#cancelBtn');
+    const createNewBtn = dialog.querySelector('#createNewBtn');
+    const checkboxes = dialog.querySelectorAll('input[type="checkbox"]');
+
+    const cleanup = () => {
+      document.body.removeChild(overlay);
+    };
+
+    saveBtn.onclick = () => {
+      const selectedCollections = Array.from(checkboxes)
+        .filter(cb => cb.checked)
+        .map(cb => cb.value);
+
+      cleanup();
+      resolve({ action: 'save', collections: selectedCollections });
+    };
+
+    cancelBtn.onclick = () => {
+      cleanup();
+      resolve(null);
+    };
+
+    createNewBtn.onclick = () => {
+      cleanup();
+      resolve({ action: 'create_new' });
+    };
+
+    // Close on overlay click
+    overlay.onclick = (e) => {
+      if (e.target === overlay) {
+        cleanup();
+        resolve(null);
+      }
+    };
+
+    // Handle keyboard
+    dialog.onkeydown = (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        saveBtn.click();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        cancelBtn.click();
+      }
+    };
+
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+  });
+}
+
+function showAddToCollectionDialog(bookId) {
+  console.log('📚 showAddToCollectionDialog called with bookId:', bookId);
+  const collections = loadCollections();
+  const staticCollections = Object.keys(collections)
+    .filter(name => collections[name].type === 'static')
+    .sort();
+
+  console.log('📚 Found static collections:', staticCollections);
+
+  if (staticCollections.length === 0) {
+    console.log('📚 No static collections found, showing create dialog');
+    if (confirm('У вас нет статических коллекций.\nСоздать новую коллекцию?')) {
+      showPromptDialog('Название коллекции:').then(name => {
+        console.log('📚 User entered collection name:', name);
+        if (name && name.trim()) {
+          console.log('📚 Creating collection with book:', name.trim(), bookId);
+          if (createCollection(name.trim(), 'static', null, [bookId])) {
+            console.log('✅ Collection created and book added');
+            syncCollectionsUI();
+            render();
+            alert(`Книга добавлена в коллекцию "${name.trim()}"`);
+          } else {
+            console.error('❌ Failed to create collection');
+            alert('Ошибка создания коллекции');
+          }
+        } else {
+          console.log('❌ No name provided for collection');
+        }
+      });
+    } else {
+      console.log('❌ User cancelled collection creation');
+    }
+    return;
+  }
+
+        // Show collection selection dialog
+  showCollectionSelectionDialog(staticCollections, collections, bookId).then(result => {
+    if (!result) return; // Cancelled
+
+    if (result.action === 'create_new') {
+      // Create new collection
+      showPromptDialog('Название новой коллекции:').then(name => {
+        if (name && name.trim()) {
+          if (createCollection(name.trim(), 'static', null, [bookId])) {
+            syncCollectionsUI();
+            render();
+            alert(`Книга добавлена в новую коллекцию "${name.trim()}"`);
+          }
+        }
+      });
+    } else if (result.action === 'save') {
+      // Update book collections
+      updateBookCollections(bookId, result.collections);
+      syncCollectionsUI();
+      render();
+
+      const count = result.collections.length;
+      if (count === 0) {
+        alert('Книга удалена из всех коллекций');
+      } else {
+        alert(`Книга добавлена в ${count} ${count === 1 ? 'коллекцию' : count < 5 ? 'коллекции' : 'коллекций'}`);
+      }
+    }
+  });
+}
 const FILTERS_KEY = 'filters:v1';
 function saveFiltersState() {
   const f = getFilters();
@@ -451,33 +1050,92 @@ function restoreFiltersState() {
 }
 function syncCollectionsUI() {
   if (!collectionSelect) return;
+
+  // Save current value before rebuilding
+  const currentValue = collectionSelect.value;
+
   const cols = loadCollections();
   const names = Object.keys(cols).sort();
-  collectionSelect.innerHTML = '<option value="">Коллекции…</option>' + names.map(n => `<option value="${n}">${n}</option>`).join('');
+
+  // Group collections by type
+  const filterCollections = names.filter(n => cols[n].type === 'filter');
+  const staticCollections = names.filter(n => cols[n].type === 'static');
+
+  let html = '<option value="">Коллекции…</option>';
+
+  if (filterCollections.length > 0) {
+    html += '<optgroup label="🔍 Фильтр-коллекции">';
+    html += filterCollections.map(n => `<option value="${n}">${n}</option>`).join('');
+    html += '</optgroup>';
+  }
+
+  if (staticCollections.length > 0) {
+    html += '<optgroup label="📚 Статические коллекции">';
+    html += staticCollections.map(n => `<option value="${n}">${n} (${cols[n].books.length})</option>`).join('');
+    html += '</optgroup>';
+  }
+
+  collectionSelect.innerHTML = html;
+
+  // Try to restore the previous value if it still exists
+  if (currentValue && names.includes(currentValue)) {
+    collectionSelect.value = currentValue;
+  }
 }
 function applyCollection(name) {
   const cols = loadCollections();
-  const f = cols[name];
-  if (!f) return;
-  if (filterAuthor) filterAuthor.value = f.author || '';
-  if (filterFormat) filterFormat.value = f.format || '';
-  if (filterYearFrom) filterYearFrom.value = f.y1 || '';
-  if (filterYearTo) filterYearTo.value = f.y2 || '';
-  if (filterGenres) filterGenres.value = (f.genres || []).join(', ');
-  if (filterTags) filterTags.value = (f.tags || []).join(', ');
+  const collection = cols[name];
+  if (!collection) return;
+
+  // Clear current filters first (but preserve static collection state temporarily)
+  const tempStaticCollection = state.currentStaticCollection;
+  clearAllFilters();
+
+  // For static collections, restore the state that clearAllFilters just cleared
+  if (collection.type === 'static') {
+    state.currentStaticCollection = tempStaticCollection;
+  }
+
+  if (collection.type === 'filter') {
+    // Apply filter-based collection
+    const f = collection.filters || collection; // Support old format
+    if (filterAuthor) filterAuthor.value = f.author || '';
+    if (filterFormat) filterFormat.value = f.format || '';
+    if (filterYearFrom) filterYearFrom.value = f.y1 || '';
+    if (filterYearTo) filterYearTo.value = f.y2 || '';
+    if (filterGenres) filterGenres.value = (f.genres || []).join(', ');
+    if (filterTags) filterTags.value = (f.tags || []).join(', ');
+  } else if (collection.type === 'static') {
+    // For static collections, we'll filter by book IDs in the render function
+    // Set a special state to indicate we're viewing a static collection
+    state.currentStaticCollection = name;
+  }
 }
 
 function attachFilterEvents() {
-  const onChange = () => { render(); };
-  [filterAuthor, filterFormat, filterYearFrom, filterYearTo, filterGenres, filterTags].forEach(el => { if (el) el.addEventListener('input', onChange); });
-  [filterAuthor, filterFormat, filterYearFrom, filterYearTo, filterGenres, filterTags].forEach(el => { if (el) el && el.addEventListener('input', saveFiltersState); });
+  const onChange = () => {
+    checkAndResetCollectionIfNeeded();
+    render();
+  };
+  const onFilterChange = () => {
+    checkAndResetCollectionIfNeeded();
+    saveFiltersState();
+  };
+
+  [filterAuthor, filterFormat, filterYearFrom, filterYearTo, filterGenres, filterTags].forEach(el => {
+    if (el) {
+      el.addEventListener('input', onChange);
+      el.addEventListener('input', onFilterChange);
+    }
+  });
   if (btnClearFilters) btnClearFilters.addEventListener('click', () => {
-    clearAllFilters();
+    clearAllFiltersAndCollections();
     saveFiltersState();
     render();
   });
   if (collectionSelect) collectionSelect.addEventListener('change', () => {
     const name = collectionSelect.value;
+    console.log('Collection changed to:', name);
     if (name) {
       applyCollection(name);
       saveFiltersState();
@@ -497,6 +1155,8 @@ function attachFilterEvents() {
       setTimeout(() => collectionNameInput && collectionNameInput.focus(), 0);
     }
   }
+  // createCollectionBtn is now handled in initializeCollections()
+
   if (saveCollectionBtn) saveCollectionBtn.addEventListener('click', () => {
     showSaveInline(true);
   });
@@ -504,8 +1164,17 @@ function attachFilterEvents() {
     const n = String(name || '').trim();
     if (!n) return;
     const cols = loadCollections();
-    // overwrite silently if exists
-    cols[n] = getFilters();
+
+    // Create new filter collection
+    cols[n] = {
+      type: 'filter',
+      name: n,
+      filters: getFilters(),
+      books: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
     saveCollections(cols);
     syncCollectionsUI();
     if (collectionSelect) collectionSelect.value = n;
@@ -574,6 +1243,37 @@ function render() {
     meta.appendChild(authors);
     if (stars > 0) meta.appendChild(ratingEl);
 
+    // Add collection badges
+    const bookCollections = getBookCollections(b.id);
+    if (bookCollections.length > 0) {
+      const collectionsEl = document.createElement('div');
+      collectionsEl.className = 'collections-badges';
+      collectionsEl.style.cssText = `
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 6px;
+      `;
+
+      bookCollections.forEach(collectionName => {
+        const badge = document.createElement('span');
+        badge.style.cssText = `
+          background: linear-gradient(135deg, #4f46e5, #7c3aed);
+          color: white;
+          font-size: 10px;
+          padding: 2px 6px;
+          border-radius: 4px;
+          font-weight: 500;
+          white-space: nowrap;
+        `;
+        badge.textContent = collectionName;
+        badge.title = `В коллекции: ${collectionName}`;
+        collectionsEl.appendChild(badge);
+      });
+
+      meta.appendChild(collectionsEl);
+    }
+
     const actions = document.createElement('div');
     actions.className = 'actions';
     const editBtn = document.createElement('button');
@@ -588,10 +1288,17 @@ function render() {
     delBtn.onclick = async (ev) => {
       ev.stopPropagation();
       if (!confirm('Удалить книгу?')) return;
-      await window.api.deleteBook(b.id);
-      await load();
+      await deleteBookSmart(b.id);
     };
+    // Add to collection button
+    const collectionsBtn = document.createElement('button');
+    collectionsBtn.className = 'icon-btn';
+    collectionsBtn.title = 'Добавить в коллекцию';
+    collectionsBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16l7-3 7 3V4a2 2 0 0 0-2-2z"/></svg>';
+    collectionsBtn.onclick = (ev) => { ev.stopPropagation(); showAddToCollectionDialog(b.id); };
+
     actions.appendChild(editBtn);
+    actions.appendChild(collectionsBtn);
     actions.appendChild(delBtn);
 
     el.appendChild(img);
@@ -953,6 +1660,16 @@ if (modalSaveBtn) {
     } catch (e) {
       alert('Не удалось сохранить');
       console.error(e);
+    }
+  });
+}
+
+if (modalCollectionsBtn) {
+  modalCollectionsBtn.addEventListener('click', () => {
+    if (state.modal.id) {
+      showAddToCollectionDialog(state.modal.id);
+    } else {
+      alert('Сначала сохраните книгу');
     }
   });
 }
@@ -1394,8 +2111,52 @@ if (sortSelect) {
     render();
   });
 }
+// Initialize collection functionality
+function initializeCollections() {
+  console.log('🔧 Initializing collections...');
+
+  const createBtn = document.querySelector('#createCollectionBtn');
+  console.log('🔍 createCollectionBtn in init:', !!createBtn);
+
+  if (createBtn && !createBtn.hasAttribute('data-initialized')) {
+    console.log('✅ Adding event listener to createCollectionBtn');
+    createBtn.setAttribute('data-initialized', 'true');
+    createBtn.addEventListener('click', () => {
+      console.log('📝 Create collection button clicked');
+      showPromptDialog('Название новой коллекции:').then(name => {
+        console.log('📝 User entered name:', name);
+        if (name && name.trim()) {
+          console.log('📝 Creating collection:', name.trim());
+          if (createCollection(name.trim(), 'static')) {
+            console.log('✅ Collection created successfully');
+            syncCollectionsUI();
+            if (collectionSelect) collectionSelect.value = name.trim();
+            applyCollection(name.trim());
+            render();
+          } else {
+            console.error('❌ Failed to create collection');
+            alert('Ошибка создания коллекции');
+          }
+        } else {
+          console.log('❌ No name provided or empty');
+        }
+      });
+    });
+  } else if (!createBtn) {
+    console.error('❌ createCollectionBtn not found in init!');
+  } else {
+    console.log('ℹ️ createCollectionBtn already initialized');
+  }
+}
+
 // Attach filter handlers on startup
 attachFilterEvents();
+
+// Initialize collections
+initializeCollections();
+
+// Try again after a delay
+setTimeout(initializeCollections, 500);
 if (reloadBtn) {
   reloadBtn.addEventListener('click', async () => {
     try { await window.api.reloadIgnoringCache(); } catch {}
@@ -1521,15 +2282,15 @@ document.addEventListener('keydown', (e) => {
     if (modalEl && modalEl.style.display === 'flex' && state.modal.id) {
       e.preventDefault();
       if (confirm('Удалить книгу?')) {
-        window.api.deleteBook(state.modal.id).then(load);
+        deleteBookSmart(state.modal.id);
         closeDetails();
       }
     } else if (state.selectedId) {
       e.preventDefault();
-      if (confirm('Удалить книгу?')) window.api.deleteBook(state.selectedId).then(load);
+      if (confirm('Удалить книгу?')) deleteBookSmart(state.selectedId);
     } else if (state.editId) {
       e.preventDefault();
-      if (confirm('Удалить книгу?')) window.api.deleteBook(state.editId).then(load);
+      if (confirm('Удалить книгу?')) deleteBookSmart(state.editId);
     }
   }
 });
@@ -1870,8 +2631,18 @@ function loadAppIcon() {
   tryNextPath();
 }
 
-load().then(() => {
-  loadAppIcon();
+// Initialize app
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('🚀 DOM loaded, initializing app...');
+
+  // Re-check collection buttons after DOM is ready
+  const createBtn = document.querySelector('#createCollectionBtn');
+  console.log('🔍 createCollectionBtn after DOM load:', !!createBtn);
+
+  load().then(() => {
+    loadAppIcon();
+    console.log('📚 App fully loaded');
+  });
 });
 
   // Sync choice dialog with custom buttons

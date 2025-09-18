@@ -180,11 +180,17 @@
           <span id="coverFileLabel" class="text-xs text-slate-500">Не выбрано</span>
         </div>
         <img id="coverPreview" class="cover-preview dropzone" alt="предпросмотр" />
-        <div class="row" style="margin-top:12px;">
-          <button id="saveBtn" class="btn primary">Сохранить</button>
-          <button id="resetBtn" class="btn">Сбросить</button>
-          <div style="flex:1"></div>
-          <button id="openCreateModalBtn" class="px-3 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50">Расширенная форма</button>
+        <div class="row" style="margin-top:12px; gap:12px;">
+          <button id="saveBtn" class="btn primary" style="flex:1;">Сохранить</button>
+          <button id="resetBtn" class="btn" style="flex:1;">Сбросить</button>
+        </div>
+        <div style="margin-top:8px;">
+          <button id="openCreateModalBtn" class="btn secondary" style="width:100%; display:flex; align-items:center; justify-content:center; gap:6px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+            </svg>
+            <span>Расширенная форма</span>
+          </button>
         </div>
       </section>
 
@@ -231,6 +237,7 @@
             <select id="collectionSelect" class="input" style="width:auto; min-width:12rem;">
               <option value="">Коллекции…</option>
             </select>
+            <button id="createCollectionBtn" type="button" class="btn secondary" title="Создать новую коллекцию">➕</button>
             <button id="saveCollectionBtn" type="button" class="btn">Сохранить как…</button>
             <button id="deleteCollectionBtn" type="button" class="btn">Удалить</button>
             <button id="btnClearFilters" class="btn" type="button">Сбросить</button>
@@ -370,8 +377,9 @@
               <div style="font-size:12px; color:var(--muted); margin-bottom:6px;">Результаты</div>
               <div id="isbnResultsList" style="display:flex; flex-direction:column; gap:8px;"></div>
             </div>
-            <div class="row" style="margin-top:12px;">
+            <div class="row" style="margin-top:12px; gap:8px;">
               <button id="modalSaveBtn" class="primary">Сохранить</button>
+              <button id="modalCollectionsBtn" class="btn secondary">📚 Коллекции</button>
             </div>
           </div>
 
