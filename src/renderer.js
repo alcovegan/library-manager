@@ -1197,7 +1197,8 @@ function attachFilterEvents() {
     delete cols[name];
     saveCollections(cols);
     syncCollectionsUI();
-    if (collectionSelect) collectionSelect.value = '';
+    clearAllFiltersAndCollections();
+    render();
   });
 }
 
@@ -1517,9 +1518,11 @@ async function load() {
   } else {
     state.books = await window.api.getBooks();
   }
-  applySearch(searchInput?.value || '');
+  // Clear search and filters on startup
+  if (searchInput) searchInput.value = '';
+  applySearch('');
   populateAuthorFilter();
-  restoreFiltersState();
+  // restoreFiltersState(); // Disabled: always start with clean filters
   syncCollectionsUI();
   rebuildSuggestStore();
   // Safety: если сохранённые фильтры на старте скрывают все книги — сбрасываем их автоматически
