@@ -9,6 +9,8 @@ const authorsInput = $('#authorsInput');
 const chooseCoverBtn = $('#chooseCoverBtn');
 const coverFileLabel = $('#coverFileLabel');
 const coverPreview = $('#coverPreview');
+const coverUrlInput = $('#coverUrlInput');
+const loadCoverBtn = $('#loadCoverBtn');
 const saveBtn = $('#saveBtn');
 const resetBtn = $('#resetBtn');
 const exportBtn = $('#exportBtn');
@@ -20,6 +22,8 @@ const modalEl = $('#detailsModal');
 const closeModalBtn = $('#closeModalBtn');
 const modalCoverPreview = $('#modalCoverPreview');
 const modalChooseCoverBtn = $('#modalChooseCoverBtn');
+const modalCoverUrlInput = $('#modalCoverUrlInput');
+const modalLoadCoverBtn = $('#modalLoadCoverBtn');
 const modalTitle = $('#modalTitle');
 const modalAuthors = $('#modalAuthors');
 const modalSeries = $('#modalSeries');
@@ -1320,6 +1324,7 @@ function resetForm() {
   state.editId = null;
   titleInput.value = '';
   authorsInput.value = '';
+  coverUrlInput.value = '';
   state.coverSourcePath = null;
   coverFileLabel.textContent = 'Не выбрано';
   setPreview(null);
@@ -1354,6 +1359,7 @@ function openDetails(b) {
   if (modalGenres) modalGenres.value = (Array.isArray(b?.genres) ? b.genres : []).join(', ');
   modalTags.value = (b?.tags || []).join(', ');
   modalNotes.value = b?.notes || '';
+  modalCoverUrlInput.value = '';
   state.modal.coverSourcePath = null;
   state.modal.titleAlt = b?.titleAlt || null;
   state.modal.authorsAlt = Array.isArray(b?.authorsAlt) ? b.authorsAlt : [];
@@ -1468,6 +1474,58 @@ chooseCoverBtn.addEventListener('click', async () => {
   } catch (e) {
     alert('Не удалось открыть диалог выбора файла');
     console.error(e);
+  }
+});
+
+async function loadCoverFromUrl(urlInput, isModal = false) {
+  try {
+    const url = urlInput.value.trim();
+    if (!url) {
+      alert('Введите URL обложки');
+      return;
+    }
+
+    // Get the appropriate button
+    const btn = isModal ? modalLoadCoverBtn : loadCoverBtn;
+    const originalText = btn.textContent;
+
+    // Show loading state
+    btn.textContent = 'Загрузка...';
+    btn.disabled = true;
+
+    const result = await window.api.downloadCover(url);
+
+    if (result.ok) {
+      if (isModal) {
+        state.modal.coverSourcePath = result.path;
+        setModalPreview(result.path);
+      } else {
+        state.coverSourcePath = result.path;
+        coverFileLabel.textContent = url;
+        setPreview(result.path);
+      }
+      urlInput.value = ''; // Clear URL input after successful download
+    } else {
+      alert(`Ошибка загрузки обложки: ${result.error || 'Неизвестная ошибка'}`);
+    }
+  } catch (e) {
+    alert('Не удалось загрузить обложку');
+    console.error(e);
+  } finally {
+    // Restore button state
+    const btn = isModal ? modalLoadCoverBtn : loadCoverBtn;
+    btn.textContent = isModal ? 'Загрузить по URL' : 'Загрузить';
+    btn.disabled = false;
+  }
+}
+
+loadCoverBtn.addEventListener('click', () => loadCoverFromUrl(coverUrlInput, false));
+
+// Add Enter key support for URL input
+coverUrlInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    loadCoverFromUrl(coverUrlInput, false);
   }
 });
 
@@ -1624,6 +1682,20 @@ if (modalChooseCoverBtn) {
         setModalPreview(p);
       }
     } catch (e) { console.error(e); }
+  });
+}
+
+if (modalLoadCoverBtn) {
+  modalLoadCoverBtn.addEventListener('click', () => loadCoverFromUrl(modalCoverUrlInput, true));
+}
+
+// Add Enter key support for modal URL input
+if (modalCoverUrlInput) {
+  modalCoverUrlInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      loadCoverFromUrl(modalCoverUrlInput, true);
+    }
   });
 }
 
