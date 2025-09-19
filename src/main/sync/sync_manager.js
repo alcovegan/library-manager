@@ -519,35 +519,26 @@ class SyncManager {
         return { ok: true, deleted: 0, message: 'No local database found' };
       }
 
-      // Read database to get used cover paths
-      const sqlite3 = require('sqlite3').verbose();
+      // Read database to get used cover paths using sql.js (WASM), avoiding native sqlite3
+      const initSqlJs = require('sql.js');
+      const wasmPath = require.resolve('sql.js/dist/sql-wasm.wasm');
+      const SQL = await initSqlJs({ locateFile: () => wasmPath });
       const usedCovers = new Set();
 
-      await new Promise((resolve, reject) => {
-        const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY, (err) => {
-          if (err) {
-            reject(err);
-            return;
+      const fileBuffer = fs.readFileSync(dbPath);
+      const db = new SQL.Database(new Uint8Array(fileBuffer));
+      const result = db.exec("SELECT coverPath FROM books WHERE coverPath IS NOT NULL AND coverPath != ''");
+      if (Array.isArray(result) && result.length > 0) {
+        const rows = result[0].values;
+        rows.forEach(row => {
+          const coverPath = row && row[0];
+          if (coverPath) {
+            const filename = path.basename(String(coverPath));
+            usedCovers.add(filename);
           }
-
-          db.all('SELECT coverPath FROM books WHERE coverPath IS NOT NULL AND coverPath != ""', [], (err, rows) => {
-            if (err) {
-              reject(err);
-              return;
-            }
-
-            // Extract filename from full path
-            rows.forEach(row => {
-              if (row.coverPath) {
-                const filename = path.basename(row.coverPath);
-                usedCovers.add(filename);
-              }
-            });
-
-            db.close(resolve);
-          });
         });
-      });
+      }
+      db.close();
 
       console.log(`📋 Found ${usedCovers.size} covers referenced in database`);
 
