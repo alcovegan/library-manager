@@ -1,6 +1,7 @@
 const { S3Client, PutObjectCommand, GetObjectCommand, ListObjectsV2Command, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const fs = require('fs');
 const path = require('path');
+const settings = require('../settings');
 
 class S3SyncClient {
   constructor() {
@@ -14,12 +15,13 @@ class S3SyncClient {
    */
   async initialize() {
     try {
+      const currentSettings = settings.getSettings();
       this.config = {
-        endpoint: process.env.S3_ENDPOINT,
-        accessKeyId: process.env.S3_ACCESS_KEY,
-        secretAccessKey: process.env.S3_SECRET_KEY,
-        bucket: process.env.S3_BUCKET,
-        region: process.env.S3_REGION || 'us-east-1'
+        endpoint: currentSettings.s3Endpoint,
+        accessKeyId: currentSettings.s3AccessKey,
+        secretAccessKey: currentSettings.s3SecretKey,
+        bucket: currentSettings.s3Bucket,
+        region: currentSettings.s3Region || 'us-east-1'
       };
 
       // Validate required config

@@ -495,7 +495,31 @@
           <div style="margin-top:16px; padding:12px; background:var(--muted-surface); border-radius:8px;">
             <h4 style="margin:0 0 8px 0; font-size:14px; font-weight:600;">🔄 Синхронизация</h4>
             <div style="display:flex; flex-direction:column; gap:8px;">
-              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                <div>
+                  <label>S3 Endpoint</label>
+                  <input id="settingsS3Endpoint" type="url" placeholder="https://s3.amazonaws.com" class="input" style="width:100%;" />
+                </div>
+                <div>
+                  <label>S3 Region</label>
+                  <input id="settingsS3Region" type="text" placeholder="us-east-1" class="input" style="width:100%;" />
+                </div>
+              </div>
+              <div>
+                <label>S3 Bucket</label>
+                <input id="settingsS3Bucket" type="text" placeholder="my-library-sync" class="input" style="width:100%;" />
+              </div>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                <div>
+                  <label>Access Key ID</label>
+                  <input id="settingsS3AccessKey" type="text" placeholder="AKIA..." class="input" style="width:100%;" />
+                </div>
+                <div>
+                  <label>Secret Access Key</label>
+                  <input id="settingsS3SecretKey" type="password" placeholder="••••••••" class="input" style="width:100%;" />
+                </div>
+              </div>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer; margin-top:8px;">
                 <input id="settingsAutoSync" type="checkbox" />
                 <span>Автоматическая синхронизация при запуске</span>
               </label>

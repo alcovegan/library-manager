@@ -81,6 +81,11 @@ const settingsOpenAIModel = document.querySelector('#settingsOpenAIModel');
 const settingsOpenAIDisableCache = document.querySelector('#settingsOpenAIDisableCache');
 const settingsAiStrictMode = document.querySelector('#settingsAiStrictMode');
 const settingsAutoSync = $('#settingsAutoSync');
+const settingsS3Endpoint = $('#settingsS3Endpoint');
+const settingsS3Region = $('#settingsS3Region');
+const settingsS3Bucket = $('#settingsS3Bucket');
+const settingsS3AccessKey = $('#settingsS3AccessKey');
+const settingsS3SecretKey = $('#settingsS3SecretKey');
 const testSyncBtn = $('#testSyncBtn');
 const settingsOpenAIKey = $('#settingsOpenAIKey');
 const settingsAiProvider = document.querySelector('#settingsAiProvider');
@@ -2150,6 +2155,11 @@ async function loadSettings() {
       settingsAiStrictMode.checked = strictMode;
     }
     if (settingsAutoSync) settingsAutoSync.checked = res.settings.autoSync || false;
+      if (settingsS3Endpoint) settingsS3Endpoint.value = res.settings.s3Endpoint || '';
+      if (settingsS3Region) settingsS3Region.value = res.settings.s3Region || 'us-east-1';
+      if (settingsS3Bucket) settingsS3Bucket.value = res.settings.s3Bucket || '';
+      if (settingsS3AccessKey) settingsS3AccessKey.value = res.settings.s3AccessKey || '';
+      if (settingsS3SecretKey) settingsS3SecretKey.value = res.settings.s3SecretKey || '';
       if (settingsAiProvider) settingsAiProvider.value = res.settings.aiProvider || 'openai';
       if (settingsPerplexityKey) settingsPerplexityKey.value = res.settings.perplexityApiKey || '';
       if (settingsPerplexityModel) settingsPerplexityModel.value = res.settings.perplexityModel || 'sonar';
@@ -2282,6 +2292,11 @@ if (saveSettingsBtn) {
         openaiDisableCache: settingsOpenAIDisableCache ? settingsOpenAIDisableCache.checked : false,
         aiStrictMode: aiStrictModeValue,
         autoSync: settingsAutoSync ? settingsAutoSync.checked : false,
+        s3Endpoint: settingsS3Endpoint ? settingsS3Endpoint.value.trim() : '',
+        s3Region: settingsS3Region ? settingsS3Region.value.trim() : 'us-east-1',
+        s3Bucket: settingsS3Bucket ? settingsS3Bucket.value.trim() : '',
+        s3AccessKey: settingsS3AccessKey ? settingsS3AccessKey.value.trim() : '',
+        s3SecretKey: settingsS3SecretKey ? settingsS3SecretKey.value.trim() : '',
         aiProvider: settingsAiProvider ? settingsAiProvider.value.trim() : 'openai',
         perplexityApiKey: settingsPerplexityKey ? settingsPerplexityKey.value.trim() : '',
         perplexityModel: settingsPerplexityModel ? settingsPerplexityModel.value.trim() : '',

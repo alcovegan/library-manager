@@ -16,6 +16,12 @@ const DEFAULTS = {
   perplexityApiKey: process.env.PERPLEXITY_API_KEY || '',
   perplexityModel: process.env.PERPLEXITY_MODEL || 'sonar',
   aiProvider: process.env.AI_PROVIDER || 'openai', // 'openai' or 'perplexity'
+  // S3 Sync settings
+  s3Endpoint: process.env.S3_ENDPOINT || '',
+  s3AccessKey: process.env.S3_ACCESS_KEY || '',
+  s3SecretKey: process.env.S3_SECRET_KEY || '',
+  s3Bucket: process.env.S3_BUCKET || '',
+  s3Region: process.env.S3_REGION || 'us-east-1',
 };
 
 function init(userDataPath) {
