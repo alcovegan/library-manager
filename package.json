@@ -10,6 +10,7 @@
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
     "publish": "electron-builder -p always",
+    "postinstall": "electron-rebuild",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -18,7 +19,8 @@
   "type": "commonjs",
   "devDependencies": {
     "electron": "^38.1.0",
-    "electron-builder": "^24.13.3"
+    "electron-builder": "^24.13.3",
+    "electron-rebuild": "^3.6.2"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.891.0",

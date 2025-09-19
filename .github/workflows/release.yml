@@ -18,14 +18,32 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Install dependencies
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
         run: |
+          # Install build tools for native modules
+          npm install --global node-gyp electron-rebuild
           npm install --no-audit --no-fund
+          # Rebuild native modules for Electron
+          npx electron-rebuild
+
+      - name: Install dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          npm install --global node-gyp electron-rebuild
+          npm install --no-audit --no-fund
+          # Rebuild native modules for Electron
+          npx electron-rebuild
 
       - name: Build and Publish with electron-builder
         run: npm run publish
