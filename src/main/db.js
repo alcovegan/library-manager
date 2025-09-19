@@ -2,6 +2,7 @@ const path = require('path');
 const fs = require('fs');
 const { randomUUID } = require('crypto');
 const initSqlJs = require('sql.js');
+const { fileURLToPath } = require('url');
 
 const DB_FILENAME = 'library.db';
 
@@ -35,7 +36,56 @@ async function openDb(userDataPath) {
     sql: SQL,
     db,
     path: dbPath,
+    userDataPath,
+    dataDir: path.join(userDataPath, 'data'),
   };
+}
+
+function coverFilenameFromAnyPath(p) {
+  if (!p) return null;
+  try {
+    const normalized = String(p);
+    const base = path.basename(normalized);
+    return base || null;
+  } catch {
+    return null;
+  }
+}
+
+function toStoredCoverPath(ctx, absolutePath) {
+  if (!absolutePath) return null;
+  try {
+    const dataDir = ctx?.dataDir;
+    if (!dataDir) return absolutePath;
+    const rel = path.relative(dataDir, absolutePath);
+    if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) {
+      return rel.split(path.sep).join('/');
+    }
+  } catch {}
+  return absolutePath;
+}
+
+function fromStoredCoverPath(ctx, storedPath) {
+  if (!storedPath) return null;
+  const dataDir = ctx?.dataDir;
+  let str = String(storedPath);
+  if (str.startsWith('file://')) {
+    try {
+      str = fileURLToPath(str);
+    } catch {
+      // If conversion fails, continue with original string
+    }
+  }
+  if (!dataDir) return str;
+  if (!path.isAbsolute(str)) {
+    return path.join(dataDir, str);
+  }
+  // Legacy absolute path: try to map to current data directory by filename
+  const filename = coverFilenameFromAnyPath(str);
+  if (filename) {
+    return path.join(dataDir, 'covers', filename);
+  }
+  return str;
 }
 
 function persistAtomic(ctx) {
@@ -165,6 +215,35 @@ async function migrate(ctx) {
     setSchemaVersion(ctx, 6);
     persist(ctx);
   }
+  if (getSchemaVersion(ctx) === 6) {
+    try {
+      const res = ctx.db.exec("SELECT id, coverPath FROM books WHERE coverPath IS NOT NULL AND coverPath != ''");
+      const rows = res[0] ? res[0].values : [];
+      if (rows.length) {
+        ctx.db.exec('BEGIN TRANSACTION');
+        try {
+          const upd = ctx.db.prepare('UPDATE books SET coverPath = ? WHERE id = ?');
+          for (const [id, coverPath] of rows) {
+            const filename = coverFilenameFromAnyPath(coverPath);
+            if (!filename) continue;
+            const normalized = toStoredCoverPath(ctx, path.join(ctx.dataDir, 'covers', filename));
+            upd.bind([normalized, id]);
+            upd.step();
+            upd.reset();
+          }
+          upd.free();
+          ctx.db.exec('COMMIT');
+        } catch (e) {
+          ctx.db.exec('ROLLBACK');
+          throw e;
+        }
+      }
+    } catch (e) {
+      console.error('⚠️ Cover path normalization during migration failed:', e);
+    }
+    setSchemaVersion(ctx, 7);
+    persist(ctx);
+  }
 }
 
 function ensureAuthor(ctx, name) {
@@ -199,7 +278,25 @@ function listBooks(ctx) {
   const res = ctx.db.exec('SELECT id, title, coverPath, createdAt, updatedAt, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres FROM books ORDER BY title COLLATE NOCASE');
   const rows = res[0] ? res[0].values : [];
   return rows.map(([id, title, coverPath, createdAt, updatedAt, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres]) => ({
-    id, title, coverPath, createdAt, updatedAt, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags: parseTags(tags), titleAlt: normStr(titleAlt), authorsAlt: parseJsonArray(authorsAlt), format: normStr(format), genres: parseJsonArray(genres), authors: authorsForBook(ctx, id),
+    id,
+    title,
+    coverPath: fromStoredCoverPath(ctx, coverPath),
+    createdAt,
+    updatedAt,
+    series,
+    seriesIndex,
+    year,
+    publisher,
+    isbn,
+    language,
+    rating,
+    notes,
+    tags: parseTags(tags),
+    titleAlt: normStr(titleAlt),
+    authorsAlt: parseJsonArray(authorsAlt),
+    format: normStr(format),
+    genres: parseJsonArray(genres),
+    authors: authorsForBook(ctx, id),
   }));
 }
 
@@ -218,11 +315,12 @@ function strArray(arr) { try { return JSON.stringify(Array.isArray(arr) ? arr : 
 function createBook(ctx, { title, authors = [], coverPath = null, series=null, seriesIndex=null, year=null, publisher=null, isbn=null, language=null, rating=null, notes=null, tags=[], titleAlt=null, authorsAlt=[], format=null, genres=[] }) {
   const now = new Date().toISOString();
   const id = randomUUID();
+  const storedCoverPath = toStoredCoverPath(ctx, coverPath);
   const insBook = ctx.db.prepare('INSERT INTO books(id, title, coverPath, createdAt, updatedAt, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
   insBook.bind([
     id,
     title,
-    coverPath,
+    storedCoverPath,
     now,
     now,
     normStr(series),
@@ -250,15 +348,36 @@ function createBook(ctx, { title, authors = [], coverPath = null, series=null, s
   }
   insBA.free();
   persist(ctx);
-  return { id, title, coverPath, authors, createdAt: now, updatedAt: now, series, seriesIndex: normInt(seriesIndex), year: normInt(year), publisher, isbn, language, rating: normFloat(rating), notes, tags, titleAlt: normStr(titleAlt), authorsAlt: strArray(authorsAlt), format: normStr(format), genres };
+  return {
+    id,
+    title,
+    coverPath: fromStoredCoverPath(ctx, storedCoverPath),
+    authors,
+    createdAt: now,
+    updatedAt: now,
+    series,
+    seriesIndex: normInt(seriesIndex),
+    year: normInt(year),
+    publisher,
+    isbn,
+    language,
+    rating: normFloat(rating),
+    notes,
+    tags,
+    titleAlt: normStr(titleAlt),
+    authorsAlt: strArray(authorsAlt),
+    format: normStr(format),
+    genres,
+  };
 }
 
 function updateBook(ctx, { id, title, authors = [], coverPath = null, series=null, seriesIndex=null, year=null, publisher=null, isbn=null, language=null, rating=null, notes=null, tags=[], titleAlt=null, authorsAlt=[], format=null, genres=[] }) {
   const now = new Date().toISOString();
+  const storedCoverPath = toStoredCoverPath(ctx, coverPath);
   const upd = ctx.db.prepare('UPDATE books SET title = ?, coverPath = ?, updatedAt = ?, series = ?, seriesIndex = ?, year = ?, publisher = ?, isbn = ?, language = ?, rating = ?, notes = ?, tags = ?, titleAlt = ?, authorsAlt = ?, format = ?, genres = ? WHERE id = ?');
   upd.bind([
     title,
-    coverPath,
+    storedCoverPath,
     now,
     normStr(series),
     normInt(seriesIndex),
@@ -287,7 +406,26 @@ function updateBook(ctx, { id, title, authors = [], coverPath = null, series=nul
   }
   insBA.free();
   persist(ctx);
-  return { id, title, coverPath, authors, updatedAt: now, series, seriesIndex: normInt(seriesIndex), year: normInt(year), publisher, isbn, language, rating: normFloat(rating), notes, tags, titleAlt: normStr(titleAlt), authorsAlt: strArray(authorsAlt), format: normStr(format), genres };
+  return {
+    id,
+    title,
+    coverPath: fromStoredCoverPath(ctx, storedCoverPath),
+    authors,
+    updatedAt: now,
+    series,
+    seriesIndex: normInt(seriesIndex),
+    year: normInt(year),
+    publisher,
+    isbn,
+    language,
+    rating: normFloat(rating),
+    notes,
+    tags,
+    titleAlt: normStr(titleAlt),
+    authorsAlt: strArray(authorsAlt),
+    format: normStr(format),
+    genres,
+  };
 }
 
 function deleteBook(ctx, id) {
@@ -339,4 +477,8 @@ function clearAiIsbnCacheKey(ctx, key) {
   persist(ctx);
 }
 
-module.exports = { openDb, migrate, listBooks, createBook, updateBook, deleteBook, getIsbnCache, setIsbnCache, getAiIsbnCache, setAiIsbnCache, clearAiIsbnCacheAll, clearAiIsbnCacheKey };
+function resolveCoverPath(ctx, storedPath) {
+  return fromStoredCoverPath(ctx, storedPath);
+}
+
+module.exports = { openDb, migrate, listBooks, createBook, updateBook, deleteBook, getIsbnCache, setIsbnCache, getAiIsbnCache, setAiIsbnCache, clearAiIsbnCacheAll, clearAiIsbnCacheKey, resolveCoverPath };

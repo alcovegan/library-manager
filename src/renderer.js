@@ -175,8 +175,30 @@ function updatePauseButton() {
 
 function toFileUrl(p) {
   if (!p) return '';
-  // ensure spaces and special chars are encoded properly
-  return encodeURI(`file://${p}`);
+  try {
+    if (window.api && typeof window.api.toFileUrl === 'function') {
+      const url = window.api.toFileUrl(p);
+      if (url) return url;
+    }
+  } catch (e) {
+    console.warn('toFileUrl bridge failed, falling back:', e);
+  }
+  try {
+    let pathStr = String(p);
+    if (pathStr.startsWith('file://')) return pathStr;
+    if (/^\\\\/.test(pathStr)) {
+      const normalizedUnc = pathStr.replace(/\\/g, '/');
+      return encodeURI(`file:${normalizedUnc}`);
+    }
+    const normalized = pathStr.replace(/\\/g, '/');
+    if (/^[a-zA-Z]:\//.test(normalized)) {
+      return encodeURI(`file:///${normalized}`);
+    }
+    const prefixed = normalized.startsWith('/') ? normalized : `/${normalized}`;
+    return encodeURI(`file://${prefixed}`);
+  } catch {
+    return '';
+  }
 }
 
 function setPreview(path) {

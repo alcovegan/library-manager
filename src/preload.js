@@ -1,4 +1,5 @@
 const { contextBridge, ipcRenderer } = require('electron');
+const { pathToFileURL } = require('url');
 let Fuse = null;
 let Papa = null;
 try {
@@ -30,6 +31,29 @@ contextBridge.exposeInMainWorld('api', {
   getSettings: () => ipcRenderer.invoke('settings:get'),
   updateSettings: (patch) => ipcRenderer.invoke('settings:update', patch),
   reloadIgnoringCache: () => ipcRenderer.invoke('app:reload-ignore-cache'),
+  toFileUrl: (filePath) => {
+    try {
+      if (!filePath) return '';
+      return pathToFileURL(filePath).href;
+    } catch (err) {
+      try {
+        const str = String(filePath);
+        if (str.startsWith('file://')) return str;
+        if (/^\\\\/.test(str)) {
+          const normalizedUnc = str.replace(/\\/g, '/');
+          return encodeURI(`file:${normalizedUnc}`);
+        }
+        const normalized = str.replace(/\\/g, '/');
+        if (/^[a-zA-Z]:\//.test(normalized)) {
+          return encodeURI(`file:///${normalized}`);
+        }
+        const prefixed = normalized.startsWith('/') ? normalized : `/${normalized}`;
+        return encodeURI(`file://${prefixed}`);
+      } catch {
+        return '';
+      }
+    }
+  },
   // Updates
   checkForUpdates: () => ipcRenderer.invoke('update:check'),
   installUpdate: () => ipcRenderer.invoke('update:install'),

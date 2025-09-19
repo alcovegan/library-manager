@@ -214,7 +214,7 @@ ipcMain.handle('books:update', async (event, payload) => {
   const row = db.db.exec(`SELECT id, coverPath FROM books WHERE id = '${String(id).replace(/'/g, "''")}'`);
   const current = row[0] && row[0].values[0] ? { id: row[0].values[0][0], coverPath: row[0].values[0][1] } : null;
   if (!current) throw new Error('Book not found');
-  let coverPath = current.coverPath;
+  let coverPath = dbLayer.resolveCoverPath(db, current.coverPath);
   if (coverSourcePath) {
     // replace cover
     if (coverPath && fs.existsSync(coverPath)) {
@@ -240,7 +240,8 @@ ipcMain.handle('books:update', async (event, payload) => {
 ipcMain.handle('books:delete', async (event, id) => {
   const safeId = String(id).replace(/'/g, "''");
   const res = db.db.exec(`SELECT coverPath FROM books WHERE id = '${safeId}'`);
-  const coverPath = res[0] && res[0].values[0] ? res[0].values[0][0] : null;
+  const storedCoverPath = res[0] && res[0].values[0] ? res[0].values[0][0] : null;
+  const coverPath = dbLayer.resolveCoverPath(db, storedCoverPath);
   if (!res[0] || !res[0].values.length) return { ok: false };
   if (coverPath && fs.existsSync(coverPath)) {
     try { fs.unlinkSync(coverPath); } catch {}
