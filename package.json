@@ -10,7 +10,7 @@
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
     "publish": "electron-builder -p always",
-    "postinstall": "@electron/rebuild",
+    "postinstall": "electron-rebuild",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
