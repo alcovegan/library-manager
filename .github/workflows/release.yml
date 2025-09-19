@@ -32,18 +32,18 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           # Install build tools for native modules
-          npm install --global node-gyp electron-rebuild
+          npm install --global node-gyp @electron/rebuild
           npm install --no-audit --no-fund
           # Rebuild native modules for Electron
-          npx electron-rebuild
+          npx @electron/rebuild
 
       - name: Install dependencies (Windows)
         if: runner.os == 'Windows'
         run: |
-          npm install --global node-gyp electron-rebuild
+          npm install --global node-gyp @electron/rebuild
           npm install --no-audit --no-fund
           # Rebuild native modules for Electron
-          npx electron-rebuild
+          npx @electron/rebuild
 
       - name: Build and Publish with electron-builder
         run: npm run publish
