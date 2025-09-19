@@ -238,10 +238,14 @@ class SyncManager {
         return { ok: true, skipped: true };
       }
 
+      // Get settings without sensitive S3 credentials
+      const syncableSettings = settings.getSyncableSettings();
       const s3Key = `settings/settings.json`;
-      console.log('📤 Uploading settings:', settingsPath);
 
-      return await s3Client.uploadFile(settingsPath, s3Key);
+      console.log('📤 Uploading filtered settings (excluding S3 credentials)');
+      console.log('🔐 Excluded sensitive fields: s3Endpoint, s3AccessKey, s3SecretKey, s3Bucket, s3Region');
+
+      return await s3Client.uploadJson(syncableSettings, s3Key);
     } catch (error) {
       console.error('❌ Failed to upload settings:', error.message);
       return { ok: false, error: error.message };
@@ -253,12 +257,35 @@ class SyncManager {
    */
   async downloadSettings() {
     try {
-      const settingsPath = path.join(this.userDataPath, 'data', 'settings.json');
       const s3Key = `settings/settings.json`;
+      console.log('📥 Downloading filtered settings:', s3Key);
 
-      console.log('📥 Downloading settings:', s3Key);
+      const result = await s3Client.downloadJson(s3Key);
+      if (!result.ok) {
+        return result;
+      }
 
-      return await s3Client.downloadFile(s3Key, settingsPath);
+      // Merge downloaded settings with existing local settings, preserving S3 credentials
+      const currentSettings = settings.getSettings();
+      const downloadedSettings = result.data;
+
+      // Keep local S3 credentials, merge everything else
+      const mergedSettings = {
+        ...downloadedSettings,
+        s3Endpoint: currentSettings.s3Endpoint,
+        s3AccessKey: currentSettings.s3AccessKey,
+        s3SecretKey: currentSettings.s3SecretKey,
+        s3Bucket: currentSettings.s3Bucket,
+        s3Region: currentSettings.s3Region,
+      };
+
+      // Update settings with merged data
+      settings.updateSettings(mergedSettings);
+
+      console.log('✅ Settings downloaded and merged successfully');
+      console.log('🔐 Preserved local S3 credentials');
+
+      return { ok: true, merged: true };
     } catch (error) {
       console.error('❌ Failed to download settings:', error.message);
       return { ok: false, error: error.message };

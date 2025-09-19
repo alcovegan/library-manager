@@ -54,6 +54,13 @@ function getSettings() {
   return { ...cache };
 }
 
+// Get settings without sensitive data for sync
+function getSyncableSettings() {
+  const settings = getSettings();
+  const { s3Endpoint, s3AccessKey, s3SecretKey, s3Bucket, s3Region, ...syncable } = settings;
+  return syncable;
+}
+
 function updateSettings(patch) {
   const cur = getSettings();
   const next = { ...cur, ...patch };
@@ -62,4 +69,4 @@ function updateSettings(patch) {
   return { ...next };
 }
 
-module.exports = { init, getSettings, updateSettings };
+module.exports = { init, getSettings, getSyncableSettings, updateSettings };
