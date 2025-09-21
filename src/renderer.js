@@ -173,6 +173,45 @@ function updatePauseButton() {
   stopEnrichBtn.textContent = enrichState.running ? 'Пауза' : 'Возобновить';
 }
 
+function normalizeRating(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) return null;
+  const clamped = Math.max(0, Math.min(5, Math.round(numeric * 2) / 2));
+  const full = Math.floor(clamped);
+  const hasHalf = clamped - full >= 0.5 && full < 5;
+  const empty = Math.max(0, 5 - full - (hasHalf ? 1 : 0));
+  return { full, hasHalf, empty, value: clamped };
+}
+
+function createStarSpan(kind) {
+  const span = document.createElement('span');
+  span.className = `star star--${kind}`;
+  return span;
+}
+
+function appendRatingStars(container, value) {
+  container.textContent = '';
+  container.classList.add('rating');
+  const parts = normalizeRating(value);
+  if (!parts) return null;
+  for (let i = 0; i < parts.full; i += 1) container.appendChild(createStarSpan('full'));
+  if (parts.hasHalf) container.appendChild(createStarSpan('half'));
+  for (let i = 0; i < parts.empty; i += 1) container.appendChild(createStarSpan('empty'));
+  return parts;
+}
+
+function ratingMarkup(value) {
+  const parts = normalizeRating(value);
+  if (!parts) return null;
+  const full = '<span class="star star--full"></span>'.repeat(parts.full);
+  const half = parts.hasHalf ? '<span class="star star--half"></span>' : '';
+  const empty = '<span class="star star--empty"></span>'.repeat(parts.empty);
+  return {
+    html: `<span class="rating" aria-hidden="true">${full}${half}${empty}</span>`,
+    value: parts.value,
+  };
+}
+
 function toFileUrl(p) {
   if (!p) return '';
   try {
@@ -1269,11 +1308,15 @@ function render() {
     authors.textContent = (b.authors || []).join(', ');
     const ratingEl = document.createElement('div');
     ratingEl.className = 'rating';
-    const stars = Math.max(0, Math.min(5, Math.round(Number(b.rating || 0))));
-    if (stars > 0) ratingEl.textContent = '★'.repeat(stars) + '☆'.repeat(5 - stars);
+    const ratingInfo = appendRatingStars(ratingEl, b.rating);
+    if (ratingInfo) {
+      const valueLabel = ratingInfo.value.toFixed(ratingInfo.value % 1 === 0 ? 0 : 1);
+      ratingEl.title = `Рейтинг: ${valueLabel} из 5`;
+      ratingEl.setAttribute('aria-label', `Рейтинг: ${valueLabel} из 5`);
+    }
     meta.appendChild(title);
     meta.appendChild(authors);
-    if (stars > 0) meta.appendChild(ratingEl);
+    if (ratingInfo) meta.appendChild(ratingEl);
 
     // Add collection badges
     const bookCollections = getBookCollections(b.id);
@@ -1333,9 +1376,9 @@ function render() {
     actions.appendChild(collectionsBtn);
     actions.appendChild(delBtn);
 
+    meta.appendChild(actions);
     el.appendChild(img);
     el.appendChild(meta);
-    el.appendChild(actions);
     el.addEventListener('click', () => { state.selectedId = b.id; openInfo(b); });
     listEl.appendChild(el);
   }
@@ -1444,14 +1487,16 @@ function openInfo(b) {
     }
   }
   const esc = (s) => String(s || '');
-  const starsNum = Math.max(0, Math.min(5, Math.round(Number(b.rating || 0))));
-  const stars = starsNum > 0 ? ('★'.repeat(starsNum) + '☆'.repeat(5 - starsNum)) : '';
+  const ratingInfo = ratingMarkup(b.rating);
   const metaRows = [];
   if (b.series || b.seriesIndex != null) metaRows.push('<div><b>Серия:</b> ' + esc(b.series || '') + (b.seriesIndex!=null?(' (#' + b.seriesIndex + ')'):'') + '</div>');
   if (b.year || b.publisher) metaRows.push('<div><b>Издательство/Год:</b> ' + esc(b.publisher || '') + (b.year?(' ('+b.year+')'):'') + '</div>');
   if (b.isbn) metaRows.push('<div><b>ISBN:</b> ' + esc(b.isbn) + '</div>');
   if (b.language) metaRows.push('<div><b>Язык:</b> ' + esc(b.language) + '</div>');
-  if (stars) metaRows.push('<div><b>Рейтинг:</b> <span style="color:#fbbf24;">' + stars + '</span></div>');
+  if (ratingInfo) {
+    const valueLabel = ratingInfo.value.toFixed(ratingInfo.value % 1 === 0 ? 0 : 1);
+    metaRows.push('<div><b>Рейтинг:</b> ' + ratingInfo.html + ' <span style="margin-left:6px; color:var(--muted); font-size:12px;">' + valueLabel + '</span></div>');
+  }
   if (Array.isArray(b.tags) && b.tags.length) metaRows.push('<div><b>Теги:</b> ' + b.tags.map(t=>'<span style="display:inline-block; padding:2px 6px; border:1px solid var(--border); border-radius:999px; margin-right:6px;">'+esc(t)+'</span>').join('') + '</div>');
   if (b.notes) metaRows.push('<div><b>Заметки:</b><br><div style="white-space:pre-wrap; background:var(--muted-surface); border:1px solid var(--border); border-radius:8px; padding:8px;">' + esc(b.notes) + '</div></div>');
 
