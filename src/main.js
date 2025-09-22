@@ -165,6 +165,12 @@ app.whenReady().then(async () => {
   // Setup auto-updates (if available)
   try {
     if (autoUpdater) {
+      if (process.env.GH_TOKEN) {
+        autoUpdater.requestHeaders = {
+          ...autoUpdater.requestHeaders,
+          Authorization: `token ${process.env.GH_TOKEN}`,
+        };
+      }
       autoUpdater.autoDownload = true;
       autoUpdater.on('update-available', () => {
         const w = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
