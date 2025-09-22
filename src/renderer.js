@@ -15,6 +15,7 @@ const saveBtn = $('#saveBtn');
 const resetBtn = $('#resetBtn');
 const exportBtn = $('#exportBtn');
 const importBtn = $('#importBtn');
+const csvImportBtn = $('#csvImportBtn');
 const searchInput = $('#searchInput');
 const openCreateModalBtn = $('#openCreateModalBtn');
 // Modal elements
@@ -54,6 +55,32 @@ const btnDenseCompact = document.querySelector('#btnDenseCompact');
 const openEnrichBtn = $('#openEnrichBtn');
 const libraryView = $('#libraryView');
 const enrichView = $('#enrichView');
+// CSV import modal elements
+const csvImportModal = $('#csvImportModal');
+const csvImportCloseBtn = $('#csvImportCloseBtn');
+const csvImportFile = $('#csvImportFile');
+const csvImportHeaderless = $('#csvImportHeaderless');
+const csvImportParseBtn = $('#csvImportParseBtn');
+const csvImportMapping = $('#csvImportMapping');
+const csvImportPreview = $('#csvImportPreview');
+const csvImportPreviewList = $('#csvImportPreviewList');
+const csvImportSummary = $('#csvImportSummary');
+const csvImportConfirmBtn = $('#csvImportConfirmBtn');
+const csvImportCancelBtn = $('#csvImportCancelBtn');
+const csvMapTitleImport = $('#csvMapTitle');
+const csvMapAuthorsImport = $('#csvMapAuthors');
+const csvMapIsbnImport = $('#csvMapIsbn');
+const csvMapPublisherImport = $('#csvMapPublisher');
+const csvMapYearImport = $('#csvMapYear');
+const csvMapLanguageImport = $('#csvMapLanguage');
+const csvMapSeriesImport = $('#csvMapSeries');
+const csvMapSeriesIndexImport = $('#csvMapSeriesIndex');
+const csvMapFormatImport = $('#csvMapFormat');
+const csvMapGenresImport = $('#csvMapGenres');
+const csvMapTagsImport = $('#csvMapTags');
+const csvMapRatingImport = $('#csvMapRating');
+const csvMapNotesImport = $('#csvMapNotes');
+const csvMapCoverImport = $('#csvMapCover');
 // Enrichment UI
 const csvInput = $('#csvInput');
 const parseCsvBtn = $('#parseCsvBtn');
@@ -168,6 +195,28 @@ const enrichState = {
   ignoreCache: false,
 };
 
+const csvImportState = {
+  headers: [],
+  rows: [],
+  mapping: {
+    title: '',
+    authors: '',
+    isbn: '',
+    publisher: '',
+    year: '',
+    language: '',
+    series: '',
+    seriesIndex: '',
+    format: '',
+    genres: '',
+    tags: '',
+    rating: '',
+    notes: '',
+    cover: '',
+  },
+  fileName: '',
+};
+
 function updatePauseButton() {
   if (!stopEnrichBtn) return;
   stopEnrichBtn.textContent = enrichState.running ? 'Пауза' : 'Возобновить';
@@ -198,6 +247,294 @@ function appendRatingStars(container, value) {
   if (parts.hasHalf) container.appendChild(createStarSpan('half'));
   for (let i = 0; i < parts.empty; i += 1) container.appendChild(createStarSpan('empty'));
   return parts;
+}
+
+const csvMappingSelectors = [
+  { field: 'title', element: csvMapTitleImport },
+  { field: 'authors', element: csvMapAuthorsImport },
+  { field: 'isbn', element: csvMapIsbnImport },
+  { field: 'publisher', element: csvMapPublisherImport },
+  { field: 'year', element: csvMapYearImport },
+  { field: 'language', element: csvMapLanguageImport },
+  { field: 'series', element: csvMapSeriesImport },
+  { field: 'seriesIndex', element: csvMapSeriesIndexImport },
+  { field: 'format', element: csvMapFormatImport },
+  { field: 'genres', element: csvMapGenresImport },
+  { field: 'tags', element: csvMapTagsImport },
+  { field: 'rating', element: csvMapRatingImport },
+  { field: 'notes', element: csvMapNotesImport },
+  { field: 'cover', element: csvMapCoverImport },
+];
+
+function resetCsvImportState() {
+  csvImportState.headers = [];
+  csvImportState.rows = [];
+  csvImportState.fileName = '';
+  Object.keys(csvImportState.mapping).forEach((key) => { csvImportState.mapping[key] = ''; });
+  csvMappingSelectors.forEach(({ element }) => { if (element) element.innerHTML = ''; });
+  if (csvImportMapping) csvImportMapping.style.display = 'none';
+  if (csvImportPreview) csvImportPreview.style.display = 'none';
+  if (csvImportSummary) csvImportSummary.style.display = 'none';
+  if (csvImportConfirmBtn) csvImportConfirmBtn.disabled = true;
+  if (csvImportPreviewList) csvImportPreviewList.innerHTML = '';
+}
+
+function populateCsvSelect(select, headers) {
+  if (!select) return;
+  select.innerHTML = '';
+  const optNone = document.createElement('option');
+  optNone.value = '';
+  optNone.textContent = '—';
+  select.appendChild(optNone);
+  headers.forEach((h) => {
+    const option = document.createElement('option');
+    option.value = h;
+    option.textContent = h;
+    select.appendChild(option);
+  });
+}
+
+function populateCsvMappingSelectors(headers) {
+  csvMappingSelectors.forEach(({ element }) => populateCsvSelect(element, headers));
+}
+
+function normalizeHeaderName(header) {
+  return String(header || '').trim().toLowerCase();
+}
+
+function guessCsvMapping(headers) {
+  const guesses = {};
+  const normalizedHeaders = headers.map((h) => ({ raw: h, norm: normalizeHeaderName(h) }));
+  const rules = {
+    title: ['title', 'название', 'book title', 'name'],
+    authors: ['authors', 'author', 'автор', 'авторы'],
+    isbn: ['isbn', 'isbn13', 'ean'],
+    publisher: ['publisher', 'издательство'],
+    year: ['year', 'год', 'publication year'],
+    language: ['language', 'язык'],
+    series: ['series', 'серия'],
+    seriesIndex: ['seriesindex', 'index', 'номер'],
+    format: ['format', 'тип'],
+    genres: ['genre', 'genres', 'жанр', 'жанры'],
+    tags: ['tags', 'теги', 'ключевые слова', 'keywords'],
+    rating: ['rating', 'оценка', 'score'],
+    notes: ['notes', 'заметки', 'комментарии', 'description', 'описание'],
+    cover: ['cover', 'coverurl', 'image', 'imageurl', 'обложка'],
+  };
+
+  Object.entries(rules).forEach(([field, keywords]) => {
+    const found = normalizedHeaders.find(({ norm }) => keywords.some((kw) => norm.includes(kw)));
+    guesses[field] = found ? found.raw : '';
+  });
+
+  if (!guesses.title && headers[0]) guesses.title = headers[0];
+  if (!guesses.authors && headers[1]) guesses.authors = headers[1];
+
+  return guesses;
+}
+
+function applyCsvMapping(mapping) {
+  Object.entries(mapping).forEach(([field, header]) => {
+    if (csvImportState.mapping[field] !== undefined) {
+      csvImportState.mapping[field] = header || '';
+    }
+  });
+  csvMappingSelectors.forEach(({ field, element }) => {
+    if (!element) return;
+    const value = csvImportState.mapping[field] || '';
+    element.value = value;
+  });
+}
+
+function updateCsvMappingFromSelectors() {
+  csvMappingSelectors.forEach(({ field, element }) => {
+    if (!element) return;
+    csvImportState.mapping[field] = element.value || '';
+  });
+}
+
+function splitList(value) {
+  if (!value) return [];
+  return String(value)
+    .split(/[;,|]/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function toNumberOrNull(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const num = Number(String(value).replace(',', '.'));
+  return Number.isFinite(num) ? num : null;
+}
+
+function buildBookFromCsvRow(row) {
+  const get = (field) => {
+    const column = csvImportState.mapping[field];
+    if (!column) return '';
+    return row[column] ?? '';
+  };
+
+  const title = String(get('title') || '').trim();
+  const authors = splitList(get('authors'));
+  const publisher = String(get('publisher') || '').trim();
+  const year = toNumberOrNull(get('year'));
+  const language = String(get('language') || '').trim();
+  const series = String(get('series') || '').trim();
+  const seriesIndex = toNumberOrNull(get('seriesIndex'));
+  const format = String(get('format') || '').trim();
+  const genres = splitList(get('genres'));
+  const tags = splitList(get('tags'));
+  const rating = toNumberOrNull(get('rating'));
+  const notes = String(get('notes') || '').trim();
+  const isbn = String(get('isbn') || '').replace(/[^0-9xX]/g, '');
+  const coverUrl = String(get('cover') || '').trim();
+
+  return {
+    book: {
+      title,
+      authors,
+      series: series || null,
+      seriesIndex,
+      year,
+      publisher: publisher || null,
+      isbn: isbn || null,
+      language: language || null,
+      rating,
+      notes: notes || null,
+      tags,
+      format: format || null,
+      genres,
+    },
+    coverUrl: coverUrl || null,
+  };
+}
+
+function renderCsvImportPreview() {
+  if (!csvImportPreviewList) return;
+  csvImportPreviewList.innerHTML = '';
+  if (!csvImportState.rows.length) return;
+  const sample = csvImportState.rows.slice(0, 5);
+  sample.forEach((row, index) => {
+    const { book, coverUrl } = buildBookFromCsvRow(row);
+    const item = document.createElement('div');
+    item.style.border = '1px solid var(--border)';
+    item.style.borderRadius = '10px';
+    item.style.padding = '8px';
+    item.style.background = 'var(--surface)';
+    const title = document.createElement('div');
+    title.style.fontWeight = '600';
+    title.textContent = book.title || `(строка ${index + 1})`;
+    const authors = document.createElement('div');
+    authors.style.fontSize = '12px';
+    authors.style.color = 'var(--muted)';
+    authors.textContent = (book.authors || []).join(', ');
+    const meta = document.createElement('div');
+    meta.style.fontSize = '12px';
+    meta.style.color = 'var(--muted)';
+    const pieces = [];
+    if (book.publisher) pieces.push(book.publisher);
+    if (book.year) pieces.push(book.year);
+    if (book.isbn) pieces.push(`ISBN ${book.isbn}`);
+    meta.textContent = pieces.join(' • ');
+    const extra = document.createElement('div');
+    extra.style.fontSize = '12px';
+    extra.style.color = 'var(--muted)';
+    const extraParts = [];
+    if (book.tags?.length) extraParts.push(`Теги: ${book.tags.join(', ')}`);
+    if (book.genres?.length) extraParts.push(`Жанры: ${book.genres.join(', ')}`);
+    if (book.rating != null) extraParts.push(`Оценка: ${book.rating}`);
+    if (coverUrl) extraParts.push(`Обложка: ${coverUrl}`);
+    extra.textContent = extraParts.join(' • ');
+    item.appendChild(title);
+    item.appendChild(authors);
+    if (pieces.length) item.appendChild(meta);
+    if (extraParts.length) item.appendChild(extra);
+    csvImportPreviewList.appendChild(item);
+  });
+}
+
+function updateCsvImportSummary() {
+  if (!csvImportSummary) return;
+  if (!csvImportState.rows.length) {
+    csvImportSummary.style.display = 'none';
+    csvImportSummary.textContent = '';
+    return;
+  }
+  const count = csvImportState.rows.length;
+  const file = csvImportState.fileName ? `«${csvImportState.fileName}»` : 'файл';
+  csvImportSummary.textContent = `Загружено ${count} строк из ${file}. Для импорта необходимо указать колонку с названием.`;
+  csvImportSummary.style.display = 'block';
+}
+
+function updateCsvImportControls() {
+  const hasRows = csvImportState.rows.length > 0;
+  const hasTitle = !!csvImportState.mapping.title;
+  if (csvImportConfirmBtn) csvImportConfirmBtn.disabled = !(hasRows && hasTitle);
+  if (csvImportMapping) csvImportMapping.style.display = hasRows ? 'block' : 'none';
+  if (csvImportPreview) csvImportPreview.style.display = hasRows ? 'block' : 'none';
+  if (!hasRows && csvImportPreviewList) csvImportPreviewList.innerHTML = '';
+  updateCsvImportSummary();
+}
+
+function openCsvImportModal() {
+  if (!csvImportModal) return;
+  csvImportModal.style.display = 'flex';
+}
+
+function closeCsvImportModal() {
+  if (!csvImportModal) return;
+  csvImportModal.style.display = 'none';
+  resetCsvImportState();
+  if (csvImportFile) csvImportFile.value = '';
+}
+
+async function prepareBooksForImport(rows) {
+  const entries = [];
+  let skipped = 0;
+  const coverErrors = [];
+  for (let i = 0; i < rows.length; i += 1) {
+    const row = rows[i];
+    const { book, coverUrl } = buildBookFromCsvRow(row);
+    if (!book.title) {
+      skipped += 1;
+      continue;
+    }
+    const payload = {
+      title: book.title,
+      authors: Array.isArray(book.authors) ? book.authors : [],
+      series: book.series || null,
+      seriesIndex: book.seriesIndex ?? null,
+      year: book.year ?? null,
+      publisher: book.publisher || null,
+      isbn: book.isbn || null,
+      language: book.language || null,
+      rating: book.rating ?? null,
+      notes: book.notes || null,
+      tags: Array.isArray(book.tags) ? book.tags : [],
+      format: book.format || null,
+      genres: Array.isArray(book.genres) ? book.genres : [],
+    };
+
+    if (!payload.authors.length) payload.authors = [];
+    if (!payload.tags.length) payload.tags = [];
+    if (!payload.genres.length) payload.genres = [];
+
+    if (coverUrl && window.api && typeof window.api.downloadCover === 'function') {
+      try {
+        const res = await window.api.downloadCover(coverUrl);
+        if (res && res.ok && res.path) {
+          payload.coverSourcePath = res.path;
+        } else {
+          coverErrors.push({ index: i + 1, url: coverUrl, error: res?.error || 'download failed' });
+        }
+      } catch (error) {
+        coverErrors.push({ index: i + 1, url: coverUrl, error: String(error?.message || error) });
+      }
+    }
+
+    entries.push({ book: payload, rowIndex: i + 1 });
+  }
+  return { entries, skipped, coverErrors };
 }
 
 function ratingMarkup(value) {
@@ -1640,6 +1977,110 @@ importBtn.addEventListener('click', async () => {
     await load();
   }
 });
+
+if (csvImportBtn) {
+  csvImportBtn.addEventListener('click', () => {
+    resetCsvImportState();
+    openCsvImportModal();
+  });
+}
+
+if (csvImportCloseBtn) csvImportCloseBtn.addEventListener('click', closeCsvImportModal);
+if (csvImportCancelBtn) csvImportCancelBtn.addEventListener('click', closeCsvImportModal);
+
+if (csvImportParseBtn) {
+  csvImportParseBtn.addEventListener('click', async () => {
+    try {
+      if (!csvImportFile || !csvImportFile.files || !csvImportFile.files[0]) {
+        alert('Выберите CSV/TSV файл');
+        return;
+      }
+      const file = csvImportFile.files[0];
+      const text = await file.text();
+      const headerless = !!csvImportHeaderless?.checked;
+      const parsed = await window.api.parseCsv({ text, headerless });
+      if (!parsed || !Array.isArray(parsed.headers) || !parsed.headers.length || !Array.isArray(parsed.rows) || !parsed.rows.length) {
+        alert('Не удалось распарсить файл');
+        return;
+      }
+      csvImportState.headers = parsed.headers;
+      csvImportState.rows = parsed.rows;
+      csvImportState.fileName = file.name || '';
+      populateCsvMappingSelectors(parsed.headers);
+      const guesses = guessCsvMapping(parsed.headers);
+      applyCsvMapping(guesses);
+      renderCsvImportPreview();
+      updateCsvImportControls();
+    } catch (error) {
+      console.error('CSV parse failed', error);
+      alert('Ошибка обработки CSV');
+    }
+  });
+}
+
+csvMappingSelectors.forEach(({ element }) => {
+  if (!element) return;
+  element.addEventListener('change', () => {
+    updateCsvMappingFromSelectors();
+    renderCsvImportPreview();
+    updateCsvImportControls();
+  });
+});
+
+if (csvImportConfirmBtn) {
+  csvImportConfirmBtn.addEventListener('click', async () => {
+    updateCsvMappingFromSelectors();
+    if (!csvImportState.rows.length) {
+      alert('Сначала загрузите файл');
+      return;
+    }
+    if (!csvImportState.mapping.title) {
+      alert('Укажите колонку с названием книги');
+      return;
+    }
+    try {
+      csvImportConfirmBtn.disabled = true;
+      const originalText = csvImportConfirmBtn.textContent;
+      csvImportConfirmBtn.textContent = 'Импортируем…';
+      const { entries, skipped, coverErrors } = await prepareBooksForImport(csvImportState.rows);
+      if (!entries.length) {
+        csvImportConfirmBtn.disabled = false;
+        csvImportConfirmBtn.textContent = originalText;
+        alert('Не найдено записей для импорта (возможно, в строках нет названия)');
+        return;
+      }
+      const res = await window.api.bulkAddBooks({ entries });
+      csvImportConfirmBtn.disabled = false;
+      csvImportConfirmBtn.textContent = originalText;
+      if (!res || !res.ok) {
+        throw new Error(res?.error || 'Не удалось импортировать книги');
+      }
+      const created = res.created ?? entries.length;
+      const failed = Array.isArray(res.failed) ? res.failed.length : 0;
+      let message = `Импорт завершён: добавлено ${created}.`;
+      if (skipped) message += ` Пропущено без названия: ${skipped}.`;
+      if (failed) message += ` Ошибок при сохранении: ${failed}.`;
+      if (coverErrors.length) message += ` Проблем с обложками: ${coverErrors.length}.`;
+      if (res.failed?.length) {
+        console.warn('CSV import failures:', res.failed);
+      }
+      if (coverErrors.length) {
+        console.warn('CSV cover download issues:', coverErrors);
+      }
+      alert(message);
+      closeCsvImportModal();
+      await reloadDataOnly();
+      render();
+    } catch (error) {
+      console.error('CSV import failed', error);
+      alert(`Импорт не удался: ${error?.message || error}`);
+      if (csvImportConfirmBtn) {
+        csvImportConfirmBtn.disabled = false;
+        csvImportConfirmBtn.textContent = 'Импортировать';
+      }
+    }
+  });
+}
 
 async function load() {
   if (!window.api || !window.api.getBooks) {

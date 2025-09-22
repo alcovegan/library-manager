@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('api', {
   addBook: (payload) => ipcRenderer.invoke('books:add', payload),
   updateBook: (payload) => ipcRenderer.invoke('books:update', payload),
   deleteBook: (id) => ipcRenderer.invoke('books:delete', id),
+  bulkAddBooks: (entries) => ipcRenderer.invoke('books:bulkAdd', entries),
   selectCover: () => ipcRenderer.invoke('select:cover'),
   exportBackup: () => ipcRenderer.invoke('backup:export'),
   importBackup: () => ipcRenderer.invoke('backup:import'),
@@ -66,11 +67,31 @@ contextBridge.exposeInMainWorld('api', {
     const opts = (typeof arg === 'object' && arg !== null) ? arg : { text: String(arg || '') };
     const text = String(opts.text || '');
     const headerless = !!opts.headerless;
+    const detectDelimiter = (sample) => {
+      const lines = sample.split(/\r?\n/).slice(0, 5);
+      const delims = [
+        { char: ';', score: 0 },
+        { char: '\t', score: 0 },
+        { char: ',', score: 0 },
+        { char: '|', score: 0 },
+      ];
+      lines.forEach((line) => {
+        delims.forEach((d) => {
+          const count = (line.match(new RegExp(`\\${d.char}`, 'g')) || []).length;
+          if (count > 0) d.score += count;
+        });
+      });
+      delims.sort((a, b) => b.score - a.score);
+      return delims[0] && delims[0].score > 0 ? delims[0].char : ',';
+    };
+    const delimiter = detectDelimiter(text);
+    const splitLine = (line) => line.split(delimiter).map((part) => part.trim());
     if (Papa) {
       const res = Papa.parse(text, {
         header: !headerless,
         skipEmptyLines: 'greedy',
         dynamicTyping: false,
+        delimiter,
       });
       if (!headerless) {
         const headers = Array.isArray(res.meta?.fields) ? res.meta.fields : [];
@@ -86,13 +107,26 @@ contextBridge.exposeInMainWorld('api', {
       });
       return { headers, rows };
     }
-    // fallback: very naive split (not recommended)
-    const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+    // fallback: simple split with detected delimiter
+    const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
     if (!lines.length) return { headers: [], rows: [] };
-    const headers = lines[0].split(',').map(h => h.trim());
-    const rows = lines.slice(1).map(line => {
-      const cols = line.split(',');
-      const obj = {}; headers.forEach((h,i)=>obj[h]= (cols[i]||'').trim());
+    if (!headerless) {
+      const headers = splitLine(lines[0]);
+      const rows = lines.slice(1).map((line) => {
+        const cols = splitLine(line);
+        const obj = {};
+        headers.forEach((h, i) => { obj[h] = cols[i] ?? ''; });
+        return obj;
+      });
+      return { headers, rows };
+    }
+    const rowsArr = lines.map((line) => splitLine(line));
+    let maxCols = 0;
+    rowsArr.forEach((cols) => { maxCols = Math.max(maxCols, cols.length); });
+    const headers = Array.from({ length: maxCols }, (_v, i) => `col${i + 1}`);
+    const rows = rowsArr.map((cols) => {
+      const obj = {};
+      headers.forEach((h, idx) => { obj[h] = cols[idx] ?? ''; });
       return obj;
     });
     return { headers, rows };

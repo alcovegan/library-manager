@@ -256,6 +256,64 @@ ipcMain.handle('books:delete', async (event, id) => {
   return { ok };
 });
 
+ipcMain.handle('books:bulkAdd', async (_event, payload) => {
+  try {
+    const entries = Array.isArray(payload?.entries) ? payload.entries : [];
+    if (!entries.length) {
+      return { ok: false, error: 'no entries provided' };
+    }
+    const failed = [];
+    let created = 0;
+    for (const entry of entries) {
+      const data = entry?.book || entry || {};
+      const rowIndex = entry?.rowIndex ?? null;
+      try {
+        let coverPath = null;
+        if (data.coverSourcePath) {
+          const sourcePath = String(data.coverSourcePath);
+          try {
+            const normalized = path.normalize(sourcePath);
+            const coversDir = COVERS_DIR();
+            if (normalized.startsWith(coversDir)) {
+              coverPath = normalized;
+            } else {
+              coverPath = copyCoverIfProvided(sourcePath);
+            }
+          } catch {
+            coverPath = copyCoverIfProvided(sourcePath);
+          }
+        }
+        dbLayer.createBook(db, {
+          title: String(data.title || '').trim(),
+          authors: Array.isArray(data.authors)
+            ? data.authors.map((a) => String(a || '').trim()).filter(Boolean)
+            : [],
+          coverPath,
+          series: data.series ?? null,
+          seriesIndex: data.seriesIndex ?? null,
+          year: data.year ?? null,
+          publisher: data.publisher ?? null,
+          isbn: data.isbn ?? null,
+          language: data.language ?? null,
+          rating: data.rating ?? null,
+          notes: data.notes ?? null,
+          tags: Array.isArray(data.tags) ? data.tags : [],
+          titleAlt: data.titleAlt ? String(data.titleAlt) : null,
+          authorsAlt: Array.isArray(data.authorsAlt) ? data.authorsAlt : [],
+          format: data.format ?? null,
+          genres: Array.isArray(data.genres) ? data.genres : [],
+        });
+        created += 1;
+      } catch (error) {
+        failed.push({ rowIndex, error: String(error?.message || error) });
+      }
+    }
+    return { ok: true, created, failed };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
+});
+
 ipcMain.handle('select:cover', async () => {
   const win = BrowserWindow.getFocusedWindow();
   const { canceled, filePaths } = await dialog.showOpenDialog(win || undefined, {
