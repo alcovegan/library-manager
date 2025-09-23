@@ -15,6 +15,7 @@ const saveBtn = $('#saveBtn');
 const resetBtn = $('#resetBtn');
 const exportBtn = $('#exportBtn');
 const importBtn = $('#importBtn');
+const coverSearchBtn = $('#coverSearchBtn');
 const csvImportBtn = $('#csvImportBtn');
 const searchInput = $('#searchInput');
 const openCreateModalBtn = $('#openCreateModalBtn');
@@ -25,6 +26,8 @@ const modalCoverPreview = $('#modalCoverPreview');
 const modalChooseCoverBtn = $('#modalChooseCoverBtn');
 const modalCoverUrlInput = $('#modalCoverUrlInput');
 const modalLoadCoverBtn = $('#modalLoadCoverBtn');
+const modalCoverSearchBtn = $('#modalCoverSearchBtn');
+const modalCoverLabel = $('#modalCoverLabel');
 const modalTitle = $('#modalTitle');
 const modalAuthors = $('#modalAuthors');
 const modalSeries = $('#modalSeries');
@@ -81,6 +84,13 @@ const csvMapTagsImport = $('#csvMapTags');
 const csvMapRatingImport = $('#csvMapRating');
 const csvMapNotesImport = $('#csvMapNotes');
 const csvMapCoverImport = $('#csvMapCover');
+const coverSearchModal = $('#coverSearchModal');
+const coverSearchCloseBtn = $('#coverSearchCloseBtn');
+const coverSearchQuery = $('#coverSearchQuery');
+const coverSearchSubmit = $('#coverSearchSubmit');
+const coverSearchInfo = $('#coverSearchInfo');
+const coverSearchStatus = $('#coverSearchStatus');
+const coverSearchResults = $('#coverSearchResults');
 // Enrichment UI
 const csvInput = $('#csvInput');
 const parseCsvBtn = $('#parseCsvBtn');
@@ -217,6 +227,15 @@ const csvImportState = {
   fileName: '',
 };
 
+const coverSearchState = {
+  context: null,
+  results: [],
+  loading: false,
+  query: '',
+  source: null,
+  escapeHandler: null,
+};
+
 function updatePauseButton() {
   if (!stopEnrichBtn) return;
   stopEnrichBtn.textContent = enrichState.running ? 'Пауза' : 'Возобновить';
@@ -247,6 +266,14 @@ function appendRatingStars(container, value) {
   if (parts.hasHalf) container.appendChild(createStarSpan('half'));
   for (let i = 0; i < parts.empty; i += 1) container.appendChild(createStarSpan('empty'));
   return parts;
+}
+
+function formatCoverLabel(path, fallback = 'Не выбрано') {
+  if (!path) return fallback;
+  const str = String(path);
+  if (str.startsWith('http')) return str;
+  const parts = str.split(/[/\\]/).filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : str;
 }
 
 const csvMappingSelectors = [
@@ -537,6 +564,211 @@ async function prepareBooksForImport(rows) {
   return { entries, skipped, coverErrors };
 }
 
+function getCoverSearchFields(context) {
+  if (context === 'modal') {
+    return {
+      title: modalTitle ? modalTitle.value : '',
+      authors: modalAuthors ? modalAuthors.value : '',
+    };
+  }
+  return {
+    title: titleInput ? titleInput.value : '',
+    authors: authorsInput ? authorsInput.value : '',
+  };
+}
+
+function closeCoverSearchModal() {
+  if (coverSearchModal) coverSearchModal.style.display = 'none';
+  coverSearchState.context = null;
+  coverSearchState.results = [];
+  coverSearchState.source = null;
+  coverSearchState.query = '';
+  if (coverSearchState.escapeHandler) {
+    document.removeEventListener('keydown', coverSearchState.escapeHandler);
+    coverSearchState.escapeHandler = null;
+  }
+  if (coverSearchQuery) coverSearchQuery.value = '';
+  if (coverSearchStatus) coverSearchStatus.textContent = '';
+  if (coverSearchResults) coverSearchResults.innerHTML = '';
+}
+
+function openCoverSearchModal(context) {
+  coverSearchState.context = context;
+  coverSearchState.results = [];
+  coverSearchState.source = null;
+  coverSearchState.loading = false;
+  const { title, authors } = getCoverSearchFields(context);
+  const parts = [];
+  if (title) parts.push(title);
+  if (authors) {
+    const firstAuthor = authors.split(',')[0]?.trim();
+    if (firstAuthor) parts.push(firstAuthor);
+  }
+  if (parts.length) {
+    parts.push('book cover');
+    parts.push('обложка книги');
+  }
+  coverSearchState.query = parts.filter(Boolean).join(' ');
+  if (coverSearchModal) coverSearchModal.style.display = 'flex';
+  if (coverSearchInfo) {
+    coverSearchInfo.textContent = 'Показываем изображения шире 500 px (Google Books и DuckDuckGo).';
+  }
+  if (coverSearchQuery) {
+    coverSearchQuery.value = coverSearchState.query;
+    setTimeout(() => {
+      try { coverSearchQuery.focus({ preventScroll: true }); coverSearchQuery.select(); } catch {}
+    }, 50);
+  }
+  if (coverSearchSubmit) coverSearchSubmit.disabled = false;
+  if (coverSearchStatus) {
+    coverSearchStatus.textContent = coverSearchState.query
+      ? 'Нажмите «Найти» для поиска.'
+      : 'Введите запрос и нажмите «Найти».';
+  }
+  if (coverSearchResults) coverSearchResults.innerHTML = '';
+  if (coverSearchState.escapeHandler) {
+    document.removeEventListener('keydown', coverSearchState.escapeHandler);
+  }
+  coverSearchState.escapeHandler = (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeCoverSearchModal();
+    }
+  };
+  document.addEventListener('keydown', coverSearchState.escapeHandler);
+  if (coverSearchState.query) {
+    runCoverSearch(coverSearchState.query);
+  }
+}
+
+function renderCoverSearchResults() {
+  if (!coverSearchResults) return;
+  coverSearchResults.innerHTML = '';
+  coverSearchState.results.forEach((item, index) => {
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.style.cssText = `
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 8px;
+      background: var(--surface);
+      cursor: pointer;
+      box-shadow: var(--shadow);
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      transition:transform 120ms ease, box-shadow 120ms ease;
+    `;
+    card.addEventListener('mouseover', () => { card.style.transform = 'translateY(-2px)'; });
+    card.addEventListener('mouseout', () => { card.style.transform = ''; });
+    const img = document.createElement('img');
+    img.src = item.thumbnail || item.url;
+    img.alt = item.title || `Обложка ${index + 1}`;
+    img.style.maxWidth = '100%';
+    img.style.height = '160px';
+    img.style.objectFit = 'cover';
+    img.style.borderRadius = '8px';
+    img.loading = 'lazy';
+    img.onerror = () => { img.src = item.url; };
+    const title = document.createElement('div');
+    title.style.fontSize = '12px';
+    title.style.fontWeight = '600';
+    title.style.textAlign = 'center';
+    title.style.whiteSpace = 'nowrap';
+    title.style.overflow = 'hidden';
+    title.style.textOverflow = 'ellipsis';
+    title.textContent = item.title || '';
+    const meta = document.createElement('div');
+    meta.style.fontSize = '11px';
+    meta.style.color = 'var(--muted)';
+    const dims = [];
+    if (item.width) dims.push(`${item.width}×${item.height || '?'}`);
+    if (item.sourcePage) {
+      try {
+        const host = new URL(item.sourcePage).hostname.replace(/^www\./, '');
+        if (host) dims.push(host);
+      } catch {}
+    }
+    meta.textContent = dims.join(' • ');
+    card.appendChild(img);
+    if (item.title) card.appendChild(title);
+    if (dims.length) card.appendChild(meta);
+    card.addEventListener('click', () => selectCoverFromResults(item));
+    coverSearchResults.appendChild(card);
+  });
+}
+
+async function runCoverSearch(queryOverride) {
+  if (!window.api || typeof window.api.searchCovers !== 'function') {
+    alert('Поиск обложек недоступен.');
+    return;
+  }
+  if (coverSearchState.loading) return;
+  const context = coverSearchState.context || 'form';
+  const { title, authors } = getCoverSearchFields(context);
+  const query = (queryOverride ?? (coverSearchQuery ? coverSearchQuery.value : '')).trim();
+  if (!query) {
+    if (coverSearchStatus) coverSearchStatus.textContent = 'Введите поисковый запрос.';
+    return;
+  }
+  coverSearchState.query = query;
+  coverSearchState.loading = true;
+  if (coverSearchSubmit) coverSearchSubmit.disabled = true;
+  if (coverSearchStatus) coverSearchStatus.textContent = 'Ищем обложки…';
+  if (coverSearchResults) coverSearchResults.innerHTML = '';
+  try {
+    const res = await window.api.searchCovers({ query, title, authors, count: 16 });
+    if (!res || !res.ok || !Array.isArray(res.results) || !res.results.length) {
+      coverSearchState.results = [];
+      coverSearchState.source = res?.source || null;
+      coverSearchStatus.textContent = res?.error ? `Не найдено: ${res.error}` : 'Ничего не найдено.';
+      return;
+    }
+    coverSearchState.results = res.results;
+    coverSearchState.source = res.source || null;
+    const providerLabels = {
+      'google-books': 'Google Books',
+      bing: 'Bing',
+      duckduckgo: 'DuckDuckGo',
+    };
+    const providerLabel = providerLabels[coverSearchState.source] || 'неизвестного источника';
+    coverSearchStatus.textContent = `Найдено ${res.results.length} (${providerLabel}). Нажмите на обложку, чтобы выбрать.`;
+    renderCoverSearchResults();
+  } catch (error) {
+    console.error('cover search failed', error);
+    coverSearchStatus.textContent = `Ошибка поиска: ${error?.message || error}`;
+  } finally {
+    coverSearchState.loading = false;
+    if (coverSearchSubmit) coverSearchSubmit.disabled = false;
+  }
+}
+
+async function selectCoverFromResults(item) {
+  if (!item || !item.url) return;
+  if (!window.api || typeof window.api.downloadCover !== 'function') {
+    alert('Загрузка обложки недоступна.');
+    return;
+  }
+  try {
+    if (coverSearchStatus) coverSearchStatus.textContent = 'Скачиваем выбранную обложку…';
+    const dl = await window.api.downloadCover(item.url);
+    if (!dl || !dl.ok || !dl.path) {
+      throw new Error(dl?.error || 'download failed');
+    }
+    if (coverSearchState.context === 'modal') {
+      state.modal.coverSourcePath = dl.path;
+      setModalPreview(dl.path);
+    } else {
+      state.coverSourcePath = dl.path;
+      setPreview(dl.path);
+    }
+    closeCoverSearchModal();
+  } catch (error) {
+    console.error('cover download failed', error);
+    if (coverSearchStatus) coverSearchStatus.textContent = `Не удалось скачать: ${error?.message || error}`;
+  }
+}
+
 function ratingMarkup(value) {
   const parts = normalizeRating(value);
   if (!parts) return null;
@@ -579,6 +811,7 @@ function toFileUrl(p) {
 
 function setPreview(path) {
   const show = !!path;
+  if (coverFileLabel) coverFileLabel.textContent = formatCoverLabel(path);
   if (!show) {
     coverPreview.style.display = 'none';
     coverPreview.removeAttribute('src');
@@ -591,6 +824,7 @@ function setPreview(path) {
 }
 
 function setModalPreview(path) {
+  if (modalCoverLabel) modalCoverLabel.textContent = formatCoverLabel(path);
   if (!path) {
     modalCoverPreview.style.display = 'none';
     modalCoverPreview.removeAttribute('src');
@@ -1744,7 +1978,6 @@ function startEdit(b) {
   titleInput.value = b.title || '';
   authorsInput.value = (b.authors || []).join(', ');
   state.coverSourcePath = null; // only change if user picks a new one
-  coverFileLabel.textContent = b.coverPath ? b.coverPath : 'Не выбрано';
   setPreview(b.coverPath || null);
   formTitle.textContent = 'Редактировать книгу';
   saveBtn.textContent = 'Обновить';
@@ -1877,7 +2110,6 @@ chooseCoverBtn.addEventListener('click', async () => {
     const p = await window.api.selectCover();
     if (p) {
       state.coverSourcePath = p;
-      coverFileLabel.textContent = p;
       setPreview(p);
     }
   } catch (e) {
@@ -1910,7 +2142,6 @@ async function loadCoverFromUrl(urlInput, isModal = false) {
         setModalPreview(result.path);
       } else {
         state.coverSourcePath = result.path;
-        coverFileLabel.textContent = url;
         setPreview(result.path);
       }
       urlInput.value = ''; // Clear URL input after successful download
@@ -2209,6 +2440,35 @@ if (modalCoverUrlInput) {
       e.preventDefault();
       loadCoverFromUrl(modalCoverUrlInput, true);
     }
+  });
+}
+
+if (coverSearchBtn) {
+  coverSearchBtn.addEventListener('click', () => openCoverSearchModal('form'));
+}
+
+if (modalCoverSearchBtn) {
+  modalCoverSearchBtn.addEventListener('click', () => openCoverSearchModal('modal'));
+}
+
+if (coverSearchCloseBtn) coverSearchCloseBtn.addEventListener('click', closeCoverSearchModal);
+
+if (coverSearchSubmit) {
+  coverSearchSubmit.addEventListener('click', () => runCoverSearch(coverSearchQuery ? coverSearchQuery.value : ''));
+}
+
+if (coverSearchQuery) {
+  coverSearchQuery.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      runCoverSearch(coverSearchQuery.value);
+    }
+  });
+}
+
+if (coverSearchModal) {
+  coverSearchModal.addEventListener('click', (e) => {
+    if (e.target === coverSearchModal) closeCoverSearchModal();
   });
 }
 
@@ -2947,7 +3207,7 @@ function setupDropzone(imgEl, setPathFn) {
   });
 }
 
-setupDropzone(coverPreview, (p) => { state.coverSourcePath = p; coverFileLabel.textContent = p; setPreview(p); });
+setupDropzone(coverPreview, (p) => { state.coverSourcePath = p; setPreview(p); });
 setupDropzone(modalCoverPreview, (p) => { state.modal.coverSourcePath = p; setModalPreview(p); });
 
 // Enrichment helpers

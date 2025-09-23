@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld('api', {
   deleteBook: (id) => ipcRenderer.invoke('books:delete', id),
   bulkAddBooks: (entries) => ipcRenderer.invoke('books:bulkAdd', entries),
   selectCover: () => ipcRenderer.invoke('select:cover'),
+  searchCovers: (payload) => ipcRenderer.invoke('covers:search-online', payload),
   exportBackup: () => ipcRenderer.invoke('backup:export'),
   importBackup: () => ipcRenderer.invoke('backup:import'),
   metaByIsbn: (arg) => ipcRenderer.invoke('meta:byIsbn', arg),

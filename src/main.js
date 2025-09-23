@@ -15,6 +15,180 @@ const isbnProvider = require('./main/providers/isbn');
 const aiIsbn = require('./main/ai/isbn_enrich');
 const syncManager = require('./main/sync/sync_manager');
 
+const GOOGLE_BOOKS_API_KEY = process.env.GOOGLE_BOOKS_API_KEY || '';
+const GOOGLE_BOOKS_ENDPOINT = 'https://www.googleapis.com/books/v1/volumes';
+const MIN_COVER_WIDTH = Number(process.env.COVER_MIN_WIDTH || 500);
+
+const fetch = globalThis.fetch
+  ? globalThis.fetch.bind(globalThis)
+  : (...args) => import('node-fetch').then(({ default: nodeFetch }) => nodeFetch(...args));
+
+const GOOGLE_IMAGE_HINTS = [
+  { key: 'extraLarge', width: 1280 },
+  { key: 'large', width: 1000 },
+  { key: 'medium', width: 800 },
+  { key: 'small', width: 600 },
+  { key: 'thumbnail', width: 1024, zoom: 3 },
+  { key: 'smallThumbnail', width: 512, zoom: 2 },
+];
+
+function normalizeGoogleImageLink(link, { zoom } = {}) {
+  if (!link) return null;
+  try {
+    const url = new URL(link);
+    url.protocol = 'https:';
+    if (zoom) url.searchParams.set('zoom', String(zoom));
+    if (url.searchParams.has('edge')) url.searchParams.delete('edge');
+    return url.toString();
+  } catch (error) {
+    try {
+      const url = new URL(link, 'https://books.googleusercontent.com');
+      if (zoom) url.searchParams.set('zoom', String(zoom));
+      if (url.searchParams.has('edge')) url.searchParams.delete('edge');
+      return url.toString();
+    } catch {
+      return String(link).replace(/^http:\/\//, 'https://');
+    }
+  }
+}
+
+function pickGoogleImage(info) {
+  const links = info?.imageLinks || {};
+  for (const hint of GOOGLE_IMAGE_HINTS) {
+    const raw = links[hint.key];
+    if (!raw) continue;
+    const normalized = normalizeGoogleImageLink(raw, { zoom: hint.zoom });
+    if (!normalized) continue;
+    const width = hint.width || null;
+    if (width && MIN_COVER_WIDTH && width < MIN_COVER_WIDTH) continue;
+    const thumb = hint.key === 'smallThumbnail' && links.thumbnail
+      ? normalizeGoogleImageLink(links.thumbnail, { zoom: 3 })
+      : normalized;
+    return {
+      url: normalized,
+      thumbnail: thumb,
+      width,
+      height: null,
+      title: info?.title || '',
+      sourcePage: info?.infoLink || info?.previewLink || null,
+      provider: 'google-books',
+    };
+  }
+  return null;
+}
+
+async function searchCoversGoogleBooks(query, { count = 12 } = {}) {
+  const params = new URLSearchParams({
+    q: query,
+    maxResults: String(Math.min(Math.max(count * 2, 10), 30)),
+    printType: 'books',
+    orderBy: 'relevance',
+  });
+  if (GOOGLE_BOOKS_API_KEY) params.set('key', GOOGLE_BOOKS_API_KEY);
+  const url = `${GOOGLE_BOOKS_ENDPOINT}?${params.toString()}`;
+  const res = await fetch(url, {
+    headers: { 'User-Agent': 'LibraryManager/1.0 (https://github.com/alcovegan/library-manager)' },
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText);
+    throw new Error(`Google Books search failed: ${res.status} ${text}`);
+  }
+  const data = await res.json();
+  const items = Array.isArray(data?.items) ? data.items : [];
+  const results = [];
+  for (const item of items) {
+    const info = item?.volumeInfo || {};
+    const picked = pickGoogleImage(info);
+    if (picked) {
+      results.push(picked);
+      if (results.length >= count) break;
+    }
+  }
+  return results;
+}
+
+async function fetchDuckDuckGoVqd(query) {
+  const searchUrl = `https://duckduckgo.com/?q=${encodeURIComponent(query)}&iar=images&iax=images&ia=images`;
+  const res = await fetch(searchUrl, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:125.0) Gecko/20100101 Firefox/125.0',
+      'Accept-Language': 'en-US,en;q=0.9,ru;q=0.8',
+    },
+  });
+  if (!res.ok) throw new Error(`DuckDuckGo bootstrap failed: ${res.status}`);
+  const html = await res.text();
+  const regexes = [
+    /vqd='([^']+)'/,
+    /vqd="([^"]+)"/,
+    /"vqd":"([^"]+)"/,
+  ];
+  for (const regex of regexes) {
+    const match = html.match(regex);
+    if (match && match[1]) return match[1];
+  }
+  throw new Error('DuckDuckGo token not found');
+}
+
+async function searchCoversDuckDuckGo(query, { count = 12 } = {}) {
+  try {
+    const vqd = await fetchDuckDuckGoVqd(query);
+    const apiUrl = `https://duckduckgo.com/i.js?l=ru-ru&o=json&q=${encodeURIComponent(query)}&vqd=${vqd}&f=,&p=1`; // safe search moderate by default
+    const res = await fetch(apiUrl, { headers: { 'User-Agent': 'Mozilla/5.0', Referer: 'https://duckduckgo.com/' } });
+    if (!res.ok) throw new Error(`DuckDuckGo search failed: ${res.status}`);
+    const data = await res.json();
+    const results = Array.isArray(data?.results) ? data.results : [];
+    return results
+      .filter((item) => Number(item.width) >= MIN_COVER_WIDTH && item.image)
+      .slice(0, count)
+      .map((item) => ({
+        url: item.image,
+        thumbnail: item.thumbnail || null,
+        width: item.width || null,
+        height: item.height || null,
+        sourcePage: item.url || null,
+        title: item.title || '',
+        provider: 'duckduckgo',
+      }));
+  } catch (error) {
+    console.warn('DuckDuckGo cover search failed', error?.message || error);
+    return [];
+  }
+}
+
+async function searchCoverImages({ query, count = 12 }) {
+  const trimmed = String(query || '').trim();
+  if (!trimmed) {
+    return { ok: false, error: 'empty query' };
+  }
+  try {
+    const googleResults = await searchCoversGoogleBooks(trimmed, { count });
+    if (Array.isArray(googleResults) && googleResults.length) {
+      return { ok: true, source: 'google-books', results: googleResults };
+    }
+  } catch (error) {
+    console.warn('Google Books cover search failed', error?.message || error);
+  }
+  const duckResults = await searchCoversDuckDuckGo(trimmed, { count });
+  if (duckResults.length) {
+    return { ok: true, source: 'duckduckgo', results: duckResults };
+  }
+  return { ok: false, error: 'no results found' };
+}
+
+function buildCoverQuery({ title, authors, query }) {
+  if (query && String(query).trim()) return String(query).trim();
+  const parts = [];
+  if (title) parts.push(String(title));
+  if (Array.isArray(authors) && authors.length) {
+    parts.push(authors.slice(0, 2).join(' '));
+  } else if (typeof authors === 'string' && authors.trim()) {
+    parts.push(authors.trim());
+  }
+  parts.push('book cover');
+  parts.push('обложка книги');
+  return parts.join(' ').trim();
+}
+
 const DATA_DIR = () => path.join(app.getPath('userData'), 'data');
 const BOOKS_FILE = () => path.join(DATA_DIR(), 'books.json');
 const COVERS_DIR = () => path.join(DATA_DIR(), 'covers');
@@ -325,6 +499,23 @@ ipcMain.handle('select:cover', async () => {
   });
   if (canceled || !filePaths[0]) return null;
   return filePaths[0];
+});
+
+ipcMain.handle('covers:search-online', async (_event, payload) => {
+  try {
+    const query = buildCoverQuery({
+      title: payload?.title,
+      authors: payload?.authors,
+      query: payload?.query,
+    });
+    const count = Number(payload?.count) || 12;
+    const result = await searchCoverImages({ query, count });
+    if (!result.ok) return { ok: false, error: result.error || 'not found' };
+    return result;
+  } catch (error) {
+    console.error('covers:search-online failed', error);
+    return { ok: false, error: String(error?.message || error) };
+  }
 });
 
 ipcMain.handle('backup:export', async () => {
