@@ -162,6 +162,9 @@
           <button id="csvImportBtn" class="icon-btn" title="Импорт CSV/TSV">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h16v2H4V4zm0 4h4v12H4V8zm6 0h4v12h-4V8zm6 0h4v12h-4V8z"/></svg>
           </button>
+          <button id="storageManagerBtn" class="icon-btn" title="Места хранения">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M4 5h16v2H4V5zm0 6h10v2H4v-2zm0 6h16v2H4v-2zm12-6 4-3-4-3v6z"/></svg>
+          </button>
           <button id="syncBtn" class="icon-btn" title="Синхронизация">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>
           </button>
@@ -198,6 +201,10 @@
           <button id="loadCoverBtn" class="btn">Загрузить</button>
         </div>
         <img id="coverPreview" class="cover-preview dropzone" alt="предпросмотр" />
+        <label style="margin-top:12px;">Место хранения</label>
+        <select id="storageSelect" class="input">
+          <option value="">—</option>
+        </select>
         <div class="row" style="margin-top:12px; gap:12px;">
           <button id="saveBtn" class="btn primary" style="flex:1;">Сохранить</button>
           <button id="resetBtn" class="btn" style="flex:1;">Сбросить</button>
@@ -328,6 +335,15 @@
             <div style="margin-top:8px;">
               <input id="modalCoverUrlInput" type="url" placeholder="https://example.com/cover.jpg" class="input" style="width:100%; font-size:12px;" />
               <button id="modalLoadCoverBtn" class="btn" style="width:100%; margin-top:4px; font-size:12px;">Загрузить по URL</button>
+            </div>
+            <label style="margin-top:12px;">Место хранения</label>
+            <select id="modalStorageSelect" class="input" style="width:100%;">
+              <option value="">—</option>
+            </select>
+            <div class="row" style="margin-top:6px; gap:8px;">
+              <button id="modalStorageHistoryBtn" type="button" class="btn secondary" style="flex:1; font-size:12px;">История…</button>
+              <button id="modalLendBtn" type="button" class="btn" style="flex:1; font-size:12px;">Отдать…</button>
+              <button id="modalReturnBtn" type="button" class="btn" style="flex:1; font-size:12px;">Вернуть…</button>
             </div>
           </div>
           <div>
@@ -463,6 +479,61 @@
           <button id="csvImportCancelBtn" class="btn">Отмена</button>
           <button id="csvImportConfirmBtn" class="btn primary" disabled>Импортировать</button>
         </div>
+      </div>
+    </div>
+
+    <div id="storageManagerModal" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:56; padding:24px 12px; box-sizing:border-box;">
+      <div class="modal-backdrop" style="position:absolute; inset:0; background:rgba(0,0,0,0.35);"></div>
+      <div class="modal-card" style="position:relative; width:min(900px,96vw); max-height:100%; overflow:auto; background:var(--surface); border:1px solid var(--border); border-radius:14px; box-shadow:var(--shadow); padding:18px; display:flex; flex-direction:column; gap:12px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+          <h3 style="margin:0;">Места хранения</h3>
+          <button id="storageManagerCloseBtn" class="icon-btn" title="Закрыть" style="width:32px; height:32px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7A1 1 0 0 0 5.7 7.11L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.41L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4z"/></svg>
+          </button>
+        </div>
+        <div style="font-size:12px; color:var(--muted);">Создавайте коды для шкафов, полок и особых статусов (например, RN — «читаю сейчас»).</div>
+        <div style="display:flex; gap:16px; flex-wrap:wrap;">
+          <div style="flex:2 1 360px; min-width:320px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <h4 style="margin:0; font-size:14px;">Список</h4>
+              <button id="storageCreateBtn" class="btn secondary" type="button">Добавить</button>
+            </div>
+            <div id="storageList" style="display:flex; flex-direction:column; gap:8px;"></div>
+          </div>
+          <div style="flex:1 1 260px; min-width:260px; border:1px solid var(--border); border-radius:12px; padding:12px; background:var(--muted-surface);">
+            <h4 style="margin:0 0 8px 0; font-size:14px;">Редактирование</h4>
+            <div class="form-grid" style="display:flex; flex-direction:column; gap:8px;">
+              <label>Код</label>
+              <input id="storageFormCode" type="text" class="input" placeholder="Например, R1-A1-S7" />
+              <label>Описание</label>
+              <input id="storageFormTitle" type="text" class="input" placeholder="Комната/стеллаж/полка" />
+              <label>Примечание</label>
+              <textarea id="storageFormNote" rows="2" class="input" style="resize:vertical;"></textarea>
+              <label style="display:flex; align-items:center; gap:6px;">
+                <input id="storageFormActive" type="checkbox" checked /> Активно
+              </label>
+              <label>Порядок сортировки</label>
+              <input id="storageFormSort" type="number" class="input" value="0" />
+              <div class="row" style="justify-content:flex-end; gap:8px;">
+                <button id="storageFormCancel" type="button" class="btn">Отмена</button>
+                <button id="storageFormSave" type="button" class="btn primary">Сохранить</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="storageHistoryModal" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:57; padding:24px 12px; box-sizing:border-box;">
+      <div class="modal-backdrop" style="position:absolute; inset:0; background:rgba(0,0,0,0.35);"></div>
+      <div class="modal-card" style="position:relative; width:min(720px,92vw); max-height:100%; overflow:auto; background:var(--surface); border:1px solid var(--border); border-radius:14px; box-shadow:var(--shadow); padding:18px; display:flex; flex-direction:column; gap:12px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+          <h3 style="margin:0;">История перемещений</h3>
+          <button id="storageHistoryCloseBtn" class="icon-btn" title="Закрыть" style="width:32px; height:32px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7A1 1 0 0 0 5.7 7.11L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.41L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4z"/></svg>
+          </button>
+        </div>
+        <div id="storageHistoryList" style="display:flex; flex-direction:column; gap:10px;"></div>
       </div>
     </div>
 

@@ -244,6 +244,36 @@ async function migrate(ctx) {
     setSchemaVersion(ctx, 7);
     persist(ctx);
   }
+  if (getSchemaVersion(ctx) === 7) {
+    ctx.db.exec(`
+      CREATE TABLE IF NOT EXISTS storage_locations (
+        id TEXT PRIMARY KEY,
+        code TEXT NOT NULL UNIQUE,
+        title TEXT,
+        note TEXT,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      ALTER TABLE books ADD COLUMN storageLocationId TEXT;
+      CREATE TABLE IF NOT EXISTS book_storage_history (
+        id TEXT PRIMARY KEY,
+        bookId TEXT NOT NULL,
+        fromLocationId TEXT,
+        toLocationId TEXT,
+        action TEXT NOT NULL,
+        person TEXT,
+        note TEXT,
+        created_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_books_storageLocationId ON books(storageLocationId);
+      CREATE INDEX IF NOT EXISTS idx_history_bookId ON book_storage_history(bookId);
+      CREATE INDEX IF NOT EXISTS idx_history_created_at ON book_storage_history(created_at DESC);
+    `);
+    setSchemaVersion(ctx, 8);
+    persist(ctx);
+  }
 }
 
 function ensureAuthor(ctx, name) {
@@ -275,9 +305,9 @@ function authorsForBook(ctx, bookId) {
 }
 
 function listBooks(ctx) {
-  const res = ctx.db.exec('SELECT id, title, coverPath, createdAt, updatedAt, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres FROM books ORDER BY title COLLATE NOCASE');
+  const res = ctx.db.exec('SELECT id, title, coverPath, createdAt, updatedAt, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres, storageLocationId FROM books ORDER BY title COLLATE NOCASE');
   const rows = res[0] ? res[0].values : [];
-  return rows.map(([id, title, coverPath, createdAt, updatedAt, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres]) => ({
+  return rows.map(([id, title, coverPath, createdAt, updatedAt, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres, storageLocationId]) => ({
     id,
     title,
     coverPath: fromStoredCoverPath(ctx, coverPath),
@@ -296,6 +326,7 @@ function listBooks(ctx) {
     authorsAlt: parseJsonArray(authorsAlt),
     format: normStr(format),
     genres: parseJsonArray(genres),
+    storageLocationId: normStr(storageLocationId),
     authors: authorsForBook(ctx, id),
   }));
 }
@@ -312,11 +343,11 @@ function strTags(arr) { try { return JSON.stringify(Array.isArray(arr) ? arr : [
 function parseJsonArray(v) { try { const a = JSON.parse(v || '[]'); return Array.isArray(a) ? a : []; } catch { return []; } }
 function strArray(arr) { try { return JSON.stringify(Array.isArray(arr) ? arr : []); } catch { return '[]'; } }
 
-function createBook(ctx, { title, authors = [], coverPath = null, series=null, seriesIndex=null, year=null, publisher=null, isbn=null, language=null, rating=null, notes=null, tags=[], titleAlt=null, authorsAlt=[], format=null, genres=[] }) {
+function createBook(ctx, { title, authors = [], coverPath = null, series=null, seriesIndex=null, year=null, publisher=null, isbn=null, language=null, rating=null, notes=null, tags=[], titleAlt=null, authorsAlt=[], format=null, genres=[], storageLocationId=null }) {
   const now = new Date().toISOString();
   const id = randomUUID();
   const storedCoverPath = toStoredCoverPath(ctx, coverPath);
-  const insBook = ctx.db.prepare('INSERT INTO books(id, title, coverPath, createdAt, updatedAt, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+  const insBook = ctx.db.prepare('INSERT INTO books(id, title, coverPath, createdAt, updatedAt, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres, storageLocationId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
   insBook.bind([
     id,
     title,
@@ -336,6 +367,7 @@ function createBook(ctx, { title, authors = [], coverPath = null, series=null, s
     strArray(authorsAlt),
     normStr(format),
     strArray(genres),
+    normStr(storageLocationId),
   ]);
   insBook.step();
   insBook.free();
@@ -368,13 +400,142 @@ function createBook(ctx, { title, authors = [], coverPath = null, series=null, s
     authorsAlt: strArray(authorsAlt),
     format: normStr(format),
     genres,
+    storageLocationId: normStr(storageLocationId),
   };
 }
 
-function updateBook(ctx, { id, title, authors = [], coverPath = null, series=null, seriesIndex=null, year=null, publisher=null, isbn=null, language=null, rating=null, notes=null, tags=[], titleAlt=null, authorsAlt=[], format=null, genres=[] }) {
+function listStorageLocations(ctx) {
+  const res = ctx.db.exec('SELECT id, code, title, note, is_active, sort_order, created_at, updated_at FROM storage_locations ORDER BY is_active DESC, sort_order ASC, code COLLATE NOCASE');
+  const rows = res[0] ? res[0].values : [];
+  return rows.map(([id, code, title, note, isActive, sortOrder, createdAt, updatedAt]) => ({
+    id,
+    code,
+    title: normStr(title),
+    note: normStr(note),
+    isActive: Boolean(isActive),
+    sortOrder: Number(sortOrder) || 0,
+    createdAt,
+    updatedAt,
+  }));
+}
+
+function createStorageLocation(ctx, { code, title = null, note = null, isActive = true, sortOrder = 0 }) {
+  const id = randomUUID();
+  const now = new Date().toISOString();
+  const stmt = ctx.db.prepare('INSERT INTO storage_locations(id, code, title, note, is_active, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+  stmt.bind([
+    id,
+    String(code || '').trim(),
+    normStr(title),
+    normStr(note),
+    isActive ? 1 : 0,
+    Number(sortOrder) || 0,
+    now,
+    now,
+  ]);
+  stmt.step();
+  stmt.free();
+  persist(ctx);
+  return { id, code: String(code || '').trim(), title: normStr(title), note: normStr(note), isActive: Boolean(isActive), sortOrder: Number(sortOrder) || 0, createdAt: now, updatedAt: now };
+}
+
+function updateStorageLocation(ctx, { id, code, title = null, note = null, isActive = true, sortOrder = 0 }) {
+  const now = new Date().toISOString();
+  const stmt = ctx.db.prepare('UPDATE storage_locations SET code = ?, title = ?, note = ?, is_active = ?, sort_order = ?, updated_at = ? WHERE id = ?');
+  stmt.bind([
+    String(code || '').trim(),
+    normStr(title),
+    normStr(note),
+    isActive ? 1 : 0,
+    Number(sortOrder) || 0,
+    now,
+    id,
+  ]);
+  stmt.step();
+  stmt.free();
+  persist(ctx);
+  return { id, code: String(code || '').trim(), title: normStr(title), note: normStr(note), isActive: Boolean(isActive), sortOrder: Number(sortOrder) || 0, updatedAt: now };
+}
+
+function archiveStorageLocation(ctx, id) {
+  const now = new Date().toISOString();
+  ctx.db.exec(`UPDATE storage_locations SET is_active = 0, updated_at = '${now}' WHERE id = '${String(id).replace(/'/g, "''")}'`);
+  persist(ctx);
+  return true;
+}
+
+function getStorageLocation(ctx, id) {
+  const res = ctx.db.exec(`SELECT id, code, title, note, is_active, sort_order, created_at, updated_at FROM storage_locations WHERE id = '${String(id).replace(/'/g, "''")}'`);
+  if (!res[0] || !res[0].values.length) return null;
+  const [row] = res[0].values;
+  const [locId, code, title, note, isActive, sortOrder, createdAt, updatedAt] = row;
+  return {
+    id: locId,
+    code,
+    title: normStr(title),
+    note: normStr(note),
+    isActive: Boolean(isActive),
+    sortOrder: Number(sortOrder) || 0,
+    createdAt,
+    updatedAt,
+  };
+}
+
+function insertStorageHistory(ctx, { bookId, fromLocationId = null, toLocationId = null, action = 'move', person = null, note = null }) {
+  const id = randomUUID();
+  const now = new Date().toISOString();
+  const stmt = ctx.db.prepare('INSERT INTO book_storage_history(id, bookId, fromLocationId, toLocationId, action, person, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+  stmt.bind([
+    id,
+    String(bookId),
+    fromLocationId || null,
+    toLocationId || null,
+    String(action || 'move'),
+    normStr(person),
+    normStr(note),
+    now,
+  ]);
+  stmt.step();
+  stmt.free();
+  persist(ctx);
+  return { id, bookId, fromLocationId, toLocationId, action, person: normStr(person), note: normStr(note), createdAt: now };
+}
+
+function listStorageHistory(ctx, bookId) {
+  const res = ctx.db.exec(`
+    SELECT h.id, h.bookId, h.fromLocationId, fl.code AS fromCode, h.toLocationId, tl.code AS toCode, h.action, h.person, h.note, h.created_at
+    FROM book_storage_history h
+    LEFT JOIN storage_locations fl ON fl.id = h.fromLocationId
+    LEFT JOIN storage_locations tl ON tl.id = h.toLocationId
+    WHERE h.bookId = '${String(bookId).replace(/'/g, "''")}'
+    ORDER BY h.created_at DESC
+  `);
+  const rows = res[0] ? res[0].values : [];
+  return rows.map(([id, bId, fromId, fromCode, toId, toCode, action, person, note, createdAt]) => ({
+    id,
+    bookId: bId,
+    fromLocationId: fromId || null,
+    fromCode: fromCode || null,
+    toLocationId: toId || null,
+    toCode: toCode || null,
+    action,
+    person: normStr(person),
+    note: normStr(note),
+    createdAt,
+  }));
+}
+
+function getBookStorageId(ctx, bookId) {
+  const res = ctx.db.exec(`SELECT storageLocationId FROM books WHERE id = '${String(bookId).replace(/'/g, "''")}'`);
+  if (!res[0] || !res[0].values.length) return null;
+  const value = res[0].values[0][0];
+  return value ? String(value) : null;
+}
+
+function updateBook(ctx, { id, title, authors = [], coverPath = null, series=null, seriesIndex=null, year=null, publisher=null, isbn=null, language=null, rating=null, notes=null, tags=[], titleAlt=null, authorsAlt=[], format=null, genres=[], storageLocationId=null }) {
   const now = new Date().toISOString();
   const storedCoverPath = toStoredCoverPath(ctx, coverPath);
-  const upd = ctx.db.prepare('UPDATE books SET title = ?, coverPath = ?, updatedAt = ?, series = ?, seriesIndex = ?, year = ?, publisher = ?, isbn = ?, language = ?, rating = ?, notes = ?, tags = ?, titleAlt = ?, authorsAlt = ?, format = ?, genres = ? WHERE id = ?');
+  const upd = ctx.db.prepare('UPDATE books SET title = ?, coverPath = ?, updatedAt = ?, series = ?, seriesIndex = ?, year = ?, publisher = ?, isbn = ?, language = ?, rating = ?, notes = ?, tags = ?, titleAlt = ?, authorsAlt = ?, format = ?, genres = ?, storageLocationId = ? WHERE id = ?');
   upd.bind([
     title,
     storedCoverPath,
@@ -392,6 +553,7 @@ function updateBook(ctx, { id, title, authors = [], coverPath = null, series=nul
     strArray(authorsAlt),
     normStr(format),
     strArray(genres),
+    normStr(storageLocationId),
     id,
   ]);
   upd.step();
@@ -425,7 +587,22 @@ function updateBook(ctx, { id, title, authors = [], coverPath = null, series=nul
     authorsAlt: strArray(authorsAlt),
     format: normStr(format),
     genres,
+    storageLocationId: normStr(storageLocationId),
   };
+}
+
+function setBookStorageLocation(ctx, bookId, storageLocationId) {
+  const now = new Date().toISOString();
+  const stmt = ctx.db.prepare('UPDATE books SET storageLocationId = ?, updatedAt = ? WHERE id = ?');
+  stmt.bind([
+    storageLocationId ? String(storageLocationId) : null,
+    now,
+    String(bookId),
+  ]);
+  stmt.step();
+  stmt.free();
+  persist(ctx);
+  return { id: String(bookId), storageLocationId: storageLocationId ? String(storageLocationId) : null, updatedAt: now };
 }
 
 function deleteBook(ctx, id) {
@@ -481,4 +658,27 @@ function resolveCoverPath(ctx, storedPath) {
   return fromStoredCoverPath(ctx, storedPath);
 }
 
-module.exports = { openDb, migrate, listBooks, createBook, updateBook, deleteBook, getIsbnCache, setIsbnCache, getAiIsbnCache, setAiIsbnCache, clearAiIsbnCacheAll, clearAiIsbnCacheKey, resolveCoverPath };
+module.exports = {
+  openDb,
+  migrate,
+  listBooks,
+  createBook,
+  updateBook,
+  deleteBook,
+  getIsbnCache,
+  setIsbnCache,
+  getAiIsbnCache,
+  setAiIsbnCache,
+  clearAiIsbnCacheAll,
+  clearAiIsbnCacheKey,
+  resolveCoverPath,
+  listStorageLocations,
+  createStorageLocation,
+  updateStorageLocation,
+  archiveStorageLocation,
+  getStorageLocation,
+  setBookStorageLocation,
+  insertStorageHistory,
+  listStorageHistory,
+  getBookStorageId,
+};

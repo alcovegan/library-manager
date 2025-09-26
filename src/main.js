@@ -374,7 +374,12 @@ app.on('window-all-closed', () => {
 ipcMain.handle('books:list', async () => dbLayer.listBooks(db));
 
 ipcMain.handle('books:add', async (event, payload) => {
-  const { title, authors, coverSourcePath, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres } = payload;
+  const { title, authors, coverSourcePath, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres, storageLocationId, storageNote } = payload;
+  let storageId = storageLocationId ? String(storageLocationId).trim() || null : null;
+  if (storageId) {
+    const loc = dbLayer.getStorageLocation(db, storageId);
+    if (!loc || loc.isActive === false) storageId = null;
+  }
   const book = dbLayer.createBook(db, {
     title: String(title || '').trim(),
     authors: Array.isArray(authors) ? authors.map(a => String(a).trim()).filter(Boolean) : [],
@@ -385,14 +390,20 @@ ipcMain.handle('books:add', async (event, payload) => {
     authorsAlt: Array.isArray(authorsAlt) ? authorsAlt : [],
     format: format ? String(format) : null,
     genres: Array.isArray(genres) ? genres : [],
+    storageLocationId: storageId,
   });
+  if (storageId) {
+    dbLayer.insertStorageHistory(db, { bookId: book.id, fromLocationId: null, toLocationId: storageId, action: 'move', note: storageNote || null });
+  }
   return book;
 });
 
 ipcMain.handle('books:update', async (event, payload) => {
-  const { id, title, authors, coverSourcePath, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres } = payload;
-  const row = db.db.exec(`SELECT id, coverPath FROM books WHERE id = '${String(id).replace(/'/g, "''")}'`);
-  const current = row[0] && row[0].values[0] ? { id: row[0].values[0][0], coverPath: row[0].values[0][1] } : null;
+  const { id, title, authors, coverSourcePath, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres, storageLocationId, storageNote } = payload;
+  const row = db.db.exec(`SELECT id, coverPath, storageLocationId FROM books WHERE id = '${String(id).replace(/'/g, "''")}'`);
+  const current = row[0] && row[0].values[0]
+    ? { id: row[0].values[0][0], coverPath: row[0].values[0][1], storageLocationId: row[0].values[0][2] }
+    : null;
   if (!current) throw new Error('Book not found');
   let coverPath = dbLayer.resolveCoverPath(db, current.coverPath);
   if (coverSourcePath) {
@@ -401,6 +412,11 @@ ipcMain.handle('books:update', async (event, payload) => {
       try { fs.unlinkSync(coverPath); } catch {}
     }
     coverPath = copyCoverIfProvided(coverSourcePath);
+  }
+  let storageId = storageLocationId ? String(storageLocationId).trim() || null : null;
+  if (storageId) {
+    const loc = dbLayer.getStorageLocation(db, storageId);
+    if (!loc || loc.isActive === false) storageId = null;
   }
   const updated = dbLayer.updateBook(db, {
     id,
@@ -413,7 +429,12 @@ ipcMain.handle('books:update', async (event, payload) => {
     authorsAlt: Array.isArray(authorsAlt) ? authorsAlt : [],
     format: format ? String(format) : null,
     genres: Array.isArray(genres) ? genres : [],
+    storageLocationId: storageId,
   });
+  const prevStorage = current.storageLocationId ? String(current.storageLocationId) : null;
+  if (prevStorage !== storageId) {
+    dbLayer.insertStorageHistory(db, { bookId: id, fromLocationId: prevStorage, toLocationId: storageId, action: 'move', note: storageNote || null });
+  }
   return updated;
 });
 
@@ -428,6 +449,146 @@ ipcMain.handle('books:delete', async (event, id) => {
   }
   const ok = dbLayer.deleteBook(db, id);
   return { ok };
+});
+
+ipcMain.handle('storage:list', async () => {
+  try {
+    const list = dbLayer.listStorageLocations(db);
+    return { ok: true, locations: list };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
+});
+
+ipcMain.handle('storage:create', async (_event, payload) => {
+  try {
+    const code = String(payload?.code || '').trim();
+    if (!code) throw new Error('code required');
+    const loc = dbLayer.createStorageLocation(db, {
+      code,
+      title: payload?.title ?? null,
+      note: payload?.note ?? null,
+      isActive: payload?.isActive !== false,
+      sortOrder: payload?.sortOrder ?? 0,
+    });
+    return { ok: true, location: loc };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
+});
+
+ipcMain.handle('storage:update', async (_event, payload) => {
+  try {
+    const id = String(payload?.id || '').trim();
+    if (!id) throw new Error('id required');
+    const loc = dbLayer.updateStorageLocation(db, {
+      id,
+      code: payload?.code || '',
+      title: payload?.title ?? null,
+      note: payload?.note ?? null,
+      isActive: payload?.isActive !== false,
+      sortOrder: payload?.sortOrder ?? 0,
+    });
+    return { ok: true, location: loc };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
+});
+
+ipcMain.handle('storage:archive', async (_event, id) => {
+  try {
+    if (!id) throw new Error('id required');
+    dbLayer.archiveStorageLocation(db, id);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
+});
+
+ipcMain.handle('storage:history', async (_event, bookId) => {
+  try {
+    const history = dbLayer.listStorageHistory(db, bookId);
+    return { ok: true, history };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
+});
+
+ipcMain.handle('storage:move', async (_event, payload) => {
+  try {
+    const bookId = String(payload?.bookId || '').trim();
+    if (!bookId) throw new Error('bookId required');
+    let toLocationId = payload?.toLocationId ? String(payload.toLocationId).trim() || null : null;
+    if (toLocationId) {
+      const loc = dbLayer.getStorageLocation(db, toLocationId);
+      if (!loc || loc.isActive === false) {
+        throw new Error('Место хранения не найдено или неактивно');
+      }
+    }
+    const prev = dbLayer.getBookStorageId(db, bookId);
+    if (prev === toLocationId) {
+      return { ok: true, unchanged: true };
+    }
+    dbLayer.setBookStorageLocation(db, bookId, toLocationId);
+    dbLayer.insertStorageHistory(db, {
+      bookId,
+      fromLocationId: prev,
+      toLocationId,
+      action: 'move',
+      note: payload?.note ?? null,
+    });
+    return { ok: true, storageLocationId: toLocationId };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
+});
+
+ipcMain.handle('storage:lend', async (_event, payload) => {
+  try {
+    const bookId = String(payload?.bookId || '').trim();
+    if (!bookId) throw new Error('bookId required');
+    const person = String(payload?.person || '').trim();
+    if (!person) throw new Error('Укажите кому передали книгу');
+    const prev = dbLayer.getBookStorageId(db, bookId);
+    dbLayer.setBookStorageLocation(db, bookId, null);
+    dbLayer.insertStorageHistory(db, {
+      bookId,
+      fromLocationId: prev,
+      toLocationId: null,
+      action: 'lend',
+      person,
+      note: payload?.note ?? null,
+    });
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
+});
+
+ipcMain.handle('storage:return', async (_event, payload) => {
+  try {
+    const bookId = String(payload?.bookId || '').trim();
+    if (!bookId) throw new Error('bookId required');
+    let toLocationId = payload?.toLocationId ? String(payload.toLocationId).trim() || null : null;
+    if (toLocationId) {
+      const loc = dbLayer.getStorageLocation(db, toLocationId);
+      if (!loc || loc.isActive === false) {
+        throw new Error('Место хранения не найдено или неактивно');
+      }
+    }
+    const prev = dbLayer.getBookStorageId(db, bookId);
+    dbLayer.setBookStorageLocation(db, bookId, toLocationId);
+    dbLayer.insertStorageHistory(db, {
+      bookId,
+      fromLocationId: prev,
+      toLocationId,
+      action: 'return',
+      note: payload?.note ?? null,
+    });
+    return { ok: true, storageLocationId: toLocationId };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
 });
 
 ipcMain.handle('books:bulkAdd', async (_event, payload) => {
@@ -457,7 +618,8 @@ ipcMain.handle('books:bulkAdd', async (_event, payload) => {
             coverPath = copyCoverIfProvided(sourcePath);
           }
         }
-        dbLayer.createBook(db, {
+        const storageId = data.storageLocationId ? String(data.storageLocationId).trim() || null : null;
+        const bookResult = dbLayer.createBook(db, {
           title: String(data.title || '').trim(),
           authors: Array.isArray(data.authors)
             ? data.authors.map((a) => String(a || '').trim()).filter(Boolean)
@@ -476,7 +638,17 @@ ipcMain.handle('books:bulkAdd', async (_event, payload) => {
           authorsAlt: Array.isArray(data.authorsAlt) ? data.authorsAlt : [],
           format: data.format ?? null,
           genres: Array.isArray(data.genres) ? data.genres : [],
+          storageLocationId: storageId,
         });
+        if (storageId) {
+          dbLayer.insertStorageHistory(db, {
+            bookId: bookResult.id,
+            fromLocationId: null,
+            toLocationId: storageId,
+            action: 'move',
+            note: data.storageNote ?? null,
+          });
+        }
         created += 1;
       } catch (error) {
         failed.push({ rowIndex, error: String(error?.message || error) });

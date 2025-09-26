@@ -15,6 +15,7 @@ const saveBtn = $('#saveBtn');
 const resetBtn = $('#resetBtn');
 const exportBtn = $('#exportBtn');
 const importBtn = $('#importBtn');
+const storageSelect = $('#storageSelect');
 const coverSearchBtn = $('#coverSearchBtn');
 const csvImportBtn = $('#csvImportBtn');
 const searchInput = $('#searchInput');
@@ -49,6 +50,10 @@ const modalFormat = document.querySelector('#modalFormat');
 const modalGenres = document.querySelector('#modalGenres');
 const modalSaveBtn = $('#modalSaveBtn');
 const modalCollectionsBtn = $('#modalCollectionsBtn');
+const modalStorageSelect = $('#modalStorageSelect');
+const modalStorageHistoryBtn = $('#modalStorageHistoryBtn');
+const modalLendBtn = $('#modalLendBtn');
+const modalReturnBtn = $('#modalReturnBtn');
 const themeToggle = $('#themeToggle');
 const openSettingsBtn = $('#openSettingsBtn');
 const btnViewGrid = document.querySelector('#btnViewGrid');
@@ -91,6 +96,21 @@ const coverSearchSubmit = $('#coverSearchSubmit');
 const coverSearchInfo = $('#coverSearchInfo');
 const coverSearchStatus = $('#coverSearchStatus');
 const coverSearchResults = $('#coverSearchResults');
+const storageManagerBtn = $('#storageManagerBtn');
+const storageManagerModal = $('#storageManagerModal');
+const storageManagerCloseBtn = $('#storageManagerCloseBtn');
+const storageListEl = $('#storageList');
+const storageCreateBtn = $('#storageCreateBtn');
+const storageFormCode = $('#storageFormCode');
+const storageFormTitle = $('#storageFormTitle');
+const storageFormNote = $('#storageFormNote');
+const storageFormActive = $('#storageFormActive');
+const storageFormSort = $('#storageFormSort');
+const storageFormSave = $('#storageFormSave');
+const storageFormCancel = $('#storageFormCancel');
+const storageHistoryModal = $('#storageHistoryModal');
+const storageHistoryCloseBtn = $('#storageHistoryCloseBtn');
+const storageHistoryList = $('#storageHistoryList');
 // Enrichment UI
 const csvInput = $('#csvInput');
 const parseCsvBtn = $('#parseCsvBtn');
@@ -179,6 +199,7 @@ let state = {
   visibleBooks: [],
   editId: null,
   coverSourcePath: null,
+  storageLocationId: null,
   selectedId: null,
   currentStaticCollection: null, // Name of currently active static collection
   modal: {
@@ -187,6 +208,7 @@ let state = {
     titleAlt: null,
     authorsAlt: [],
     snapshot: null,
+    storageLocationId: null,
   },
   settings: {
     snapshot: null,
@@ -235,6 +257,133 @@ const coverSearchState = {
   source: null,
   escapeHandler: null,
 };
+
+const storageState = {
+  locations: [],
+  editingId: null,
+  historyBookId: null,
+};
+
+function resetStorageForm() {
+  storageState.editingId = null;
+  if (storageFormCode) storageFormCode.value = '';
+  if (storageFormTitle) storageFormTitle.value = '';
+  if (storageFormNote) storageFormNote.value = '';
+  if (storageFormActive) storageFormActive.checked = true;
+  if (storageFormSort) storageFormSort.value = '0';
+}
+
+function populateStorageSelects() {
+  const options = ['<option value="">—</option>'];
+  storageState.locations.forEach((loc) => {
+    const label = `${loc.code}${loc.title ? ` — ${loc.title}` : ''}${loc.isActive ? '' : ' (архив)'}`;
+    const disabled = loc.isActive ? '' : ' disabled';
+    options.push(`<option value="${loc.id}"${disabled}>${label}</option>`);
+  });
+  const html = options.join('');
+  if (storageSelect) storageSelect.innerHTML = html;
+  if (modalStorageSelect) modalStorageSelect.innerHTML = html;
+  if (storageSelect) storageSelect.value = state.storageLocationId || '';
+  if (modalStorageSelect) modalStorageSelect.value = state.modal.storageLocationId || '';
+}
+
+function renderStorageList() {
+  if (!storageListEl) return;
+  if (!storageState.locations.length) {
+    storageListEl.innerHTML = '<div style="font-size:12px; color:var(--muted);">Места хранения ещё не добавлены.</div>';
+    return;
+  }
+  storageListEl.innerHTML = storageState.locations.map((loc) => {
+    const meta = [];
+    if (!loc.isActive) meta.push('неактивно');
+    if (loc.sortOrder) meta.push(`сортировка ${loc.sortOrder}`);
+    const metaHtml = meta.length ? `<div style="font-size:11px; color:var(--muted);">${meta.join(' • ')}</div>` : '';
+    return `
+      <div class="storage-item" data-id="${loc.id}" style="border:1px solid var(--border); border-radius:10px; padding:10px; background:var(--surface); display:flex; flex-direction:column; gap:4px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+          <div style="font-weight:600;">${loc.code}</div>
+          <div>
+            <button class="btn secondary storage-edit" data-id="${loc.id}" style="font-size:11px; padding:4px 8px;">Изм.</button>
+            <button class="btn storage-archive" data-id="${loc.id}" style="font-size:11px; padding:4px 8px;">Арх.</button>
+          </div>
+        </div>
+        ${loc.title ? `<div style="font-size:13px;">${loc.title}</div>` : ''}
+        ${loc.note ? `<div style="font-size:12px; color:var(--muted); white-space:pre-wrap;">${loc.note}</div>` : ''}
+        ${metaHtml}
+      </div>
+    `;
+  }).join('');
+}
+
+async function loadStorageLocations() {
+  try {
+    if (!window.api || typeof window.api.listStorageLocations !== 'function') return;
+    const res = await window.api.listStorageLocations();
+    if (res && res.ok && Array.isArray(res.locations)) {
+      storageState.locations = res.locations;
+      renderStorageList();
+      populateStorageSelects();
+    }
+  } catch (error) {
+    console.error('Failed to load storage locations', error);
+  }
+}
+
+function openStorageManager() {
+  if (!storageManagerModal) return;
+  storageManagerModal.style.display = 'flex';
+  resetStorageForm();
+  populateStorageSelects();
+  renderStorageList();
+  setTimeout(() => {
+    try { storageFormCode?.focus({ preventScroll: true }); } catch {}
+  }, 50);
+}
+
+function closeStorageManager() {
+  if (!storageManagerModal) return;
+  storageManagerModal.style.display = 'none';
+  storageState.editingId = null;
+  resetStorageForm();
+}
+
+function fillStorageForm(loc) {
+  storageState.editingId = loc?.id || null;
+  if (storageFormCode) storageFormCode.value = loc?.code || '';
+  if (storageFormTitle) storageFormTitle.value = loc?.title || '';
+  if (storageFormNote) storageFormNote.value = loc?.note || '';
+  if (storageFormActive) storageFormActive.checked = loc ? loc.isActive : true;
+  if (storageFormSort) storageFormSort.value = loc?.sortOrder ?? 0;
+}
+
+function renderStorageHistory(history) {
+  if (!storageHistoryList) return;
+  if (!history || !history.length) {
+    storageHistoryList.innerHTML = '<div style="font-size:12px; color:var(--muted);">История пуста.</div>';
+    return;
+  }
+  storageHistoryList.innerHTML = history.map((h) => {
+    const actionLabels = {
+      move: 'Перемещение',
+      lend: 'Выдано',
+      return: 'Возврат',
+      assign: 'Назначено',
+    };
+    const parts = [];
+    if (h.fromCode || h.toCode) {
+      parts.push(`${h.fromCode || '—'} → ${h.toCode || '—'}`);
+    }
+    if (h.person) parts.push(`⟶ ${h.person}`);
+    if (h.note) parts.push(h.note);
+    return `
+      <div style="border:1px solid var(--border); border-radius:10px; padding:8px; background:var(--surface);">
+        <div style="font-size:12px; color:var(--muted);">${new Date(h.createdAt).toLocaleString()}</div>
+        <div style="font-weight:600; font-size:13px;">${actionLabels[h.action] || h.action}</div>
+        ${parts.length ? `<div style="font-size:12px; color:var(--muted);">${parts.join(' • ')}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+}
 
 function updatePauseButton() {
   if (!stopEnrichBtn) return;
@@ -766,6 +915,87 @@ async function selectCoverFromResults(item) {
   } catch (error) {
     console.error('cover download failed', error);
     if (coverSearchStatus) coverSearchStatus.textContent = `Не удалось скачать: ${error?.message || error}`;
+  }
+}
+
+async function openStorageHistoryModal(bookId, title) {
+  if (!storageHistoryModal) return;
+  try {
+    const res = await window.api.storageHistory(bookId);
+    if (res && res.ok) {
+      renderStorageHistory(res.history || []);
+    } else {
+      renderStorageHistory([]);
+      alert(res?.error || 'Не удалось загрузить историю');
+    }
+    if (storageHistoryModal) storageHistoryModal.style.display = 'flex';
+    storageState.historyBookId = bookId;
+    const header = storageHistoryModal.querySelector('h3');
+    if (header) {
+      header.textContent = title ? `История перемещений — ${title}` : 'История перемещений';
+    }
+  } catch (error) {
+    console.error('Failed to load storage history', error);
+    alert(`Не удалось загрузить историю: ${error?.message || error}`);
+  }
+}
+
+function closeStorageHistoryModal() {
+  if (!storageHistoryModal) return;
+  storageHistoryModal.style.display = 'none';
+  storageState.historyBookId = null;
+  if (storageHistoryList) storageHistoryList.innerHTML = '';
+  const header = storageHistoryModal.querySelector('h3');
+  if (header) header.textContent = 'История перемещений';
+}
+
+async function lendCurrentBook() {
+  if (!state.modal.id) {
+    alert('Сначала сохраните книгу.');
+    return;
+  }
+  const person = prompt('Кому передали книгу?');
+  if (!person) return;
+  const note = prompt('Примечание (необязательно)', '') || '';
+  try {
+    await window.api.lendBook({ bookId: state.modal.id, person, note });
+    await load();
+    await loadStorageLocations();
+    const updated = state.books.find((b) => b.id === state.modal.id);
+    if (updated) {
+      state.modal.storageLocationId = updated.storageLocationId || null;
+      if (modalStorageSelect) modalStorageSelect.value = updated.storageLocationId || '';
+      setModalPreview(updated.coverPath || null);
+    }
+    alert('Книга отмечена как выданная.');
+  } catch (error) {
+    alert(`Не удалось отметить выдачу: ${error?.message || error}`);
+  }
+}
+
+async function returnCurrentBook() {
+  if (!state.modal.id) {
+    alert('Сначала сохраните книгу.');
+    return;
+  }
+  const toLocationId = modalStorageSelect ? (modalStorageSelect.value || null) : null;
+  if (!toLocationId) {
+    if (!confirm('Место хранения не выбрано. Вернуть книгу без указания полки?')) return;
+  }
+  const note = prompt('Примечание (необязательно)', '') || '';
+  try {
+    await window.api.returnBook({ bookId: state.modal.id, toLocationId, note });
+    await load();
+    await loadStorageLocations();
+    const updated = state.books.find((b) => b.id === state.modal.id);
+    if (updated) {
+      state.modal.storageLocationId = updated.storageLocationId || null;
+      if (modalStorageSelect) modalStorageSelect.value = updated.storageLocationId || '';
+      setModalPreview(updated.coverPath || null);
+    }
+    alert('Возврат книги отмечен.');
+  } catch (error) {
+    alert(`Не удалось отметить возврат: ${error?.message || error}`);
   }
 }
 
@@ -1967,8 +2197,10 @@ function resetForm() {
   authorsInput.value = '';
   coverUrlInput.value = '';
   state.coverSourcePath = null;
+  state.storageLocationId = null;
   coverFileLabel.textContent = 'Не выбрано';
   setPreview(null);
+  if (storageSelect) storageSelect.value = '';
   formTitle.textContent = 'Добавить книгу';
   saveBtn.textContent = 'Сохранить';
 }
@@ -1978,6 +2210,8 @@ function startEdit(b) {
   titleInput.value = b.title || '';
   authorsInput.value = (b.authors || []).join(', ');
   state.coverSourcePath = null; // only change if user picks a new one
+  state.storageLocationId = b.storageLocationId || null;
+  if (storageSelect) storageSelect.value = b.storageLocationId || '';
   setPreview(b.coverPath || null);
   formTitle.textContent = 'Редактировать книгу';
   saveBtn.textContent = 'Обновить';
@@ -2003,6 +2237,8 @@ function openDetails(b) {
   state.modal.coverSourcePath = null;
   state.modal.titleAlt = b?.titleAlt || null;
   state.modal.authorsAlt = Array.isArray(b?.authorsAlt) ? b.authorsAlt : [];
+  state.modal.storageLocationId = b?.storageLocationId || null;
+  if (modalStorageSelect) modalStorageSelect.value = b?.storageLocationId || '';
   setModalPreview(b?.coverPath || null);
   modalEl.style.display = 'flex';
   // clear previous search results
@@ -2038,6 +2274,7 @@ function captureModalSnapshot() {
     coverSourcePath: state.modal.coverSourcePath || null,
     titleAlt: state.modal.titleAlt || null,
     authorsAlt: Array.isArray(state.modal.authorsAlt) ? state.modal.authorsAlt.join(',') : '',
+    storageLocationId: modalStorageSelect ? (modalStorageSelect.value || '') : '',
   };
 }
 
@@ -2057,8 +2294,12 @@ function openInfo(b) {
     }
   }
   const esc = (s) => String(s || '');
+  const storageLoc = storageState.locations.find((loc) => b.storageLocationId && loc.id === b.storageLocationId);
   const ratingInfo = ratingMarkup(b.rating);
   const metaRows = [];
+  if (storageLoc) {
+    metaRows.push('<div><b>Место хранения:</b> ' + esc(storageLoc.code + (storageLoc.title ? ` — ${storageLoc.title}` : '')) + '</div>');
+  }
   if (b.series || b.seriesIndex != null) metaRows.push('<div><b>Серия:</b> ' + esc(b.series || '') + (b.seriesIndex!=null?(' (#' + b.seriesIndex + ')'):'') + '</div>');
   if (b.year || b.publisher) metaRows.push('<div><b>Издательство/Год:</b> ' + esc(b.publisher || '') + (b.year?(' ('+b.year+')'):'') + '</div>');
   if (b.isbn) metaRows.push('<div><b>ISBN:</b> ' + esc(b.isbn) + '</div>');
@@ -2169,19 +2410,26 @@ coverUrlInput.addEventListener('keydown', (e) => {
   }
 });
 
+if (storageSelect) {
+  storageSelect.addEventListener('change', () => {
+    state.storageLocationId = storageSelect.value || null;
+  });
+}
+
 saveBtn.addEventListener('click', async () => {
   try {
     const title = titleInput.value.trim();
     const authors = authorsInput.value.split(',').map(s => s.trim()).filter(Boolean);
+    const storageLocationId = storageSelect ? (storageSelect.value || null) : null;
     if (!title) {
       alert('Введите название');
       return;
     }
     if (!window.api) throw new Error('bridge unavailable');
     if (state.editId) {
-      await window.api.updateBook({ id: state.editId, title, authors, coverSourcePath: state.coverSourcePath });
+      await window.api.updateBook({ id: state.editId, title, authors, coverSourcePath: state.coverSourcePath, storageLocationId });
     } else {
-      await window.api.addBook({ title, authors, coverSourcePath: state.coverSourcePath });
+      await window.api.addBook({ title, authors, coverSourcePath: state.coverSourcePath, storageLocationId });
     }
     resetForm();
     await load();
@@ -2443,6 +2691,12 @@ if (modalCoverUrlInput) {
   });
 }
 
+if (modalStorageSelect) {
+  modalStorageSelect.addEventListener('change', () => {
+    state.modal.storageLocationId = modalStorageSelect.value || null;
+  });
+}
+
 if (coverSearchBtn) {
   coverSearchBtn.addEventListener('click', () => openCoverSearchModal('form'));
 }
@@ -2472,6 +2726,108 @@ if (coverSearchModal) {
   });
 }
 
+if (storageManagerBtn) {
+  storageManagerBtn.addEventListener('click', async () => {
+    await loadStorageLocations();
+    openStorageManager();
+  });
+}
+
+if (storageManagerCloseBtn) storageManagerCloseBtn.addEventListener('click', closeStorageManager);
+
+if (storageManagerModal) {
+  storageManagerModal.addEventListener('click', (e) => {
+    if (e.target === storageManagerModal) closeStorageManager();
+  });
+}
+
+if (storageCreateBtn) {
+  storageCreateBtn.addEventListener('click', () => {
+    resetStorageForm();
+    try { storageFormCode?.focus(); } catch {}
+  });
+}
+
+if (storageFormCancel) storageFormCancel.addEventListener('click', resetStorageForm);
+
+async function saveStorageForm() {
+  const code = storageFormCode ? storageFormCode.value.trim().toUpperCase() : '';
+  if (!code) {
+    alert('Введите код места хранения');
+    return;
+  }
+  const title = storageFormTitle ? storageFormTitle.value.trim() : '';
+  const note = storageFormNote ? storageFormNote.value.trim() : '';
+  const payload = {
+    code,
+    title: title || null,
+    note: note || null,
+    isActive: storageFormActive ? storageFormActive.checked : true,
+    sortOrder: storageFormSort ? Number(storageFormSort.value) || 0 : 0,
+  };
+  try {
+    let res;
+    if (storageState.editingId) {
+      res = await window.api.updateStorageLocation({ ...payload, id: storageState.editingId });
+    } else {
+      res = await window.api.createStorageLocation(payload);
+    }
+    if (!res || !res.ok) throw new Error(res?.error || 'ошибка сохранения');
+    await loadStorageLocations();
+    resetStorageForm();
+  } catch (error) {
+    alert(`Не удалось сохранить место хранения: ${error?.message || error}`);
+    console.error('storage save failed', error);
+  }
+}
+
+if (storageFormSave) storageFormSave.addEventListener('click', saveStorageForm);
+
+if (storageListEl) {
+  storageListEl.addEventListener('click', async (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const id = target.dataset.id;
+    if (!id) return;
+    if (target.classList.contains('storage-edit')) {
+      const loc = storageState.locations.find((l) => l.id === id);
+      if (loc) {
+        fillStorageForm(loc);
+      }
+    } else if (target.classList.contains('storage-archive')) {
+      if (!confirm('Сделать место хранения неактивным? Книги останутся привязаны, но код исчезнет из списков.')) return;
+      try {
+        const res = await window.api.archiveStorageLocation(id);
+        if (!res || !res.ok) throw new Error(res?.error || 'ошибка архивации');
+        await loadStorageLocations();
+      } catch (error) {
+        alert(`Не удалось архивировать: ${error?.message || error}`);
+      }
+    }
+  });
+}
+
+if (storageHistoryCloseBtn) storageHistoryCloseBtn.addEventListener('click', closeStorageHistoryModal);
+
+if (storageHistoryModal) {
+  storageHistoryModal.addEventListener('click', (e) => {
+    if (e.target === storageHistoryModal) closeStorageHistoryModal();
+  });
+}
+
+if (modalStorageHistoryBtn) {
+  modalStorageHistoryBtn.addEventListener('click', async () => {
+    if (!state.modal.id) {
+      alert('Сначала сохраните книгу.');
+      return;
+    }
+    await openStorageHistoryModal(state.modal.id, modalTitle ? modalTitle.value : '');
+  });
+}
+
+if (modalLendBtn) modalLendBtn.addEventListener('click', lendCurrentBook);
+if (modalReturnBtn) modalReturnBtn.addEventListener('click', returnCurrentBook);
+
 // Autocomplete for quick-add form (left panel)
 attachAutocomplete(authorsInput, 'authors', { multiple: true });
 
@@ -2496,6 +2852,7 @@ if (modalSaveBtn) {
       genres: modalGenres ? modalGenres.value.split(',').map(s => s.trim()).filter(Boolean) : [],
       titleAlt: state.modal.titleAlt || null,
       authorsAlt: Array.isArray(state.modal.authorsAlt) ? state.modal.authorsAlt : [],
+      storageLocationId: modalStorageSelect ? (modalStorageSelect.value || null) : null,
     };
       if (!payload.title) { alert('Введите название'); return; }
       if (payload.id) {
@@ -3497,7 +3854,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const createBtn = document.querySelector('#createCollectionBtn');
   console.log('🔍 createCollectionBtn after DOM load:', !!createBtn);
 
-  load().then(() => {
+  Promise.all([load(), loadStorageLocations()]).then(() => {
     loadAppIcon();
     console.log('📚 App fully loaded');
   });
