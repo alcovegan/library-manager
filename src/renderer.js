@@ -989,27 +989,19 @@ async function returnCurrentBook() {
 
 async function quickCreateStorage(context) {
   try {
-    const currentId = context === 'modal' ? state.modal.storageLocationId : state.storageLocationId;
-    const currentLoc = currentId ? storageState.locations.find((loc) => loc.id === currentId) : null;
-    const codeInput = prompt('Код места хранения (например, R1-A1-S7):', currentLoc ? currentLoc.code : '');
-    if (!codeInput) return;
-    const code = codeInput.trim().toUpperCase();
-    if (!code) return;
-    const title = prompt('Описание (необязательно):', '') || '';
-    const note = prompt('Примечание (необязательно):', '') || '';
-    const res = await window.api.createStorageLocation({ code, title: title || null, note: note || null, isActive: true, sortOrder: 0 });
-    if (!res || !res.ok || !res.location) throw new Error(res?.error || 'ошибка создания');
+    storageState.quickContext = context;
     await loadStorageLocations();
-    const newId = res.location.id;
-    if (context === 'modal') {
-      if (modalStorageSelect) modalStorageSelect.value = newId;
-      state.modal.storageLocationId = newId;
-    } else {
-      if (storageSelect) storageSelect.value = newId;
-      state.storageLocationId = newId;
+    resetStorageForm();
+    openStorageManager();
+    const currentId = context === 'modal' ? state.modal.storageLocationId : state.storageLocationId;
+    if (currentId) {
+      const currentLoc = storageState.locations.find((loc) => loc.id === currentId);
+      if (currentLoc && storageFormCode) storageFormCode.value = currentLoc.code;
     }
+    try { storageFormCode?.focus({ preventScroll: true }); } catch {}
   } catch (error) {
-    alert(`Не удалось создать место хранения: ${error?.message || error}`);
+    console.error('quickCreateStorage failed', error);
+    alert(`Не удалось открыть форму: ${error?.message || error}`);
   }
 }
 
@@ -2790,6 +2782,7 @@ if (coverSearchModal) {
 
 if (storageManagerBtn) {
   storageManagerBtn.addEventListener('click', async () => {
+    storageState.quickContext = null;
     await loadStorageLocations();
     openStorageManager();
   });
@@ -2818,12 +2811,10 @@ async function saveStorageForm() {
     alert('Введите код места хранения');
     return;
   }
-  const title = storageFormTitle ? storageFormTitle.value.trim() : '';
-  const note = storageFormNote ? storageFormNote.value.trim() : '';
   const payload = {
     code,
-    title: title || null,
-    note: note || null,
+    title: storageFormTitle ? storageFormTitle.value.trim() || null : null,
+    note: storageFormNote ? storageFormNote.value.trim() || null : null,
     isActive: storageFormActive ? storageFormActive.checked : true,
     sortOrder: storageFormSort ? Number(storageFormSort.value) || 0 : 0,
   };
@@ -2834,9 +2825,22 @@ async function saveStorageForm() {
     } else {
       res = await window.api.createStorageLocation(payload);
     }
-    if (!res || !res.ok) throw new Error(res?.error || 'ошибка сохранения');
+    if (!res || !res.ok || !res.location) throw new Error(res?.error || 'ошибка сохранения');
+    const newId = res.location.id;
     await loadStorageLocations();
-    resetStorageForm();
+    if (storageState.quickContext) {
+      if (storageState.quickContext === 'modal') {
+        state.modal.storageLocationId = newId;
+        if (modalStorageSelect) modalStorageSelect.value = newId;
+      } else {
+        state.storageLocationId = newId;
+        if (storageSelect) storageSelect.value = newId;
+      }
+      storageState.quickContext = null;
+      closeStorageManager();
+    } else {
+      resetStorageForm();
+    }
   } catch (error) {
     alert(`Не удалось сохранить место хранения: ${error?.message || error}`);
     console.error('storage save failed', error);
