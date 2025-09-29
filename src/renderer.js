@@ -113,6 +113,17 @@ const storageFormCancel = $('#storageFormCancel');
 const storageHistoryModal = $('#storageHistoryModal');
 const storageHistoryCloseBtn = $('#storageHistoryCloseBtn');
 const storageHistoryList = $('#storageHistoryList');
+const storageLoanModal = $('#storageLoanModal');
+const storageLoanTitle = $('#storageLoanTitle');
+const storageLoanContext = $('#storageLoanContext');
+const storageLoanPersonRow = $('#storageLoanPersonRow');
+const storageLoanLocationRow = $('#storageLoanLocationRow');
+const storageLoanPerson = $('#storageLoanPerson');
+const storageLoanLocation = $('#storageLoanLocation');
+const storageLoanNote = $('#storageLoanNote');
+const storageLoanCancel = $('#storageLoanCancel');
+const storageLoanSave = $('#storageLoanSave');
+const storageLoanCloseBtn = $('#storageLoanCloseBtn');
 // Enrichment UI
 const csvInput = $('#csvInput');
 const parseCsvBtn = $('#parseCsvBtn');
@@ -264,6 +275,7 @@ const storageState = {
   locations: [],
   editingId: null,
   historyBookId: null,
+  loanMode: null,
 };
 
 function resetStorageForm() {
@@ -275,16 +287,22 @@ function resetStorageForm() {
   if (storageFormSort) storageFormSort.value = '0';
 }
 
-function populateStorageSelects() {
+function buildStorageOptions({ includeInactive = false } = {}) {
   const options = ['<option value="">—</option>'];
   storageState.locations.forEach((loc) => {
+    if (!includeInactive && !loc.isActive) return;
     const label = `${loc.code}${loc.title ? ` — ${loc.title}` : ''}${loc.isActive ? '' : ' (архив)'}`;
     const disabled = loc.isActive ? '' : ' disabled';
     options.push(`<option value="${loc.id}"${disabled}>${label}</option>`);
   });
-  const html = options.join('');
+  return options.join('');
+}
+
+function populateStorageSelects() {
+  const html = buildStorageOptions({ includeInactive: true });
   if (storageSelect) storageSelect.innerHTML = html;
   if (modalStorageSelect) modalStorageSelect.innerHTML = html;
+  if (storageLoanLocation) storageLoanLocation.innerHTML = buildStorageOptions({ includeInactive: false });
   if (storageSelect) storageSelect.value = state.storageLocationId || '';
   if (modalStorageSelect) modalStorageSelect.value = state.modal.storageLocationId || '';
 }
@@ -956,23 +974,8 @@ async function lendCurrentBook() {
     alert('Сначала сохраните книгу.');
     return;
   }
-  const person = prompt('Кому передали книгу?');
-  if (!person) return;
-  const note = prompt('Примечание (необязательно)', '') || '';
-  try {
-    await window.api.lendBook({ bookId: state.modal.id, person, note });
-    await load();
-    await loadStorageLocations();
-    const updated = state.books.find((b) => b.id === state.modal.id);
-    if (updated) {
-      state.modal.storageLocationId = updated.storageLocationId || null;
-      if (modalStorageSelect) modalStorageSelect.value = updated.storageLocationId || '';
-      setModalPreview(updated.coverPath || null);
-    }
-    alert('Книга отмечена как выданная.');
-  } catch (error) {
-    alert(`Не удалось отметить выдачу: ${error?.message || error}`);
-  }
+  storageState.loanContext = 'lend';
+  await openStorageFormDialog({ mode: 'lend' });
 }
 
 async function returnCurrentBook() {
@@ -980,25 +983,8 @@ async function returnCurrentBook() {
     alert('Сначала сохраните книгу.');
     return;
   }
-  const toLocationId = modalStorageSelect ? (modalStorageSelect.value || null) : null;
-  if (!toLocationId) {
-    if (!confirm('Место хранения не выбрано. Вернуть книгу без указания полки?')) return;
-  }
-  const note = prompt('Примечание (необязательно)', '') || '';
-  try {
-    await window.api.returnBook({ bookId: state.modal.id, toLocationId, note });
-    await load();
-    await loadStorageLocations();
-    const updated = state.books.find((b) => b.id === state.modal.id);
-    if (updated) {
-      state.modal.storageLocationId = updated.storageLocationId || null;
-      if (modalStorageSelect) modalStorageSelect.value = updated.storageLocationId || '';
-      setModalPreview(updated.coverPath || null);
-    }
-    alert('Возврат книги отмечен.');
-  } catch (error) {
-    alert(`Не удалось отметить возврат: ${error?.message || error}`);
-  }
+  storageState.loanContext = 'return';
+  await openStorageFormDialog({ mode: 'return' });
 }
 
 async function quickCreateStorage(context) {
@@ -1025,6 +1011,46 @@ async function quickCreateStorage(context) {
   } catch (error) {
     alert(`Не удалось создать место хранения: ${error?.message || error}`);
   }
+}
+
+function openStorageLoanModal({ mode }) {
+  if (!storageLoanModal) return;
+  storageState.loanMode = mode;
+  if (storageLoanTitle) storageLoanTitle.textContent = mode === 'return' ? 'Возврат книги' : 'Выдача книги';
+  if (storageLoanContext) {
+    const title = modalTitle ? modalTitle.value.trim() : '';
+    const currentLoc = state.modal.storageLocationId
+      ? storageState.locations.find((l) => l.id === state.modal.storageLocationId)
+      : null;
+    const locText = currentLoc ? `Текущее место: ${currentLoc.code}${currentLoc.title ? ` — ${currentLoc.title}` : ''}` : 'Место не задано';
+    storageLoanContext.textContent = title ? `«${title}» • ${locText}` : locText;
+  }
+  if (storageLoanPersonRow) storageLoanPersonRow.style.display = mode === 'lend' ? 'flex' : 'none';
+  if (storageLoanLocationRow) storageLoanLocationRow.style.display = mode === 'return' ? 'flex' : 'none';
+  if (storageLoanPerson) storageLoanPerson.value = '';
+  if (storageLoanNote) storageLoanNote.value = '';
+  if (storageLoanLocation) {
+    populateStorageSelects();
+    storageLoanLocation.value = state.modal.storageLocationId || '';
+  }
+  storageLoanModal.style.display = 'flex';
+  setTimeout(() => {
+    try {
+      if (mode === 'lend' && storageLoanPerson) storageLoanPerson.focus();
+      else if (mode === 'return' && storageLoanLocation) storageLoanLocation.focus();
+    } catch {}
+  }, 50);
+}
+
+function closeStorageLoanModal() {
+  if (!storageLoanModal) return;
+  storageLoanModal.style.display = 'none';
+  storageState.loanMode = null;
+}
+
+async function openStorageFormDialog({ mode }) {
+  await loadStorageLocations();
+  openStorageLoanModal({ mode });
 }
 
 function ratingMarkup(value) {
@@ -2863,6 +2889,58 @@ if (modalStorageHistoryBtn) {
 
 if (modalLendBtn) modalLendBtn.addEventListener('click', lendCurrentBook);
 if (modalReturnBtn) modalReturnBtn.addEventListener('click', returnCurrentBook);
+
+if (storageLoanCancel) storageLoanCancel.addEventListener('click', closeStorageLoanModal);
+if (storageLoanCloseBtn) storageLoanCloseBtn.addEventListener('click', closeStorageLoanModal);
+
+if (storageLoanModal) {
+  storageLoanModal.addEventListener('click', (e) => {
+    if (e.target === storageLoanModal) closeStorageLoanModal();
+  });
+}
+
+if (storageLoanSave) {
+  storageLoanSave.addEventListener('click', async () => {
+    if (!state.modal.id) {
+      alert('Сначала сохраните книгу.');
+      return;
+    }
+    const note = storageLoanNote ? storageLoanNote.value.trim() : '';
+    try {
+      if (storageState.loanMode === 'lend') {
+        const person = storageLoanPerson ? storageLoanPerson.value.trim() : '';
+        if (!person) {
+          alert('Укажите, кому отдана книга');
+          return;
+        }
+        const res = await window.api.lendBook({ bookId: state.modal.id, person, note });
+        if (!res || !res.ok) throw new Error(res?.error || 'ошибка выдачи');
+        alert('Книга отмечена как выданная.');
+      } else if (storageState.loanMode === 'return') {
+        const toLocationId = storageLoanLocation ? (storageLoanLocation.value || null) : null;
+        if (!toLocationId) {
+          const ok = confirm('Место хранения не выбрано. Вернуть книгу без указания полки?');
+          if (!ok) return;
+        }
+        const res = await window.api.returnBook({ bookId: state.modal.id, toLocationId, note });
+        if (!res || !res.ok) throw new Error(res?.error || 'ошибка возврата');
+        alert('Возврат книги отмечен.');
+      }
+      await load();
+      await loadStorageLocations();
+      const updated = state.books.find((b) => b.id === state.modal.id);
+      if (updated) {
+        state.modal.storageLocationId = updated.storageLocationId || null;
+        if (modalStorageSelect) modalStorageSelect.value = updated.storageLocationId || '';
+        setModalPreview(updated.coverPath || null);
+      }
+      closeStorageLoanModal();
+    } catch (error) {
+      alert(`Не удалось выполнить действие: ${error?.message || error}`);
+      console.error('storage lend/return failed', error);
+    }
+  });
+}
 
 // Autocomplete for quick-add form (left panel)
 attachAutocomplete(authorsInput, 'authors', { multiple: true });
