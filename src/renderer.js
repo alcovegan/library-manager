@@ -1003,8 +1003,9 @@ async function returnCurrentBook() {
 
 async function quickCreateStorage(context) {
   try {
-    const initial = context === 'modal' && modalStorageSelect ? modalStorageSelect.value : state.storageLocationId;
-    const codeInput = prompt('Код места хранения (например, R1-A1-S7):', initial ? initial : '');
+    const currentId = context === 'modal' ? state.modal.storageLocationId : state.storageLocationId;
+    const currentLoc = currentId ? storageState.locations.find((loc) => loc.id === currentId) : null;
+    const codeInput = prompt('Код места хранения (например, R1-A1-S7):', currentLoc ? currentLoc.code : '');
     if (!codeInput) return;
     const code = codeInput.trim().toUpperCase();
     if (!code) return;

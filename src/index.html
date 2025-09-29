@@ -192,8 +192,8 @@
         <input id="authorsInput" type="text" placeholder="Автор1, Автор2" class="input w-full" />
         <label>Обложка</label>
         <div class="row" style="gap:8px; align-items:center;">
-          <button id="chooseCoverBtn" class="btn">Выбрать файл…</button>
-          <button id="coverSearchBtn" class="btn secondary" type="button">Найти онлайн…</button>
+          <button id="chooseCoverBtn" class="btn" style="flex:1;">Выбрать файл…</button>
+          <button id="coverSearchBtn" class="btn secondary" type="button" style="flex:1;">Найти онлайн…</button>
           <span id="coverFileLabel" class="text-xs text-slate-500" style="margin-left:auto;">Не выбрано</span>
         </div>
         <div class="row" style="margin-top:8px; gap:8px;">
@@ -203,7 +203,7 @@
         <img id="coverPreview" class="cover-preview dropzone" alt="предпросмотр" />
         <label style="margin-top:12px;">Место хранения</label>
         <div class="row" style="gap:8px; align-items:center;">
-          <select id="storageSelect" class="input" style="flex:1;">
+          <select id="storageSelect" class="input" style="flex:1; min-width:0;">
             <option value="">—</option>
           </select>
           <button id="storageQuickAddBtn" type="button" class="btn secondary" style="white-space:nowrap;">Добавить…</button>
@@ -331,8 +331,8 @@
           <div>
             <img id="modalCoverPreview" class="cover-preview dropzone" alt="обложка" style="display:block; width:100%; height: auto; max-height: 280px;" />
             <div class="row" style="margin-top:8px; gap:8px; align-items:center;">
-              <button id="modalChooseCoverBtn">Выбрать обложку…</button>
-              <button id="modalCoverSearchBtn" type="button" class="btn secondary" style="font-size:12px;">Найти онлайн…</button>
+              <button id="modalChooseCoverBtn" class="btn" style="flex:1; font-size:12px;">Выбрать обложку…</button>
+              <button id="modalCoverSearchBtn" type="button" class="btn secondary" style="flex:1; font-size:12px;">Найти онлайн…</button>
             </div>
             <div style="margin-top:6px; font-size:12px; color:var(--muted);" id="modalCoverLabel"></div>
             <div style="margin-top:8px;">
@@ -341,15 +341,15 @@
             </div>
             <label style="margin-top:12px;">Место хранения</label>
             <div class="row" style="gap:8px; align-items:center;">
-              <select id="modalStorageSelect" class="input" style="flex:1;">
+              <select id="modalStorageSelect" class="input" style="flex:1; min-width:0;">
                 <option value="">—</option>
               </select>
               <button id="modalStorageQuickAddBtn" type="button" class="btn secondary" style="font-size:12px; white-space:nowrap;">Добавить…</button>
             </div>
-            <div class="row" style="margin-top:6px; gap:8px;">
-              <button id="modalStorageHistoryBtn" type="button" class="btn secondary" style="flex:1; font-size:12px;">История…</button>
-              <button id="modalLendBtn" type="button" class="btn" style="flex:1; font-size:12px;">Отдать…</button>
-              <button id="modalReturnBtn" type="button" class="btn" style="flex:1; font-size:12px;">Вернуть…</button>
+            <div class="row" style="margin-top:6px; display:flex; flex-wrap:wrap; gap:8px;">
+              <button id="modalStorageHistoryBtn" type="button" class="btn secondary" style="flex:1 1 30%; min-width:110px; font-size:12px;">История…</button>
+              <button id="modalLendBtn" type="button" class="btn" style="flex:1 1 30%; min-width:110px; font-size:12px;">Отдать…</button>
+              <button id="modalReturnBtn" type="button" class="btn" style="flex:1 1 30%; min-width:110px; font-size:12px;">Вернуть…</button>
             </div>
           </div>
           <div>
