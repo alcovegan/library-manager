@@ -202,9 +202,12 @@
         </div>
         <img id="coverPreview" class="cover-preview dropzone" alt="предпросмотр" />
         <label style="margin-top:12px;">Место хранения</label>
-        <select id="storageSelect" class="input">
-          <option value="">—</option>
-        </select>
+        <div class="row" style="gap:8px; align-items:center;">
+          <select id="storageSelect" class="input" style="flex:1;">
+            <option value="">—</option>
+          </select>
+          <button id="storageQuickAddBtn" type="button" class="btn secondary" style="white-space:nowrap;">Добавить…</button>
+        </div>
         <div class="row" style="margin-top:12px; gap:12px;">
           <button id="saveBtn" class="btn primary" style="flex:1;">Сохранить</button>
           <button id="resetBtn" class="btn" style="flex:1;">Сбросить</button>
@@ -337,9 +340,12 @@
               <button id="modalLoadCoverBtn" class="btn" style="width:100%; margin-top:4px; font-size:12px;">Загрузить по URL</button>
             </div>
             <label style="margin-top:12px;">Место хранения</label>
-            <select id="modalStorageSelect" class="input" style="width:100%;">
-              <option value="">—</option>
-            </select>
+            <div class="row" style="gap:8px; align-items:center;">
+              <select id="modalStorageSelect" class="input" style="flex:1;">
+                <option value="">—</option>
+              </select>
+              <button id="modalStorageQuickAddBtn" type="button" class="btn secondary" style="font-size:12px; white-space:nowrap;">Добавить…</button>
+            </div>
             <div class="row" style="margin-top:6px; gap:8px;">
               <button id="modalStorageHistoryBtn" type="button" class="btn secondary" style="flex:1; font-size:12px;">История…</button>
               <button id="modalLendBtn" type="button" class="btn" style="flex:1; font-size:12px;">Отдать…</button>

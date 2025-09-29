@@ -16,6 +16,7 @@ const resetBtn = $('#resetBtn');
 const exportBtn = $('#exportBtn');
 const importBtn = $('#importBtn');
 const storageSelect = $('#storageSelect');
+const storageQuickAddBtn = $('#storageQuickAddBtn');
 const coverSearchBtn = $('#coverSearchBtn');
 const csvImportBtn = $('#csvImportBtn');
 const searchInput = $('#searchInput');
@@ -54,6 +55,7 @@ const modalStorageSelect = $('#modalStorageSelect');
 const modalStorageHistoryBtn = $('#modalStorageHistoryBtn');
 const modalLendBtn = $('#modalLendBtn');
 const modalReturnBtn = $('#modalReturnBtn');
+const modalStorageQuickAddBtn = $('#modalStorageQuickAddBtn');
 const themeToggle = $('#themeToggle');
 const openSettingsBtn = $('#openSettingsBtn');
 const btnViewGrid = document.querySelector('#btnViewGrid');
@@ -996,6 +998,31 @@ async function returnCurrentBook() {
     alert('Возврат книги отмечен.');
   } catch (error) {
     alert(`Не удалось отметить возврат: ${error?.message || error}`);
+  }
+}
+
+async function quickCreateStorage(context) {
+  try {
+    const initial = context === 'modal' && modalStorageSelect ? modalStorageSelect.value : state.storageLocationId;
+    const codeInput = prompt('Код места хранения (например, R1-A1-S7):', initial ? initial : '');
+    if (!codeInput) return;
+    const code = codeInput.trim().toUpperCase();
+    if (!code) return;
+    const title = prompt('Описание (необязательно):', '') || '';
+    const note = prompt('Примечание (необязательно):', '') || '';
+    const res = await window.api.createStorageLocation({ code, title: title || null, note: note || null, isActive: true, sortOrder: 0 });
+    if (!res || !res.ok || !res.location) throw new Error(res?.error || 'ошибка создания');
+    await loadStorageLocations();
+    const newId = res.location.id;
+    if (context === 'modal') {
+      if (modalStorageSelect) modalStorageSelect.value = newId;
+      state.modal.storageLocationId = newId;
+    } else {
+      if (storageSelect) storageSelect.value = newId;
+      state.storageLocationId = newId;
+    }
+  } catch (error) {
+    alert(`Не удалось создать место хранения: ${error?.message || error}`);
   }
 }
 
@@ -2416,6 +2443,10 @@ if (storageSelect) {
   });
 }
 
+if (storageQuickAddBtn) {
+  storageQuickAddBtn.addEventListener('click', () => quickCreateStorage('form'));
+}
+
 saveBtn.addEventListener('click', async () => {
   try {
     const title = titleInput.value.trim();
@@ -2695,6 +2726,10 @@ if (modalStorageSelect) {
   modalStorageSelect.addEventListener('change', () => {
     state.modal.storageLocationId = modalStorageSelect.value || null;
   });
+}
+
+if (modalStorageQuickAddBtn) {
+  modalStorageQuickAddBtn.addEventListener('click', () => quickCreateStorage('modal'));
 }
 
 if (coverSearchBtn) {
