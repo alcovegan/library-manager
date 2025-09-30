@@ -274,6 +274,26 @@ async function migrate(ctx) {
     setSchemaVersion(ctx, 8);
     persist(ctx);
   }
+  if (getSchemaVersion(ctx) === 8) {
+    ctx.db.exec(`
+      CREATE TABLE IF NOT EXISTS activity_log (
+        id TEXT PRIMARY KEY,
+        created_at TEXT NOT NULL,
+        actor TEXT,
+        origin TEXT,
+        action TEXT NOT NULL,
+        entity_type TEXT,
+        entity_id TEXT,
+        summary TEXT,
+        payload TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_activity_created_at ON activity_log(created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_activity_action ON activity_log(action);
+      CREATE INDEX IF NOT EXISTS idx_activity_entity ON activity_log(entity_type, entity_id);
+    `);
+    setSchemaVersion(ctx, 9);
+    persist(ctx);
+  }
 }
 
 function ensureAuthor(ctx, name) {
@@ -390,6 +410,118 @@ function listBooks(ctx) {
   });
 }
 
+function getBookById(ctx, id) {
+  const safeId = String(id).replace(/'/g, "''");
+  const res = ctx.db.exec(`
+    SELECT
+      b.id,
+      b.title,
+      b.coverPath,
+      b.createdAt,
+      b.updatedAt,
+      b.series,
+      b.seriesIndex,
+      b.year,
+      b.publisher,
+      b.isbn,
+      b.language,
+      b.rating,
+      b.notes,
+      b.tags,
+      b.titleAlt,
+      b.authorsAlt,
+      b.format,
+      b.genres,
+      b.storageLocationId,
+      (
+        SELECT h.action
+        FROM book_storage_history h
+        WHERE h.bookId = b.id
+        ORDER BY h.created_at DESC
+        LIMIT 1
+      ) AS latestAction,
+      (
+        SELECT h.person
+        FROM book_storage_history h
+        WHERE h.bookId = b.id
+        ORDER BY h.created_at DESC
+        LIMIT 1
+      ) AS latestPerson,
+      (
+        SELECT h.note
+        FROM book_storage_history h
+        WHERE h.bookId = b.id
+        ORDER BY h.created_at DESC
+        LIMIT 1
+      ) AS latestNote,
+      (
+        SELECT h.created_at
+        FROM book_storage_history h
+        WHERE h.bookId = b.id
+        ORDER BY h.created_at DESC
+        LIMIT 1
+      ) AS latestCreatedAt
+    FROM books b
+    WHERE b.id = '${safeId}'
+    LIMIT 1
+  `);
+  if (!res[0] || !res[0].values.length) return null;
+  const [row] = res[0].values;
+  const [
+    bookId,
+    title,
+    coverPath,
+    createdAt,
+    updatedAt,
+    series,
+    seriesIndex,
+    year,
+    publisher,
+    isbn,
+    language,
+    rating,
+    notes,
+    tags,
+    titleAlt,
+    authorsAlt,
+    format,
+    genres,
+    storageLocationId,
+    latestAction,
+    latestPerson,
+    latestNote,
+    latestCreatedAt,
+  ] = row;
+  const latestActionNorm = normStr(latestAction);
+  return {
+    id: bookId,
+    title,
+    coverPath: fromStoredCoverPath(ctx, coverPath),
+    createdAt,
+    updatedAt,
+    series,
+    seriesIndex,
+    year,
+    publisher,
+    isbn,
+    language,
+    rating,
+    notes,
+    tags: parseTags(tags),
+    titleAlt: normStr(titleAlt),
+    authorsAlt: parseJsonArray(authorsAlt),
+    format: normStr(format),
+    genres: parseJsonArray(genres),
+    storageLocationId: normStr(storageLocationId),
+    storageLatestAction: latestActionNorm,
+    storageLatestPerson: normStr(latestPerson),
+    storageLatestNote: normStr(latestNote),
+    storageLatestAt: normStr(latestCreatedAt),
+    isLoaned: latestActionNorm === 'lend',
+    authors: authorsForBook(ctx, bookId),
+  };
+}
+
 function parseTags(t) {
   if (!t) return [];
   try { const arr = JSON.parse(t); return Array.isArray(arr) ? arr : []; } catch { return []; }
@@ -401,6 +533,7 @@ function normStr(v) { return (v === undefined || v === null) ? null : String(v);
 function strTags(arr) { try { return JSON.stringify(Array.isArray(arr) ? arr : []); } catch { return '[]'; } }
 function parseJsonArray(v) { try { const a = JSON.parse(v || '[]'); return Array.isArray(a) ? a : []; } catch { return []; } }
 function strArray(arr) { try { return JSON.stringify(Array.isArray(arr) ? arr : []); } catch { return '[]'; } }
+function parseJsonSafe(v, fallback = null) { if (v === undefined || v === null || v === '') return fallback; try { return JSON.parse(v); } catch { return fallback; } }
 
 function createBook(ctx, { title, authors = [], coverPath = null, series=null, seriesIndex=null, year=null, publisher=null, isbn=null, language=null, rating=null, notes=null, tags=[], titleAlt=null, authorsAlt=[], format=null, genres=[], storageLocationId=null }) {
   const now = new Date().toISOString();
@@ -713,6 +846,143 @@ function clearAiIsbnCacheKey(ctx, key) {
   persist(ctx);
 }
 
+function logActivity(ctx, event = {}) {
+  try {
+    const action = String(event.action || '').trim();
+    if (!action) return null;
+    const id = event.id || randomUUID();
+    const createdAt = event.createdAt || new Date().toISOString();
+    let payloadJson = null;
+    if (event.payload !== undefined && event.payload !== null) {
+      if (typeof event.payload === 'string') {
+        payloadJson = event.payload;
+      } else {
+        try {
+          payloadJson = JSON.stringify(event.payload);
+        } catch (error) {
+          console.warn('activity payload stringify failed', error);
+          payloadJson = null;
+        }
+      }
+    }
+    const stmt = ctx.db.prepare('INSERT INTO activity_log(id, created_at, actor, origin, action, entity_type, entity_id, summary, payload) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    stmt.bind([
+      id,
+      createdAt,
+      normStr(event.actor) || 'local',
+      normStr(event.origin) || 'ui',
+      action,
+      normStr(event.entityType),
+      normStr(event.entityId),
+      normStr(event.summary),
+      payloadJson,
+    ]);
+    stmt.step();
+    stmt.free();
+    persist(ctx);
+    return { id, createdAt };
+  } catch (error) {
+    console.warn('activity log write failed', error);
+    return null;
+  }
+}
+
+function listActivity(ctx, options = {}) {
+  const {
+    actions = null,
+    entityType = null,
+    entityId = null,
+    search = null,
+    from = null,
+    to = null,
+    cursor = null,
+    limit = 50,
+    category = null,
+  } = options || {};
+  const limitSafe = Math.max(1, Math.min(Number(limit) || 50, 200));
+  const conditions = [];
+  if (Array.isArray(actions) && actions.length) {
+    const sanitized = actions
+      .map((a) => String(a || '').trim())
+      .filter(Boolean)
+      .map((a) => `'${a.replace(/'/g, "''")}'`);
+    if (sanitized.length) {
+      conditions.push(`action IN (${sanitized.join(',')})`);
+    }
+  }
+  if (category) {
+    const safeCategory = String(category).replace(/['%_]/g, '').trim();
+    if (safeCategory) {
+      conditions.push(`action LIKE '${safeCategory}.%'`);
+    }
+  }
+  if (entityType) {
+    conditions.push(`entity_type = '${String(entityType).replace(/'/g, "''")}'`);
+  }
+  if (entityId) {
+    conditions.push(`entity_id = '${String(entityId).replace(/'/g, "''")}'`);
+  }
+  if (from) {
+    conditions.push(`created_at >= '${String(from).replace(/'/g, "''")}'`);
+  }
+  if (to) {
+    conditions.push(`created_at <= '${String(to).replace(/'/g, "''")}'`);
+  }
+  if (cursor) {
+    conditions.push(`created_at < '${String(cursor).replace(/'/g, "''")}'`);
+  }
+  if (search) {
+    const safeSearch = String(search).replace(/'/g, "''");
+    conditions.push(`(summary LIKE '%' || '${safeSearch}' || '%' OR action LIKE '%' || '${safeSearch}' || '%')`);
+  }
+  const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  const query = `
+    SELECT id, created_at, actor, origin, action, entity_type, entity_id, summary, payload
+    FROM activity_log
+    ${whereClause}
+    ORDER BY created_at DESC
+    LIMIT ${limitSafe + 1}
+  `;
+  const res = ctx.db.exec(query);
+  const rows = res[0] ? res[0].values : [];
+  const hasMore = rows.length > limitSafe;
+  const slice = hasMore ? rows.slice(0, limitSafe) : rows;
+  const items = slice.map(([id, createdAt, actor, origin, action, entityTypeRow, entityIdRow, summary, payload]) => ({
+    id,
+    createdAt,
+    actor: normStr(actor) || null,
+    origin: normStr(origin) || null,
+    action,
+    entityType: normStr(entityTypeRow),
+    entityId: normStr(entityIdRow),
+    summary: summary || '',
+    payload: parseJsonSafe(payload, null),
+  }));
+  const nextCursor = hasMore && items.length ? items[items.length - 1].createdAt : null;
+  return { items, nextCursor, hasMore };
+}
+
+function clearActivity(ctx, options = {}) {
+  const { before = null, action = null, entityType = null } = options || {};
+  const conditions = [];
+  if (before) conditions.push(`created_at < '${String(before).replace(/'/g, "''")}'`);
+  if (action) conditions.push(`action = '${String(action).replace(/'/g, "''")}'`);
+  if (entityType) conditions.push(`entity_type = '${String(entityType).replace(/'/g, "''")}'`);
+  const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  let removed = 0;
+  ctx.db.exec('BEGIN TRANSACTION');
+  try {
+    ctx.db.exec(`DELETE FROM activity_log ${whereClause}`);
+    removed = ctx.db.getRowsModified();
+    ctx.db.exec('COMMIT');
+    if (removed > 0) persist(ctx);
+  } catch (error) {
+    ctx.db.exec('ROLLBACK');
+    throw error;
+  }
+  return removed;
+}
+
 function resolveCoverPath(ctx, storedPath) {
   return fromStoredCoverPath(ctx, storedPath);
 }
@@ -730,6 +1000,9 @@ module.exports = {
   setAiIsbnCache,
   clearAiIsbnCacheAll,
   clearAiIsbnCacheKey,
+  logActivity,
+  listActivity,
+  clearActivity,
   resolveCoverPath,
   listStorageLocations,
   createStorageLocation,
@@ -740,4 +1013,5 @@ module.exports = {
   insertStorageHistory,
   listStorageHistory,
   getBookStorageId,
+  getBookById,
 };

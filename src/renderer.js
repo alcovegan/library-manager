@@ -67,6 +67,19 @@ const btnDenseCompact = document.querySelector('#btnDenseCompact');
 const openEnrichBtn = $('#openEnrichBtn');
 const libraryView = $('#libraryView');
 const enrichView = $('#enrichView');
+const openHistoryBtn = $('#openHistoryBtn');
+const historyView = $('#historyView');
+const historyList = document.querySelector('#historyList');
+const historyEmpty = document.querySelector('#historyEmpty');
+const historyLoadMoreBtn = document.querySelector('#historyLoadMoreBtn');
+const historyActionFilter = document.querySelector('#historyActionFilter');
+const historySearchInput = document.querySelector('#historySearchInput');
+const historyReloadBtn = $('#historyReloadBtn');
+const historyExportBtn = $('#historyExportBtn');
+
+const ICON_HOME = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>';
+const ICON_ENRICH = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3 7h7l-5.5 4 2.5 7-7-4.5L5 20l2.5-7L2 9h7z"/></svg>';
+const ICON_HISTORY = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 11h-4a1 1 0 0 1-1-1V7h2v4h3z"/></svg>';
 // CSV import modal elements
 const csvImportModal = $('#csvImportModal');
 const csvImportCloseBtn = $('#csvImportCloseBtn');
@@ -240,6 +253,60 @@ const enrichState = {
   running: false,
   cursor: 0,
   ignoreCache: false,
+};
+
+const activityState = {
+  items: [],
+  nextCursor: null,
+  loading: false,
+  initialized: false,
+  filters: { category: 'all', search: '' },
+  needsRefresh: true,
+  pendingReload: false,
+};
+
+function markActivityDirty() {
+  activityState.needsRefresh = true;
+  if (currentMainView === 'history') {
+    if (activityState.loading) {
+      activityState.pendingReload = true;
+    } else {
+      ensureActivityLoaded({ force: true });
+    }
+  }
+}
+
+const MAIN_VIEWS = {
+  library: libraryView,
+  enrich: enrichView,
+  history: historyView,
+};
+
+let currentMainView = 'library';
+
+const HISTORY_FIELD_LABELS = {
+  title: 'Название',
+  authors: 'Авторы',
+  series: 'Серия',
+  seriesIndex: '№ в серии',
+  year: 'Год',
+  publisher: 'Издательство',
+  isbn: 'ISBN',
+  language: 'Язык',
+  rating: 'Рейтинг',
+  notes: 'Заметки',
+  tags: 'Теги',
+  format: 'Формат',
+  genres: 'Жанры',
+  storageLocationId: 'Место хранения',
+};
+
+const HISTORY_CATEGORY_FILTERS = {
+  book: 'book',
+  storage: 'storage',
+  sync: 'sync',
+  backup: 'backup',
+  activity: 'activity',
 };
 
 const csvImportState = {
@@ -2579,7 +2646,10 @@ resetBtn.addEventListener('click', resetForm);
 
 exportBtn.addEventListener('click', async () => {
   const res = await window.api.exportBackup();
-  if (res?.ok) alert('Бэкап сохранён');
+  if (res?.ok) {
+    alert('Бэкап сохранён');
+    markActivityDirty();
+  }
 });
 
 importBtn.addEventListener('click', async () => {
@@ -2741,30 +2811,297 @@ async function load() {
       } catch {}
     }, 0);
   } catch {}
-}
-
-function showEnrichView(show) {
-  if (!libraryView || !enrichView) return;
-  libraryView.style.display = show ? 'none' : 'block';
-  enrichView.style.display = show ? 'block' : 'none';
-  updateEnrichToggleButton();
-}
-
-function updateEnrichToggleButton() {
-  if (!openEnrichBtn || !enrichView) return;
-  const isEnrich = enrichView.style.display !== 'none';
-  openEnrichBtn.title = isEnrich ? 'К библиотеке' : 'Обогащение';
-  openEnrichBtn.setAttribute('aria-pressed', isEnrich ? 'true' : 'false');
-  openEnrichBtn.classList.toggle('active', isEnrich);
-  // Swap icon: show a Home icon when enrichment is active
-  openEnrichBtn.innerHTML = isEnrich
-    ? '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>'
-    : '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3 7h7l-5.5 4 2.5 7-7-4.5L5 20l2.5-7L2 9h7z"/></svg>';
+  markActivityDirty();
 }
 
 function debounce(fn, ms) {
   let t;
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+
+const historyDateFormatter = new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: 'long', year: 'numeric' });
+const historyWeekdayFormatter = new Intl.DateTimeFormat('ru-RU', { weekday: 'short' });
+const historyTimeFormatter = new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' });
+
+function setActiveMainView(view) {
+  if (!MAIN_VIEWS[view]) view = 'library';
+  currentMainView = view;
+  Object.entries(MAIN_VIEWS).forEach(([key, el]) => {
+    if (!el) return;
+    el.style.display = key === view ? 'block' : 'none';
+  });
+  updateViewToggleButtons();
+  if (view === 'history') {
+    if (historyActionFilter) historyActionFilter.value = activityState.filters.category || 'all';
+    if (historySearchInput) historySearchInput.value = activityState.filters.search || '';
+    ensureActivityLoaded({ force: !activityState.initialized || activityState.needsRefresh });
+  }
+}
+
+function updateViewToggleButtons() {
+  if (openEnrichBtn) {
+    const isActive = currentMainView === 'enrich';
+    openEnrichBtn.classList.toggle('active', isActive);
+    openEnrichBtn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    openEnrichBtn.title = isActive ? 'К библиотеке' : 'Обогащение';
+    openEnrichBtn.innerHTML = isActive ? ICON_HOME : ICON_ENRICH;
+  }
+  if (openHistoryBtn) {
+    const isActive = currentMainView === 'history';
+    openHistoryBtn.classList.toggle('active', isActive);
+    openHistoryBtn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    openHistoryBtn.title = isActive ? 'К библиотеке' : 'История изменений';
+    openHistoryBtn.innerHTML = isActive ? ICON_HOME : ICON_HISTORY;
+  }
+}
+
+function ensureActivityLoaded({ force = false } = {}) {
+  if (!historyList) return;
+  if (activityState.loading && !force) return;
+  if (!force && activityState.initialized && !activityState.needsRefresh) return;
+  loadActivity({ reset: true, force });
+}
+
+async function loadActivity({ reset = false, force = false } = {}) {
+  if (!window.api || typeof window.api.listActivity !== 'function') return;
+  if (activityState.loading && !force) return;
+  activityState.loading = true;
+  if (historyLoadMoreBtn) {
+    historyLoadMoreBtn.disabled = true;
+    historyLoadMoreBtn.textContent = 'Загрузка...';
+  }
+  const filters = {};
+  const category = activityState.filters.category;
+  if (category && category !== 'all') {
+    const mapped = HISTORY_CATEGORY_FILTERS[category] || category;
+    filters.category = mapped;
+  }
+  const searchTerm = (activityState.filters.search || '').trim();
+  if (searchTerm) filters.search = searchTerm;
+  const request = {
+    limit: 50,
+    cursor: reset ? null : activityState.nextCursor,
+  };
+  if (filters.category) request.category = filters.category;
+  if (filters.search) request.search = filters.search;
+  try {
+    const res = await window.api.listActivity(request);
+    if (!res || res.ok === false) {
+      if (reset) {
+        activityState.items = [];
+        activityState.nextCursor = null;
+        if (historyEmpty) {
+          historyEmpty.textContent = 'Не удалось загрузить журнал.';
+          historyEmpty.style.display = 'block';
+        }
+        if (historyList) historyList.innerHTML = '';
+      }
+      return;
+    }
+    const items = Array.isArray(res.items) ? res.items : [];
+    if (reset) {
+      activityState.items = items;
+    } else {
+      activityState.items = activityState.items.concat(items);
+    }
+    activityState.nextCursor = res.nextCursor || null;
+    activityState.initialized = true;
+    activityState.needsRefresh = false;
+    renderActivityList();
+    updateActivityLoadMore();
+    if (historyEmpty) {
+      historyEmpty.textContent = 'Записей журнала пока нет.';
+      historyEmpty.style.display = activityState.items.length ? 'none' : 'block';
+    }
+  } catch (error) {
+    console.error('loadActivity failed', error);
+    if (reset && historyEmpty) {
+      historyEmpty.textContent = 'Не удалось загрузить журнал.';
+      historyEmpty.style.display = 'block';
+    }
+  } finally {
+    activityState.loading = false;
+    if (historyLoadMoreBtn) {
+      historyLoadMoreBtn.disabled = false;
+      historyLoadMoreBtn.textContent = 'Загрузить ещё';
+    }
+    updateActivityLoadMore();
+    if (activityState.pendingReload) {
+      activityState.pendingReload = false;
+      loadActivity({ reset: true, force: true });
+    }
+  }
+}
+
+function updateActivityLoadMore() {
+  if (!historyLoadMoreBtn) return;
+  const hasMore = Boolean(activityState.nextCursor);
+  historyLoadMoreBtn.style.display = hasMore ? 'inline-flex' : 'none';
+  historyLoadMoreBtn.disabled = activityState.loading;
+}
+
+function renderActivityList() {
+  if (!historyList) return;
+  historyList.innerHTML = '';
+  let currentDateKey = null;
+  let currentGroupEl = null;
+  activityState.items.forEach((entry) => {
+    const dateKey = entry?.createdAt ? String(entry.createdAt).slice(0, 10) : 'unknown';
+    if (dateKey !== currentDateKey) {
+      currentDateKey = dateKey;
+      const group = document.createElement('div');
+      group.className = 'history-group';
+      const header = document.createElement('div');
+      header.className = 'history-date';
+      header.textContent = formatActivityDateLabel(dateKey);
+      group.appendChild(header);
+      historyList.appendChild(group);
+      currentGroupEl = group;
+    }
+    if (!currentGroupEl) return;
+    currentGroupEl.appendChild(createActivityItemElement(entry));
+  });
+  if (historyEmpty) {
+    historyEmpty.style.display = activityState.items.length ? 'none' : 'block';
+  }
+}
+
+function createActivityItemElement(entry) {
+  const details = document.createElement('details');
+  details.className = 'history-item';
+  const summary = document.createElement('summary');
+  const time = document.createElement('span');
+  time.className = 'history-time';
+  time.textContent = formatActivityTime(entry.createdAt);
+  summary.appendChild(time);
+  const summaryText = document.createElement('span');
+  summaryText.className = 'history-summary-text';
+  summaryText.textContent = entry.summary || entry.action || 'Событие';
+  summary.appendChild(summaryText);
+  const actionTag = document.createElement('span');
+  actionTag.className = 'history-action-tag';
+  actionTag.textContent = entry.action || 'event';
+  summary.appendChild(actionTag);
+  details.appendChild(summary);
+  const body = renderActivityDetails(entry);
+  if (body) details.appendChild(body);
+  return details;
+}
+
+function renderActivityDetails(entry) {
+  const payload = entry?.payload || {};
+  const container = document.createElement('div');
+  container.className = 'history-details';
+  const infoRows = [];
+  if (entry.actor) infoRows.push(['Источник', entry.actor]);
+  if (entry.origin) infoRows.push(['Происхождение', entry.origin]);
+  if (entry.entityType) infoRows.push(['Сущность', entry.entityType]);
+  if (payload.book && payload.book.title) {
+    infoRows.push(['Книга', payload.book.title]);
+  }
+  if (payload.from && payload.from.label) {
+    infoRows.push(['Откуда', payload.from.label]);
+  }
+  if (payload.to && payload.to.label) {
+    infoRows.push(['Куда', payload.to.label]);
+  }
+  if (payload.storage && payload.storage.label) {
+    infoRows.push(['Место хранения', payload.storage.label]);
+  }
+  if (payload.person) infoRows.push(['Получатель', payload.person]);
+  if (payload.note) infoRows.push(['Заметка', payload.note]);
+  if (payload.filePath) infoRows.push(['Файл', payload.filePath]);
+  if (Array.isArray(infoRows) && infoRows.length) {
+    infoRows.forEach(([label, value]) => {
+      const row = document.createElement('div');
+      row.className = 'history-info-row';
+      const strong = document.createElement('strong');
+      strong.textContent = `${label}:`;
+      const span = document.createElement('span');
+      span.textContent = String(value);
+      row.appendChild(strong);
+      row.appendChild(span);
+      container.appendChild(row);
+    });
+  }
+  const diffFields = payload?.diff?.fields || {};
+  const diffKeys = Object.keys(diffFields);
+  if (diffKeys.length) {
+    const table = document.createElement('table');
+    table.className = 'history-diff-table';
+    const headerRow = document.createElement('tr');
+    ['Поле', 'До', 'После'].forEach((title) => {
+      const th = document.createElement('th');
+      th.textContent = title;
+      headerRow.appendChild(th);
+    });
+    table.appendChild(headerRow);
+    diffKeys.forEach((key) => {
+      const row = document.createElement('tr');
+      const labelCell = document.createElement('td');
+      labelCell.textContent = HISTORY_FIELD_LABELS[key] || key;
+      const beforeCell = document.createElement('td');
+      beforeCell.textContent = formatActivityDiffValue(key, diffFields[key]?.before, diffFields[key]?.beforeLabel);
+      const afterCell = document.createElement('td');
+      afterCell.textContent = formatActivityDiffValue(key, diffFields[key]?.after, diffFields[key]?.afterLabel);
+      row.appendChild(labelCell);
+      row.appendChild(beforeCell);
+      row.appendChild(afterCell);
+      table.appendChild(row);
+    });
+    container.appendChild(table);
+  }
+  const extraKeys = ['created', 'success', 'error', 'count'].filter((k) => Object.prototype.hasOwnProperty.call(payload, k));
+  if (extraKeys.length) {
+    extraKeys.forEach((key) => {
+      const value = payload[key];
+      const row = document.createElement('div');
+      row.className = 'history-info-row';
+      const strong = document.createElement('strong');
+      strong.textContent = `${key}:`;
+      const span = document.createElement('span');
+      span.textContent = typeof value === 'object' ? JSON.stringify(value) : String(value);
+      row.appendChild(strong);
+      row.appendChild(span);
+      container.appendChild(row);
+    });
+  }
+  if (container.children.length === 0) return null;
+  return container;
+}
+
+function formatActivityDateLabel(dateKey) {
+  if (!dateKey || dateKey === 'unknown') return 'Без даты';
+  try {
+    const date = new Date(`${dateKey}T00:00:00Z`);
+    const weekday = historyWeekdayFormatter.format(date);
+    return `${historyDateFormatter.format(date)} · ${weekday}`;
+  } catch {
+    return dateKey;
+  }
+}
+
+function formatActivityTime(value) {
+  if (!value) return '--:--';
+  try {
+    const date = new Date(value);
+    return historyTimeFormatter.format(date);
+  } catch {
+    return '--:--';
+  }
+}
+
+function formatActivityDiffValue(key, value, label) {
+  if (label) return label;
+  if (Array.isArray(value)) {
+    return value.length ? value.join(', ') : '—';
+  }
+  if (value === null || value === undefined || value === '') return '—';
+  if (key === 'rating') {
+    const num = Number(value);
+    if (Number.isFinite(num)) return num.toString();
+  }
+  return String(value);
 }
 
 function applySearch(q) {
@@ -2914,6 +3251,7 @@ async function saveStorageForm() {
     if (!res || !res.ok || !res.location) throw new Error(res?.error || 'ошибка сохранения');
     const newId = res.location.id;
     await loadStorageLocations();
+    markActivityDirty();
     if (storageState.quickContext) {
       if (storageState.quickContext === 'modal') {
         state.modal.storageLocationId = newId;
@@ -2952,6 +3290,7 @@ if (storageListEl) {
         const res = await window.api.archiveStorageLocation(id);
         if (!res || !res.ok) throw new Error(res?.error || 'ошибка архивации');
         await loadStorageLocations();
+        markActivityDirty();
       } catch (error) {
         alert(`Не удалось архивировать: ${error?.message || error}`);
       }
@@ -3508,9 +3847,63 @@ if (openSettingsBtn) {
 }
 if (openEnrichBtn) {
   openEnrichBtn.addEventListener('click', () => {
-    const isEnrich = enrichView && enrichView.style.display !== 'none';
-    showEnrichView(!isEnrich);
+    const target = currentMainView === 'enrich' ? 'library' : 'enrich';
+    setActiveMainView(target);
   });
+}
+if (openHistoryBtn) {
+  openHistoryBtn.addEventListener('click', () => {
+    const target = currentMainView === 'history' ? 'library' : 'history';
+    setActiveMainView(target);
+  });
+}
+if (historyLoadMoreBtn) {
+  historyLoadMoreBtn.addEventListener('click', () => {
+    loadActivity({ reset: false });
+  });
+}
+if (historyReloadBtn) {
+  historyReloadBtn.addEventListener('click', () => {
+    loadActivity({ reset: true, force: true });
+  });
+}
+if (historyExportBtn) {
+  historyExportBtn.addEventListener('click', async () => {
+    try {
+      const filters = {};
+      const category = activityState.filters.category;
+      if (category && category !== 'all') {
+        filters.category = HISTORY_CATEGORY_FILTERS[category] || category;
+      }
+      const searchTerm = (activityState.filters.search || '').trim();
+      if (searchTerm) filters.search = searchTerm;
+      const request = { limit: 5000 };
+      if (filters.category) request.category = filters.category;
+      if (filters.search) request.search = filters.search;
+      const res = await window.api.exportActivity(request);
+      if (!res || res.ok === false) {
+        alert(res?.error || 'Не удалось экспортировать журнал');
+      } else if (!res.canceled) {
+        alert(`Экспортировано записей: ${res.count || 0}`);
+      }
+    } catch (error) {
+      console.error('activity export failed', error);
+      alert('Не удалось экспортировать журнал');
+    }
+  });
+}
+if (historyActionFilter) {
+  historyActionFilter.addEventListener('change', () => {
+    activityState.filters.category = historyActionFilter.value || 'all';
+    loadActivity({ reset: true, force: true });
+  });
+}
+if (historySearchInput) {
+  const onHistorySearch = debounce((event) => {
+    activityState.filters.search = event.target.value || '';
+    loadActivity({ reset: true, force: true });
+  }, 250);
+  historySearchInput.addEventListener('input', onHistorySearch);
 }
 
 // Sort selection
@@ -4051,6 +4444,8 @@ function loadAppIcon() {
   tryNextPath();
 }
 
+setActiveMainView('library');
+
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
   console.log('🚀 DOM loaded, initializing app...');
@@ -4346,6 +4741,7 @@ async function syncUp() {
     console.error('❌ Upload sync failed:', error);
     alert(`❌ Ошибка загрузки на сервер: ${error.message}`);
   } finally {
+    markActivityDirty();
     if (syncBtn) {
       syncBtn.disabled = false;
       syncBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>';
@@ -4381,6 +4777,7 @@ async function syncDown() {
     console.error('❌ Download sync failed:', error);
     alert(`❌ Ошибка загрузки с сервера: ${error.message}`);
   } finally {
+    markActivityDirty();
     if (syncBtn) {
       syncBtn.disabled = false;
       syncBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>';
@@ -4480,6 +4877,7 @@ async function cleanupCovers() {
       } else {
         alert('ℹ️ Очистка завершена\n\nНеиспользуемых обложек не найдено');
       }
+      markActivityDirty();
     } else {
       console.error('Cleanup failed:', result);
       alert(`❌ Ошибка очистки обложек:\n\n${result.error}`);

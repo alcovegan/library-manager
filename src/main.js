@@ -231,6 +231,125 @@ function copyCoverIfProvided(sourcePath) {
   }
 }
 
+function formatBookSummary(book) {
+  const title = (book?.title || '').trim() || '(без названия)';
+  const authors = Array.isArray(book?.authors) ? book.authors.filter(Boolean) : [];
+  const authorsLabel = authors.length ? authors.slice(0, 3).join(', ') : '';
+  const quotedTitle = `«${title}»`;
+  return authorsLabel ? `${quotedTitle} — ${authorsLabel}` : quotedTitle;
+}
+
+function resolveStorageLabel(id) {
+  if (!id || !db) return null;
+  try {
+    const loc = dbLayer.getStorageLocation(db, id);
+    if (!loc) return null;
+    return loc.title ? `${loc.code} — ${loc.title}` : loc.code;
+  } catch (error) {
+    console.warn('resolveStorageLabel failed', error?.message || error);
+    return null;
+  }
+}
+
+const BOOK_DIFF_FIELDS = {
+  title: { label: 'название' },
+  authors: { label: 'авторы', type: 'array' },
+  series: { label: 'серия' },
+  seriesIndex: { label: 'номер в серии' },
+  year: { label: 'год' },
+  publisher: { label: 'издательство' },
+  isbn: { label: 'isbn' },
+  language: { label: 'язык' },
+  rating: { label: 'рейтинг', type: 'number' },
+  notes: { label: 'заметки' },
+  tags: { label: 'теги', type: 'array' },
+  format: { label: 'формат' },
+  genres: { label: 'жанры', type: 'array' },
+  storageLocationId: { label: 'место хранения', type: 'storage' },
+};
+
+function normalizeDiffValue(value, def = {}) {
+  if (def.type === 'array') {
+    if (!value) return [];
+    if (Array.isArray(value)) return value.map((v) => String(v).trim()).filter(Boolean);
+    if (typeof value === 'string') {
+      return value.split(',').map((v) => v.trim()).filter(Boolean);
+    }
+    return [String(value).trim()].filter(Boolean);
+  }
+  if (def.type === 'number') {
+    const num = Number(value);
+    return Number.isFinite(num) ? num : null;
+  }
+  if (value === undefined || value === null) return null;
+  return String(value);
+}
+
+function diffValuesEqual(a, b, def = {}) {
+  if (def.type === 'array') {
+    const arrA = Array.isArray(a) ? a : [];
+    const arrB = Array.isArray(b) ? b : [];
+    if (arrA.length !== arrB.length) return false;
+    for (let i = 0; i < arrA.length; i += 1) {
+      if (arrA[i] !== arrB[i]) return false;
+    }
+    return true;
+  }
+  return a === b;
+}
+
+function buildBookDiff(before = {}, after = {}, { resolveStorageLabel: resolveStorage } = {}) {
+  const fields = {};
+  const changedKeys = [];
+  const changedLabels = [];
+  for (const [key, def] of Object.entries(BOOK_DIFF_FIELDS)) {
+    const beforeRaw = before ? before[key] : undefined;
+    const afterRaw = after ? after[key] : undefined;
+    const beforeVal = normalizeDiffValue(beforeRaw, def);
+    const afterVal = normalizeDiffValue(afterRaw, def);
+    if (diffValuesEqual(beforeVal, afterVal, def)) continue;
+    const payload = { before: beforeVal, after: afterVal };
+    if (def.type === 'storage') {
+      payload.beforeLabel = beforeVal ? (resolveStorage ? resolveStorage(beforeVal) : beforeVal) : null;
+      payload.afterLabel = afterVal ? (resolveStorage ? resolveStorage(afterVal) : afterVal) : null;
+    }
+    fields[key] = payload;
+    changedKeys.push(key);
+    changedLabels.push(def.label || key);
+  }
+  return { fields, changedKeys, changedLabels };
+}
+
+function getBookSnapshot(id) {
+  if (!db) return null;
+  try {
+    return dbLayer.getBookById(db, id);
+  } catch (error) {
+    console.warn('getBookSnapshot failed', error?.message || error);
+    return null;
+  }
+}
+
+function recordActivity(event) {
+  if (!db) return null;
+  try {
+    return dbLayer.logActivity(db, {
+      actor: event?.actor || 'local',
+      origin: event?.origin || 'ui',
+      action: event.action,
+      entityType: event.entityType,
+      entityId: event.entityId,
+      summary: event.summary,
+      payload: event.payload,
+      createdAt: event.createdAt,
+      id: event.id,
+    });
+  } catch (error) {
+    console.warn('recordActivity failed', error?.message || error);
+    return null;
+  }
+}
+
 function createWindow() {
   // Choose best icon for the platform
   let windowIcon;
@@ -395,11 +514,35 @@ ipcMain.handle('books:add', async (event, payload) => {
   if (storageId) {
     dbLayer.insertStorageHistory(db, { bookId: book.id, fromLocationId: null, toLocationId: storageId, action: 'move', note: storageNote || null });
   }
+  const snapshot = getBookSnapshot(book.id) || book;
+  const payloadForLog = {
+    book: {
+      id: book.id,
+      title: snapshot?.title || book.title,
+      authors: Array.isArray(snapshot?.authors) ? snapshot.authors : (book.authors || []),
+      storageLocationId: snapshot?.storageLocationId || storageId || null,
+    },
+  };
+  if (storageId) {
+    payloadForLog.storage = {
+      id: storageId,
+      label: resolveStorageLabel(storageId),
+      note: storageNote ? String(storageNote) : null,
+    };
+  }
+  recordActivity({
+    action: 'book.create',
+    entityType: 'book',
+    entityId: book.id,
+    summary: `Добавлена книга: ${formatBookSummary(snapshot)}`,
+    payload: payloadForLog,
+  });
   return book;
 });
 
 ipcMain.handle('books:update', async (event, payload) => {
   const { id, title, authors, coverSourcePath, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres, storageLocationId, storageNote } = payload;
+  const beforeSnapshot = getBookSnapshot(id);
   const row = db.db.exec(`SELECT id, coverPath, storageLocationId FROM books WHERE id = '${String(id).replace(/'/g, "''")}'`);
   const current = row[0] && row[0].values[0]
     ? { id: row[0].values[0][0], coverPath: row[0].values[0][1], storageLocationId: row[0].values[0][2] }
@@ -435,11 +578,41 @@ ipcMain.handle('books:update', async (event, payload) => {
   if (prevStorage !== storageId) {
     dbLayer.insertStorageHistory(db, { bookId: id, fromLocationId: prevStorage, toLocationId: storageId, action: 'move', note: storageNote || null });
   }
+  const afterSnapshot = getBookSnapshot(id);
+  const diff = buildBookDiff(beforeSnapshot || {}, afterSnapshot || {}, { resolveStorageLabel });
+  const changedLabelList = diff.changedLabels.length ? ` (${diff.changedLabels.join(', ')})` : '';
+  recordActivity({
+    action: 'book.update',
+    entityType: 'book',
+    entityId: id,
+    summary: `Обновлена книга: ${formatBookSummary(afterSnapshot || beforeSnapshot || updated)}${changedLabelList}`,
+    payload: {
+      before: beforeSnapshot
+        ? {
+            id: beforeSnapshot.id,
+            title: beforeSnapshot.title,
+            authors: beforeSnapshot.authors || [],
+            storageLocationId: beforeSnapshot.storageLocationId || null,
+          }
+        : null,
+      after: afterSnapshot
+        ? {
+            id: afterSnapshot.id,
+            title: afterSnapshot.title,
+            authors: afterSnapshot.authors || [],
+            storageLocationId: afterSnapshot.storageLocationId || null,
+          }
+        : null,
+      diff,
+      note: storageNote || null,
+    },
+  });
   return updated;
 });
 
 ipcMain.handle('books:delete', async (event, id) => {
   const safeId = String(id).replace(/'/g, "''");
+  const snapshot = getBookSnapshot(id);
   const res = db.db.exec(`SELECT coverPath FROM books WHERE id = '${safeId}'`);
   const storedCoverPath = res[0] && res[0].values[0] ? res[0].values[0][0] : null;
   const coverPath = dbLayer.resolveCoverPath(db, storedCoverPath);
@@ -448,6 +621,22 @@ ipcMain.handle('books:delete', async (event, id) => {
     try { fs.unlinkSync(coverPath); } catch {}
   }
   const ok = dbLayer.deleteBook(db, id);
+  if (ok) {
+    recordActivity({
+      action: 'book.delete',
+      entityType: 'book',
+      entityId: String(id),
+      summary: `Удалена книга: ${formatBookSummary(snapshot)}`,
+      payload: snapshot ? {
+        book: {
+          id: snapshot.id,
+          title: snapshot.title,
+          authors: snapshot.authors || [],
+          storageLocationId: snapshot.storageLocationId || null,
+        },
+      } : { book: { id: String(id) } },
+    });
+  }
   return { ok };
 });
 
@@ -471,6 +660,13 @@ ipcMain.handle('storage:create', async (_event, payload) => {
       isActive: payload?.isActive !== false,
       sortOrder: payload?.sortOrder ?? 0,
     });
+    recordActivity({
+      action: 'storage.create',
+      entityType: 'storage',
+      entityId: loc.id,
+      summary: `Создано место хранения: ${loc.title ? `${loc.code} — ${loc.title}` : loc.code}`,
+      payload: { storage: loc },
+    });
     return { ok: true, location: loc };
   } catch (error) {
     return { ok: false, error: String(error?.message || error) };
@@ -481,6 +677,7 @@ ipcMain.handle('storage:update', async (_event, payload) => {
   try {
     const id = String(payload?.id || '').trim();
     if (!id) throw new Error('id required');
+    const before = dbLayer.getStorageLocation(db, id);
     const loc = dbLayer.updateStorageLocation(db, {
       id,
       code: payload?.code || '',
@@ -488,6 +685,14 @@ ipcMain.handle('storage:update', async (_event, payload) => {
       note: payload?.note ?? null,
       isActive: payload?.isActive !== false,
       sortOrder: payload?.sortOrder ?? 0,
+    });
+    const after = dbLayer.getStorageLocation(db, id) || loc;
+    recordActivity({
+      action: 'storage.update',
+      entityType: 'storage',
+      entityId: id,
+      summary: `Обновлено место хранения: ${after.title ? `${after.code} — ${after.title}` : after.code}`,
+      payload: { before, after },
     });
     return { ok: true, location: loc };
   } catch (error) {
@@ -498,7 +703,18 @@ ipcMain.handle('storage:update', async (_event, payload) => {
 ipcMain.handle('storage:archive', async (_event, id) => {
   try {
     if (!id) throw new Error('id required');
+    const before = dbLayer.getStorageLocation(db, id);
     dbLayer.archiveStorageLocation(db, id);
+    const after = dbLayer.getStorageLocation(db, id);
+    if (before) {
+      recordActivity({
+        action: 'storage.archive',
+        entityType: 'storage',
+        entityId: String(id),
+        summary: `Архивировано место хранения: ${before.title ? `${before.code} — ${before.title}` : before.code}`,
+        payload: { before, after },
+      });
+    }
     return { ok: true };
   } catch (error) {
     return { ok: false, error: String(error?.message || error) };
@@ -537,6 +753,21 @@ ipcMain.handle('storage:move', async (_event, payload) => {
       action: 'move',
       note: payload?.note ?? null,
     });
+    const bookSnapshot = getBookSnapshot(bookId);
+    const fromLabel = prev ? resolveStorageLabel(prev) : null;
+    const toLabel = toLocationId ? resolveStorageLabel(toLocationId) : null;
+    recordActivity({
+      action: 'storage.move',
+      entityType: 'book',
+      entityId: bookId,
+      summary: `Перемещение: ${formatBookSummary(bookSnapshot)} — ${fromLabel || 'не задано'} → ${toLabel || 'не задано'}`,
+      payload: {
+        bookId,
+        from: { id: prev || null, label: fromLabel || null },
+        to: { id: toLocationId || null, label: toLabel || null },
+        note: payload?.note ?? null,
+      },
+    });
     return { ok: true, storageLocationId: toLocationId };
   } catch (error) {
     return { ok: false, error: String(error?.message || error) };
@@ -558,6 +789,20 @@ ipcMain.handle('storage:lend', async (_event, payload) => {
       action: 'lend',
       person,
       note: payload?.note ?? null,
+    });
+    const bookSnapshot = getBookSnapshot(bookId);
+    const prevLabel = prev ? resolveStorageLabel(prev) : null;
+    recordActivity({
+      action: 'storage.lend',
+      entityType: 'book',
+      entityId: bookId,
+      summary: `Книга отдана: ${formatBookSummary(bookSnapshot)} — ${person}`,
+      payload: {
+        bookId,
+        person,
+        note: payload?.note ?? null,
+        from: { id: prev || null, label: prevLabel || null },
+      },
     });
     return { ok: true };
   } catch (error) {
@@ -584,6 +829,21 @@ ipcMain.handle('storage:return', async (_event, payload) => {
       toLocationId,
       action: 'return',
       note: payload?.note ?? null,
+    });
+    const bookSnapshot = getBookSnapshot(bookId);
+    const prevLabel = prev ? resolveStorageLabel(prev) : null;
+    const toLabel = toLocationId ? resolveStorageLabel(toLocationId) : null;
+    recordActivity({
+      action: 'storage.return',
+      entityType: 'book',
+      entityId: bookId,
+      summary: `Книга возвращена: ${formatBookSummary(bookSnapshot)}${toLabel ? ` → ${toLabel}` : ''}`,
+      payload: {
+        bookId,
+        to: { id: toLocationId || null, label: toLabel || null },
+        from: { id: prev || null, label: prevLabel || null },
+        note: payload?.note ?? null,
+      },
     });
     return { ok: true, storageLocationId: toLocationId };
   } catch (error) {
@@ -654,6 +914,16 @@ ipcMain.handle('books:bulkAdd', async (_event, payload) => {
         failed.push({ rowIndex, error: String(error?.message || error) });
       }
     }
+    recordActivity({
+      action: 'book.bulkAdd',
+      entityType: 'book',
+      summary: `Массовое добавление книг: создано ${created}, ошибок ${failed.length}`,
+      payload: {
+        requested: entries.length,
+        created,
+        failed: failed.slice(0, 25),
+      },
+    });
     return { ok: true, created, failed };
   } catch (error) {
     return { ok: false, error: String(error?.message || error) };
@@ -715,6 +985,12 @@ ipcMain.handle('backup:export', async () => {
   });
   if (canceled || !filePath) return { ok: false };
   fs.writeFileSync(filePath, JSON.stringify(payload, null, 2), 'utf8');
+  recordActivity({
+    action: 'backup.export',
+    entityType: 'backup',
+    summary: 'Экспорт бэкапа завершён',
+    payload: { filePath, books: payload.books.length },
+  });
   return { ok: true, filePath };
 });
 
@@ -829,6 +1105,17 @@ ipcMain.handle('backup:import', async () => {
     if (can) existingIsbnSet.add(can);
     existingTaSet.add(taKey(title, authors));
     return createdBook;
+  });
+  recordActivity({
+    action: 'backup.import',
+    entityType: 'backup',
+    summary: `Импорт бэкапа: создано ${created}, пропущено ${skipped}`,
+    payload: {
+      source: p,
+      processed: restored.length,
+      created,
+      skipped,
+    },
   });
   return { ok: true, count: restored.length, created, skipped };
 });
@@ -991,7 +1278,22 @@ ipcMain.handle('sync:test', async () => {
 
 ipcMain.handle('sync:up', async () => {
   try {
-    return await syncManager.syncUp();
+    const result = await syncManager.syncUp();
+    recordActivity({
+      action: 'sync.up',
+      entityType: 'sync',
+      entityId: syncManager.deviceId || null,
+      summary: result.success ? 'Синхронизация (выгрузка) завершена' : 'Синхронизация (выгрузка) с ошибками',
+      payload: {
+        success: !!result.success,
+        metadataOk: !!(result.metadata && result.metadata.ok),
+        databaseOk: !!(result.database && result.database.ok),
+        settingsOk: !!(result.settings && result.settings.ok),
+        coversOk: !!(result.covers && result.covers.ok),
+        error: result.error || null,
+      },
+    });
+    return result;
   } catch (e) {
     return { ok: false, error: String(e?.message || e) };
   }
@@ -999,7 +1301,21 @@ ipcMain.handle('sync:up', async () => {
 
 ipcMain.handle('sync:down', async () => {
   try {
-    return await syncManager.syncDown();
+    const result = await syncManager.syncDown();
+    recordActivity({
+      action: 'sync.down',
+      entityType: 'sync',
+      entityId: syncManager.deviceId || null,
+      summary: result.success ? 'Синхронизация (загрузка) завершена' : 'Синхронизация (загрузка) с ошибками',
+      payload: {
+        success: !!result.success,
+        databaseOk: !!(result.database && result.database.ok),
+        settingsOk: !!(result.settings && result.settings.ok),
+        coversOk: !!(result.covers && result.covers.ok),
+        error: result.error || null,
+      },
+    });
+    return result;
   } catch (e) {
     return { ok: false, error: String(e?.message || e) };
   }
@@ -1007,8 +1323,86 @@ ipcMain.handle('sync:down', async () => {
 
 ipcMain.handle('sync:cleanup', async () => {
   try {
-    return await syncManager.cleanupOrphanedCovers();
+    const result = await syncManager.cleanupOrphanedCovers();
+    recordActivity({
+      action: 'sync.cleanup',
+      entityType: 'sync',
+      entityId: syncManager.deviceId || null,
+      summary: result.ok ? `Очистка обложек завершена (удалено ${result.deleted || 0})` : 'Очистка обложек завершилась ошибкой',
+      payload: result,
+    });
+    return result;
   } catch (e) {
     return { ok: false, error: String(e?.message || e) };
+  }
+});
+
+ipcMain.handle('activity:list', async (_event, options) => {
+  try {
+    const merged = { ...(options || {}) };
+    if (options && options.filters && typeof options.filters === 'object') {
+      Object.assign(merged, options.filters);
+    }
+    delete merged.filters;
+    const result = dbLayer.listActivity(db, merged);
+    return { ok: true, ...result };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
+});
+
+ipcMain.handle('activity:clear', async (_event, options) => {
+  try {
+    const removed = dbLayer.clearActivity(db, options || {});
+    return { ok: true, removed };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
+});
+
+ipcMain.handle('activity:export', async (_event, options) => {
+  try {
+    const filters = {};
+    if (options?.filters && typeof options.filters === 'object') {
+      Object.assign(filters, options.filters);
+    }
+    if (options?.category) filters.category = options.category;
+    if (options?.search) filters.search = options.search;
+    const limit = Math.max(1, Math.min(Number(options?.limit) || 1000, 10000));
+    const chunkSize = 250;
+    const collected = [];
+    let cursor = null;
+    while (collected.length < limit) {
+      const { items, nextCursor } = dbLayer.listActivity(db, {
+        ...filters,
+        cursor,
+        limit: Math.min(chunkSize, limit - collected.length),
+      });
+      collected.push(...items);
+      if (!nextCursor || items.length === 0) break;
+      cursor = nextCursor;
+    }
+    const exportData = {
+      exportedAt: new Date().toISOString(),
+      filters,
+      count: collected.length,
+      items: collected,
+    };
+    const { canceled, filePath } = await dialog.showSaveDialog({
+      title: 'Экспорт журнала изменений',
+      defaultPath: `library-activity-${new Date().toISOString().slice(0, 10)}.json`,
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    });
+    if (canceled || !filePath) return { ok: false, canceled: true };
+    fs.writeFileSync(filePath, JSON.stringify(exportData, null, 2), 'utf8');
+    recordActivity({
+      action: 'activity.export',
+      entityType: 'activity',
+      summary: `Экспорт журнала: ${collected.length} записей`,
+      payload: { filePath, count: collected.length },
+    });
+    return { ok: true, filePath, count: collected.length };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
   }
 });
