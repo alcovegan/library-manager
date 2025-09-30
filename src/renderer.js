@@ -56,6 +56,8 @@ const modalStorageHistoryBtn = $('#modalStorageHistoryBtn');
 const modalLendBtn = $('#modalLendBtn');
 const modalReturnBtn = $('#modalReturnBtn');
 const modalStorageQuickAddBtn = $('#modalStorageQuickAddBtn');
+const modalLoanStatus = document.querySelector('#modalLoanStatus');
+const modalLoanDetails = document.querySelector('#modalLoanDetails');
 const themeToggle = $('#themeToggle');
 const openSettingsBtn = $('#openSettingsBtn');
 const btnViewGrid = document.querySelector('#btnViewGrid');
@@ -2143,6 +2145,10 @@ function render() {
       img.onerror = () => { img.style.display = 'none'; };
       img.src = toFileUrl(b.coverPath);
     }
+    if (b.isLoaned) {
+      el.classList.add('loaned');
+      img.classList.add('loaned');
+    }
     const meta = document.createElement('div');
     meta.className = 'meta';
     const title = document.createElement('div');
@@ -2160,6 +2166,13 @@ function render() {
       const valueLabel = ratingInfo.value.toFixed(ratingInfo.value % 1 === 0 ? 0 : 1);
       ratingEl.title = `Рейтинг: ${valueLabel} из 5`;
       ratingEl.setAttribute('aria-label', `Рейтинг: ${valueLabel} из 5`);
+    }
+    if (b.isLoaned) {
+      const loanBadge = document.createElement('div');
+      loanBadge.className = 'loan-badge';
+      loanBadge.textContent = 'Отдана';
+      loanBadge.title = buildLoanTooltip(b);
+      meta.appendChild(loanBadge);
     }
     meta.appendChild(title);
     meta.appendChild(authors);
@@ -2231,6 +2244,43 @@ function render() {
   }
 }
 
+function formatLoanDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.valueOf())) return null;
+  try {
+    return date.toLocaleString('ru-RU', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return date.toISOString();
+  }
+}
+
+function formatLoanDetails(book) {
+  if (!book || !book.isLoaned) return '';
+  const lines = [];
+  if (book.storageLatestPerson) lines.push(`Кому: ${book.storageLatestPerson}`);
+  const formattedDate = formatLoanDate(book.storageLatestAt);
+  if (formattedDate) lines.push(`Дата: ${formattedDate}`);
+  if (book.storageLatestNote) lines.push(`Заметка: ${book.storageLatestNote}`);
+  return lines.join('\n');
+}
+
+function buildLoanTooltip(book) {
+  if (!book || !book.isLoaned) return 'Книга отдана';
+  const parts = ['Книга отмечена как выданная'];
+  if (book.storageLatestPerson) parts.push(`кому: ${book.storageLatestPerson}`);
+  const formattedDate = formatLoanDate(book.storageLatestAt);
+  if (formattedDate) parts.push(`дата: ${formattedDate}`);
+  if (book.storageLatestNote) parts.push(`заметка: ${book.storageLatestNote}`);
+  return parts.join(' • ');
+}
+
 function truncateTitle(text, max) {
   if (!text) return '';
   if (text.length <= max) return text;
@@ -2298,6 +2348,33 @@ function openDetails(b) {
   attachAutocomplete(modalPublisher, 'publisher', { multiple: false });
   attachAutocomplete(modalGenres, 'genres', { multiple: true });
   attachAutocomplete(modalTags, 'tags', { multiple: true });
+  updateModalLoanStatus(b);
+}
+
+function updateModalLoanStatus(book) {
+  if (!modalLoanStatus) return;
+  const hasId = !!state.modal.id;
+  const isLoaned = !!(book && book.isLoaned);
+  if (isLoaned) {
+    modalLoanStatus.style.display = 'flex';
+    modalLoanStatus.classList.add('visible');
+    if (modalLoanDetails) {
+      const details = formatLoanDetails(book);
+      modalLoanDetails.textContent = details || 'Книга отмечена как выданная.';
+    }
+  } else {
+    modalLoanStatus.style.display = 'none';
+    modalLoanStatus.classList.remove('visible');
+    if (modalLoanDetails) modalLoanDetails.textContent = '';
+  }
+  if (modalLendBtn) {
+    modalLendBtn.disabled = !hasId || isLoaned;
+    modalLendBtn.title = isLoaned ? 'Книга уже отмечена как выданная' : 'Отдать книгу';
+  }
+  if (modalReturnBtn) {
+    modalReturnBtn.disabled = !hasId;
+    modalReturnBtn.title = isLoaned ? 'Отметить возврат книги' : 'Вернуть книгу или указать новое место хранения';
+  }
 }
 
 function closeDetails() {
@@ -2343,6 +2420,15 @@ function openInfo(b) {
   const storageLoc = storageState.locations.find((loc) => b.storageLocationId && loc.id === b.storageLocationId);
   const ratingInfo = ratingMarkup(b.rating);
   const metaRows = [];
+  if (b.isLoaned) {
+    const details = [];
+    if (b.storageLatestPerson) details.push('кому: ' + esc(b.storageLatestPerson));
+    const loanDateFormatted = formatLoanDate(b.storageLatestAt);
+    if (loanDateFormatted) details.push('дата: ' + esc(loanDateFormatted));
+    if (b.storageLatestNote) details.push('заметка: ' + esc(b.storageLatestNote));
+    const extra = details.length ? ` — ${details.join(', ')}` : '';
+    metaRows.push(`<div style="color:var(--danger); font-weight:600;">Отдана${extra}</div>`);
+  }
   if (storageLoc) {
     metaRows.push('<div><b>Место хранения:</b> ' + esc(storageLoc.code + (storageLoc.title ? ` — ${storageLoc.title}` : '')) + '</div>');
   }
@@ -2937,6 +3023,7 @@ if (storageLoanSave) {
         state.modal.storageLocationId = updated.storageLocationId || null;
         if (modalStorageSelect) modalStorageSelect.value = updated.storageLocationId || '';
         setModalPreview(updated.coverPath || null);
+        updateModalLoanStatus(updated);
       }
       closeStorageLoanModal();
     } catch (error) {

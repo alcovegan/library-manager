@@ -305,14 +305,67 @@ function authorsForBook(ctx, bookId) {
 }
 
 function listBooks(ctx) {
-  const res = ctx.db.exec('SELECT id, title, coverPath, createdAt, updatedAt, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres, storageLocationId FROM books ORDER BY title COLLATE NOCASE');
+  const res = ctx.db.exec(`
+    SELECT
+      b.id,
+      b.title,
+      b.coverPath,
+      b.createdAt,
+      b.updatedAt,
+      b.series,
+      b.seriesIndex,
+      b.year,
+      b.publisher,
+      b.isbn,
+      b.language,
+      b.rating,
+      b.notes,
+      b.tags,
+      b.titleAlt,
+      b.authorsAlt,
+      b.format,
+      b.genres,
+      b.storageLocationId,
+      (
+        SELECT h.action
+        FROM book_storage_history h
+        WHERE h.bookId = b.id
+        ORDER BY h.created_at DESC
+        LIMIT 1
+      ) AS latestAction,
+      (
+        SELECT h.person
+        FROM book_storage_history h
+        WHERE h.bookId = b.id
+        ORDER BY h.created_at DESC
+        LIMIT 1
+      ) AS latestPerson,
+      (
+        SELECT h.note
+        FROM book_storage_history h
+        WHERE h.bookId = b.id
+        ORDER BY h.created_at DESC
+        LIMIT 1
+      ) AS latestNote,
+      (
+        SELECT h.created_at
+        FROM book_storage_history h
+        WHERE h.bookId = b.id
+        ORDER BY h.created_at DESC
+        LIMIT 1
+      ) AS latestCreatedAt
+    FROM books b
+    ORDER BY b.title COLLATE NOCASE
+  `);
   const rows = res[0] ? res[0].values : [];
-  return rows.map(([id, title, coverPath, createdAt, updatedAt, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres, storageLocationId]) => ({
-    id,
-    title,
-    coverPath: fromStoredCoverPath(ctx, coverPath),
-    createdAt,
-    updatedAt,
+  return rows.map(([id, title, coverPath, createdAt, updatedAt, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres, storageLocationId, latestAction, latestPerson, latestNote, latestCreatedAt]) => {
+    const latestActionNorm = normStr(latestAction);
+    return {
+      id,
+      title,
+      coverPath: fromStoredCoverPath(ctx, coverPath),
+      createdAt,
+      updatedAt,
     series,
     seriesIndex,
     year,
@@ -321,14 +374,20 @@ function listBooks(ctx) {
     language,
     rating,
     notes,
-    tags: parseTags(tags),
-    titleAlt: normStr(titleAlt),
-    authorsAlt: parseJsonArray(authorsAlt),
-    format: normStr(format),
-    genres: parseJsonArray(genres),
-    storageLocationId: normStr(storageLocationId),
-    authors: authorsForBook(ctx, id),
-  }));
+      tags: parseTags(tags),
+      titleAlt: normStr(titleAlt),
+      authorsAlt: parseJsonArray(authorsAlt),
+      format: normStr(format),
+      genres: parseJsonArray(genres),
+      storageLocationId: normStr(storageLocationId),
+      storageLatestAction: latestActionNorm,
+      storageLatestPerson: normStr(latestPerson),
+      storageLatestNote: normStr(latestNote),
+      storageLatestAt: normStr(latestCreatedAt),
+      isLoaned: latestActionNorm === 'lend',
+      authors: authorsForBook(ctx, id),
+    };
+  });
 }
 
 function parseTags(t) {
