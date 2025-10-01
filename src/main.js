@@ -14,6 +14,7 @@ const settings = require('./main/settings');
 const isbnProvider = require('./main/providers/isbn');
 const aiIsbn = require('./main/ai/isbn_enrich');
 const syncManager = require('./main/sync/sync_manager');
+const { version: APP_VERSION } = require('../package.json');
 
 const GOOGLE_BOOKS_API_KEY = process.env.GOOGLE_BOOKS_API_KEY || '';
 const GOOGLE_BOOKS_ENDPOINT = 'https://www.googleapis.com/books/v1/volumes';
@@ -249,6 +250,12 @@ function resolveStorageLabel(id) {
     console.warn('resolveStorageLabel failed', error?.message || error);
     return null;
   }
+}
+
+function formatCollectionSummary(collection) {
+  if (!collection) return 'Коллекция';
+  const kind = collection.type === 'static' ? 'статическая' : 'фильтр';
+  return `${collection.name} (${kind})`;
 }
 
 const BOOK_DIFF_FIELDS = {
@@ -851,6 +858,120 @@ ipcMain.handle('storage:return', async (_event, payload) => {
   }
 });
 
+ipcMain.handle('collections:list', async () => {
+  try {
+    const collections = dbLayer.listCollections(db);
+    return { ok: true, collections };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
+});
+
+ipcMain.handle('collections:create', async (_event, payload) => {
+  try {
+    const name = String(payload?.name || '').trim();
+    if (!name) throw new Error('name required');
+    const type = payload?.type === 'static' ? 'static' : 'filter';
+    const filters = type === 'filter' ? (payload?.filters || {}) : null;
+    const books = Array.isArray(payload?.books) ? payload.books.map((id) => String(id)) : [];
+    const collection = dbLayer.createCollection(db, { name, type, filters, books });
+    recordActivity({
+      action: 'collection.create',
+      entityType: 'collection',
+      entityId: collection.id,
+      summary: `Создана коллекция: ${formatCollectionSummary(collection)}`,
+      payload: { collection },
+    });
+    return { ok: true, collection };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
+});
+
+ipcMain.handle('collections:update', async (_event, payload) => {
+  try {
+    const id = String(payload?.id || '').trim();
+    if (!id) throw new Error('id required');
+    const before = dbLayer.getCollectionById(db, id);
+    if (!before) throw new Error('collection not found');
+    const type = payload?.type ? (payload.type === 'static' ? 'static' : 'filter') : before.type;
+    const filters = type === 'filter' ? (payload?.filters ?? before.filters ?? {}) : null;
+    const updated = dbLayer.updateCollection(db, {
+      id,
+      name: payload?.name ?? before.name,
+      type,
+      filters,
+    });
+    let after = updated;
+    if (updated.type === 'static' && Array.isArray(payload?.books)) {
+      after = dbLayer.setCollectionBooks(db, {
+        collectionId: id,
+        bookIds: payload.books.map((bookId) => String(bookId)),
+      });
+    }
+    recordActivity({
+      action: 'collection.update',
+      entityType: 'collection',
+      entityId: id,
+      summary: `Обновлена коллекция: ${formatCollectionSummary(after)}`,
+      payload: { before, after },
+    });
+    return { ok: true, collection: after };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
+});
+
+ipcMain.handle('collections:delete', async (_event, payload) => {
+  try {
+    const id = typeof payload === 'string' ? payload : String(payload?.id || '').trim();
+    if (!id) throw new Error('id required');
+    const collection = dbLayer.getCollectionById(db, id);
+    if (!collection) throw new Error('collection not found');
+    dbLayer.deleteCollection(db, id);
+    recordActivity({
+      action: 'collection.delete',
+      entityType: 'collection',
+      entityId: id,
+      summary: `Удалена коллекция: ${formatCollectionSummary(collection)}`,
+      payload: { collection },
+    });
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
+});
+
+ipcMain.handle('collections:updateMembership', async (_event, payload) => {
+  try {
+    const bookId = String(payload?.bookId || '').trim();
+    if (!bookId) throw new Error('bookId required');
+    const targetIds = Array.isArray(payload?.collectionIds) ? payload.collectionIds.map((id) => String(id)) : [];
+    const beforeStatic = dbLayer.listCollections(db)
+      .filter((c) => c.type === 'static' && c.books.includes(bookId))
+      .map((c) => ({ id: c.id, name: c.name }));
+    const applied = dbLayer.updateBookMembership(db, { bookId, collectionIds: targetIds });
+    const afterStatic = dbLayer.listCollections(db)
+      .filter((c) => c.type === 'static' && applied.includes(c.id))
+      .map((c) => ({ id: c.id, name: c.name }));
+    const book = getBookSnapshot(bookId);
+    recordActivity({
+      action: 'collection.assign',
+      entityType: 'book',
+      entityId: bookId,
+      summary: `Коллекции обновлены: ${formatBookSummary(book)}`,
+      payload: {
+        bookId,
+        before: beforeStatic.map((c) => c.name),
+        after: afterStatic.map((c) => c.name),
+      },
+    });
+    return { ok: true, applied };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
+});
+
 ipcMain.handle('books:bulkAdd', async (_event, payload) => {
   try {
     const entries = Array.isArray(payload?.entries) ? payload.entries : [];
@@ -1278,18 +1399,24 @@ ipcMain.handle('sync:test', async () => {
 
 ipcMain.handle('sync:up', async () => {
   try {
+    syncManager.setSyncContext({
+      schemaVersion: dbLayer.getSchemaVersion(db),
+      appVersion: APP_VERSION,
+    });
     const result = await syncManager.syncUp();
     recordActivity({
       action: 'sync.up',
       entityType: 'sync',
       entityId: syncManager.deviceId || null,
-      summary: result.success ? 'Синхронизация (выгрузка) завершена' : 'Синхронизация (выгрузка) с ошибками',
+      summary: result.success ? 'Синхронизация (выгрузка) завершена' : result.blocked ? 'Синхронизация (выгрузка) отклонена' : 'Синхронизация (выгрузка) с ошибками',
       payload: {
         success: !!result.success,
+        blocked: !!result.blocked,
         metadataOk: !!(result.metadata && result.metadata.ok),
         databaseOk: !!(result.database && result.database.ok),
         settingsOk: !!(result.settings && result.settings.ok),
         coversOk: !!(result.covers && result.covers.ok),
+        reason: result.reason || null,
         error: result.error || null,
       },
     });
@@ -1301,17 +1428,24 @@ ipcMain.handle('sync:up', async () => {
 
 ipcMain.handle('sync:down', async () => {
   try {
+    syncManager.setSyncContext({
+      schemaVersion: dbLayer.getSchemaVersion(db),
+      appVersion: APP_VERSION,
+    });
     const result = await syncManager.syncDown();
     recordActivity({
       action: 'sync.down',
       entityType: 'sync',
       entityId: syncManager.deviceId || null,
-      summary: result.success ? 'Синхронизация (загрузка) завершена' : 'Синхронизация (загрузка) с ошибками',
+      summary: result.success ? 'Синхронизация (загрузка) завершена' : result.blocked ? 'Синхронизация (загрузка) отклонена' : 'Синхронизация (загрузка) с ошибками',
       payload: {
         success: !!result.success,
+        blocked: !!result.blocked,
+        metadataOk: !!(result.metadata && result.metadata.ok),
         databaseOk: !!(result.database && result.database.ok),
         settingsOk: !!(result.settings && result.settings.ok),
         coversOk: !!(result.covers && result.covers.ok),
+        reason: result.reason || null,
         error: result.error || null,
       },
     });
@@ -1323,6 +1457,10 @@ ipcMain.handle('sync:down', async () => {
 
 ipcMain.handle('sync:cleanup', async () => {
   try {
+    syncManager.setSyncContext({
+      schemaVersion: dbLayer.getSchemaVersion(db),
+      appVersion: APP_VERSION,
+    });
     const result = await syncManager.cleanupOrphanedCovers();
     recordActivity({
       action: 'sync.cleanup',

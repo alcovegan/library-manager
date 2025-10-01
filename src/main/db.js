@@ -294,6 +294,27 @@ async function migrate(ctx) {
     setSchemaVersion(ctx, 9);
     persist(ctx);
   }
+  if (getSchemaVersion(ctx) === 9) {
+    ctx.db.exec(`
+      CREATE TABLE IF NOT EXISTS collections (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE,
+        type TEXT NOT NULL,
+        filters TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS collection_books (
+        collectionId TEXT NOT NULL,
+        bookId TEXT NOT NULL,
+        PRIMARY KEY(collectionId, bookId)
+      );
+      CREATE INDEX IF NOT EXISTS idx_collection_name ON collections(name COLLATE NOCASE);
+      CREATE INDEX IF NOT EXISTS idx_collection_books_book ON collection_books(bookId);
+    `);
+    setSchemaVersion(ctx, 10);
+    persist(ctx);
+  }
 }
 
 function ensureAuthor(ctx, name) {
@@ -520,6 +541,216 @@ function getBookById(ctx, id) {
     isLoaned: latestActionNorm === 'lend',
     authors: authorsForBook(ctx, bookId),
   };
+}
+
+function encodeJson(value) {
+  if (value === undefined || value === null) return null;
+  try { return JSON.stringify(value); } catch { return null; }
+}
+
+function listCollections(ctx) {
+  const res = ctx.db.exec('SELECT id, name, type, filters, created_at, updated_at FROM collections ORDER BY name COLLATE NOCASE');
+  const rows = res[0] ? res[0].values : [];
+  const map = new Map();
+  rows.forEach(([id, name, type, filters, createdAt, updatedAt]) => {
+    map.set(id, {
+      id,
+      name,
+      type,
+      filters: parseJsonSafe(filters, type === 'filter' ? {} : null),
+      books: [],
+      createdAt,
+      updatedAt,
+    });
+  });
+  if (map.size) {
+    const rel = ctx.db.exec('SELECT collectionId, bookId FROM collection_books');
+    if (rel[0]) {
+      rel[0].values.forEach(([collectionId, bookId]) => {
+        const col = map.get(collectionId);
+        if (col) col.books.push(bookId);
+      });
+    }
+  }
+  return Array.from(map.values());
+}
+
+function getCollectionById(ctx, id) {
+  const stmt = ctx.db.prepare('SELECT id, name, type, filters, created_at, updated_at FROM collections WHERE id = ?');
+  stmt.bind([id]);
+  let row = null;
+  if (stmt.step()) {
+    row = stmt.getAsObject();
+  }
+  stmt.free();
+  if (!row) return null;
+  const collection = {
+    id: row.id,
+    name: row.name,
+    type: row.type,
+    filters: parseJsonSafe(row.filters, row.type === 'filter' ? {} : null),
+    books: [],
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+  const rel = ctx.db.exec(`SELECT bookId FROM collection_books WHERE collectionId = '${String(row.id).replace(/'/g, "''")}'`);
+  if (rel[0]) {
+    collection.books = rel[0].values.map(v => v[0]);
+  }
+  return collection;
+}
+
+function getCollectionByName(ctx, name) {
+  const stmt = ctx.db.prepare('SELECT id FROM collections WHERE name = ?');
+  stmt.bind([name]);
+  let id = null;
+  if (stmt.step()) {
+    id = stmt.getAsObject().id;
+  }
+  stmt.free();
+  return id ? getCollectionById(ctx, id) : null;
+}
+
+function createCollection(ctx, { name, type = 'filter', filters = null, books = [] }) {
+  const cleanName = String(name || '').trim();
+  if (!cleanName) throw new Error('collection name required');
+  const normalizedType = type === 'static' ? 'static' : 'filter';
+  const now = new Date().toISOString();
+  const id = randomUUID();
+  const stmt = ctx.db.prepare('INSERT INTO collections(id, name, type, filters, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)');
+  stmt.bind([
+    id,
+    cleanName,
+    normalizedType,
+    encodeJson(filters),
+    now,
+    now,
+  ]);
+  stmt.step();
+  stmt.free();
+
+  if (normalizedType === 'static' && Array.isArray(books) && books.length) {
+    setCollectionBooks(ctx, { collectionId: id, bookIds: books });
+  } else {
+    persist(ctx);
+  }
+  return getCollectionById(ctx, id);
+}
+
+function updateCollection(ctx, { id, name = null, type = null, filters = undefined }) {
+  const existing = getCollectionById(ctx, id);
+  if (!existing) throw new Error('collection not found');
+  const newName = name ? String(name).trim() : existing.name;
+  const normalizedType = type ? (type === 'static' ? 'static' : 'filter') : existing.type;
+  const encodedFilters = filters === undefined ? encodeJson(existing.filters) : encodeJson(filters);
+  const now = new Date().toISOString();
+  const stmt = ctx.db.prepare('UPDATE collections SET name = ?, type = ?, filters = ?, updated_at = ? WHERE id = ?');
+  stmt.bind([
+    newName,
+    normalizedType,
+    encodedFilters,
+    now,
+    id,
+  ]);
+  stmt.step();
+  stmt.free();
+
+  if (existing.type === 'static' && normalizedType !== 'static') {
+    const delBooks = ctx.db.prepare('DELETE FROM collection_books WHERE collectionId = ?');
+    delBooks.bind([id]);
+    delBooks.step();
+    delBooks.free();
+  }
+  persist(ctx);
+  return getCollectionById(ctx, id);
+}
+
+function deleteCollection(ctx, id) {
+  const delBooks = ctx.db.prepare('DELETE FROM collection_books WHERE collectionId = ?');
+  delBooks.bind([id]);
+  delBooks.step();
+  delBooks.free();
+  const del = ctx.db.prepare('DELETE FROM collections WHERE id = ?');
+  del.bind([id]);
+  del.step();
+  del.free();
+  persist(ctx);
+  return true;
+}
+
+function setCollectionBooks(ctx, { collectionId, bookIds = [] }) {
+  const del = ctx.db.prepare('DELETE FROM collection_books WHERE collectionId = ?');
+  del.bind([collectionId]);
+  del.step();
+  del.free();
+
+  if (Array.isArray(bookIds) && bookIds.length) {
+    const ins = ctx.db.prepare('INSERT OR IGNORE INTO collection_books(collectionId, bookId) VALUES (?, ?)');
+    bookIds.forEach((bookId) => {
+      ins.bind([collectionId, String(bookId)]);
+      ins.step();
+      ins.reset();
+    });
+    ins.free();
+  }
+  const now = new Date().toISOString();
+  const upd = ctx.db.prepare('UPDATE collections SET updated_at = ? WHERE id = ?');
+  upd.bind([now, collectionId]);
+  upd.step();
+  upd.free();
+  persist(ctx);
+  return getCollectionById(ctx, collectionId);
+}
+
+function updateBookMembership(ctx, { bookId, collectionIds = [] }) {
+  const sanitized = Array.from(new Set((Array.isArray(collectionIds) ? collectionIds : []).map(id => String(id).trim()).filter(Boolean)));
+  const staticRes = ctx.db.exec("SELECT id FROM collections WHERE type = 'static'");
+  const allowedIds = new Set(staticRes[0] ? staticRes[0].values.map((row) => row[0]) : []);
+  const targetIds = sanitized.filter((id) => allowedIds.has(id));
+
+  ctx.db.exec('BEGIN TRANSACTION');
+  try {
+    const del = ctx.db.prepare('DELETE FROM collection_books WHERE bookId = ?');
+    del.bind([bookId]);
+    del.step();
+    del.free();
+
+    if (targetIds.length) {
+      const ins = ctx.db.prepare('INSERT OR IGNORE INTO collection_books(collectionId, bookId) VALUES (?, ?)');
+      targetIds.forEach((collectionId) => {
+        ins.bind([collectionId, bookId]);
+        ins.step();
+        ins.reset();
+      });
+      ins.free();
+    }
+    ctx.db.exec('COMMIT');
+  } catch (error) {
+    ctx.db.exec('ROLLBACK');
+    throw error;
+  }
+  persist(ctx);
+  return targetIds;
+}
+
+function removeBookFromAllCollections(ctx, bookId) {
+  const idsRes = ctx.db.exec(`SELECT collectionId FROM collection_books WHERE bookId = '${String(bookId).replace(/'/g, "''")}'`);
+  const affected = idsRes[0] ? idsRes[0].values.map((row) => row[0]) : [];
+  const del = ctx.db.prepare('DELETE FROM collection_books WHERE bookId = ?');
+  del.bind([bookId]);
+  del.step();
+  del.free();
+  if (affected.length) {
+    const upd = ctx.db.prepare('UPDATE collections SET updated_at = ? WHERE id = ?');
+    const now = new Date().toISOString();
+    affected.forEach((collectionId) => {
+      upd.bind([now, collectionId]);
+      upd.step();
+      upd.reset();
+    });
+    upd.free();
+  }
+  persist(ctx);
 }
 
 function parseTags(t) {
@@ -798,7 +1029,15 @@ function setBookStorageLocation(ctx, bookId, storageLocationId) {
 }
 
 function deleteBook(ctx, id) {
-  ctx.db.exec(`DELETE FROM books WHERE id = '${id.replace(/'/g, "''")}'`);
+  const bookId = String(id);
+  const delCollections = ctx.db.prepare('DELETE FROM collection_books WHERE bookId = ?');
+  delCollections.bind([bookId]);
+  delCollections.step();
+  delCollections.free();
+  const del = ctx.db.prepare('DELETE FROM books WHERE id = ?');
+  del.bind([bookId]);
+  del.step();
+  del.free();
   persist(ctx);
   return true;
 }
@@ -1003,6 +1242,15 @@ module.exports = {
   logActivity,
   listActivity,
   clearActivity,
+  listCollections,
+  getCollectionById,
+  getCollectionByName,
+  createCollection,
+  updateCollection,
+  deleteCollection,
+  setCollectionBooks,
+  updateBookMembership,
+  removeBookFromAllCollections,
   resolveCoverPath,
   listStorageLocations,
   createStorageLocation,
@@ -1014,4 +1262,5 @@ module.exports = {
   listStorageHistory,
   getBookStorageId,
   getBookById,
+  getSchemaVersion,
 };

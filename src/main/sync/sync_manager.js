@@ -10,6 +10,10 @@ class SyncManager {
     this.userDataPath = null;
     this.lastSyncTime = null;
     this.isInitialized = false;
+    this.syncContext = {
+      schemaVersion: 0,
+      appVersion: '0.0.0',
+    };
   }
 
   /**
@@ -31,6 +35,13 @@ class SyncManager {
       console.error('❌ Failed to initialize sync manager:', error.message);
       throw error;
     }
+  }
+
+  setSyncContext(context = {}) {
+    this.syncContext = {
+      schemaVersion: Number(context.schemaVersion || 0),
+      appVersion: context.appVersion || '0.0.0',
+    };
   }
 
   /**
@@ -88,7 +99,9 @@ class SyncManager {
       platform: process.platform,
       lastSync: this.lastSyncTime,
       timestamp: new Date().toISOString(),
-      version: require('../../../package.json').version || '1.0.0'
+      version: require('../../../package.json').version || '1.0.0',
+      schemaVersion: Number(this.syncContext.schemaVersion || 0),
+      appVersion: this.syncContext.appVersion || '0.0.0',
     };
   }
 
@@ -131,6 +144,75 @@ class SyncManager {
     } catch (error) {
       console.error('❌ Failed to download device metadata:', error.message);
       return { ok: false, error: error.message };
+    }
+  }
+
+  async uploadSharedMetadata() {
+    if (!this.isInitialized) {
+      throw new Error('Sync manager not initialized');
+    }
+
+    try {
+      const payload = {
+        schemaVersion: Number(this.syncContext.schemaVersion || 0),
+        appVersion: this.syncContext.appVersion || '0.0.0',
+        deviceId: this.deviceId,
+        syncedAt: new Date().toISOString(),
+      };
+      const s3Key = 'metadata/sync.json';
+      console.log('📤 Uploading sync metadata:', payload);
+      return await s3Client.uploadJson(payload, s3Key);
+    } catch (error) {
+      console.error('❌ Failed to upload sync metadata:', error.message);
+      return { ok: false, error: error.message };
+    }
+  }
+
+  async downloadSharedMetadata() {
+    if (!this.isInitialized) {
+      throw new Error('Sync manager not initialized');
+    }
+
+    try {
+      const s3Key = 'metadata/sync.json';
+      console.log('📥 Downloading sync metadata');
+      const result = await s3Client.downloadJson(s3Key);
+      if (result.ok) {
+        return { ok: true, data: result.data, lastModified: result.lastModified, etag: result.etag };
+      }
+      if (result.notFound) {
+        return { ok: true, data: null, notFound: true };
+      }
+      return { ok: false, error: result.error };
+    } catch (error) {
+      console.error('❌ Failed to download sync metadata:', error.message);
+      return { ok: false, error: error.message };
+    }
+  }
+
+  async ensureCompatibility(direction = 'down') {
+    try {
+      const meta = await this.downloadSharedMetadata();
+      if (!meta.ok) {
+        return meta;
+      }
+      if (!meta.data) {
+        return { ok: true, data: null };
+      }
+      const remoteSchema = Number(meta.data.schemaVersion || 0);
+      const localSchema = Number(this.syncContext.schemaVersion || 0);
+      if (remoteSchema > localSchema) {
+        return {
+          ok: false,
+          blocked: true,
+          reason: `remote schema version ${remoteSchema} is newer than local ${localSchema}`,
+          remote: meta.data,
+          local: { schemaVersion: localSchema, appVersion: this.syncContext.appVersion || '0.0.0' },
+        };
+      }
+      return { ok: true, data: meta.data };
+    } catch (error) {
+      return { ok: false, error: error.message || String(error) };
     }
   }
 
@@ -395,24 +477,34 @@ class SyncManager {
 
     console.log('🔄 Starting full upload sync...');
     const results = {
+      compatibility: null,
+      remoteMetadata: null,
       metadata: null,
       database: null,
       settings: null,
       covers: null,
-      success: false
+      sharedMetadata: null,
+      blocked: false,
+      success: false,
     };
 
     try {
-      // Upload device metadata
+      const compatibility = await this.ensureCompatibility('up');
+      results.compatibility = compatibility;
+      if (!compatibility.ok) {
+        if (compatibility.blocked) {
+          results.blocked = true;
+          results.reason = compatibility.reason;
+          return results;
+        }
+        results.error = compatibility.error;
+        return results;
+      }
+      results.remoteMetadata = compatibility.data;
+
       results.metadata = await this.uploadDeviceMetadata();
-
-      // Upload database
       results.database = await this.uploadDatabase();
-
-      // Upload settings
       results.settings = await this.uploadSettings();
-
-      // Upload covers
       results.covers = await this.uploadCovers();
 
       const allSuccessful = results.metadata.ok &&
@@ -420,9 +512,16 @@ class SyncManager {
                            results.settings.ok &&
                            results.covers.ok;
 
-      results.success = allSuccessful;
-
       if (allSuccessful) {
+        results.sharedMetadata = await this.uploadSharedMetadata();
+        if (results.sharedMetadata && results.sharedMetadata.ok === false) {
+          results.error = results.sharedMetadata.error;
+        }
+      }
+
+      results.success = allSuccessful && (!results.sharedMetadata || results.sharedMetadata.ok);
+
+      if (results.success) {
         console.log('✅ Full upload sync completed successfully');
       } else {
         console.log('⚠️ Upload sync completed with some errors');
@@ -446,13 +545,29 @@ class SyncManager {
 
     console.log('🔄 Starting full download sync...');
     const results = {
+      compatibility: null,
+      remoteMetadata: null,
       database: null,
       settings: null,
       covers: null,
+      blocked: false,
       success: false
     };
 
     try {
+      const compatibility = await this.ensureCompatibility('down');
+      results.compatibility = compatibility;
+      if (!compatibility.ok) {
+        if (compatibility.blocked) {
+          results.blocked = true;
+          results.reason = compatibility.reason;
+          return results;
+        }
+        results.error = compatibility.error;
+        return results;
+      }
+      results.remoteMetadata = compatibility.data;
+
       // Download database
       results.database = await this.downloadDatabase();
 
@@ -462,9 +577,9 @@ class SyncManager {
       // Download covers
       results.covers = await this.downloadCovers();
 
-      const allSuccessful = (results.database.ok || results.database.notFound) &&
-                           (results.settings.ok || results.settings.notFound) &&
-                           results.covers.ok;
+      const allSuccessful = (results.database.ok || results.database?.notFound) &&
+                           (results.settings.ok || results.settings?.notFound) &&
+                           (results.covers && results.covers.ok);
 
       results.success = allSuccessful;
 
@@ -472,6 +587,7 @@ class SyncManager {
         console.log('✅ Full download sync completed successfully');
         // Update our metadata after successful sync
         await this.uploadDeviceMetadata();
+        await this.uploadSharedMetadata();
       } else {
         console.log('⚠️ Download sync completed with some errors');
       }

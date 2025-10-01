@@ -1249,8 +1249,7 @@ function getFilters() {
 function applyFilters(arr) {
   // First check if we're viewing a static collection
   if (state.currentStaticCollection) {
-    const collections = loadCollections();
-    const collection = collections[state.currentStaticCollection];
+    const collection = getCollectionByName(state.currentStaticCollection);
     if (collection && collection.type === 'static') {
       // Filter books by IDs in the static collection
       const bookIds = new Set(collection.books);
@@ -1287,8 +1286,7 @@ function filtersMatchCollection(collectionName) {
     return false;
   }
 
-  const collections = loadCollections();
-  const collection = collections[collectionName];
+  const collection = getCollectionByName(collectionName);
   if (!collection) return false;
 
   // Static collections don't depend on filters
@@ -1498,136 +1496,147 @@ function attachAutocomplete(el, domain, { multiple = false } = {}) {
   window.addEventListener('scroll', () => { if (dropdown.style.display !== 'none') position(); }, true);
 }
 
-function loadCollections() {
-  try {
-    const collections = JSON.parse(localStorage.getItem('collections') || '{}');
-    // Migrate old collections to new format
-    Object.keys(collections).forEach(name => {
-      const collection = collections[name];
-      if (!collection.type) {
-        // Old format - convert to filter collection
-        collections[name] = {
-          type: 'filter',
-          name: name,
-          filters: collection,
-          books: [],
-          createdAt: new Date().toISOString()
-        };
-      }
-    });
-    return collections;
-  } catch {
-    return {};
-  }
+const collectionsState = {
+  list: [],
+  byId: new Map(),
+  byName: new Map(),
+};
+
+function rebuildCollectionsState(list = []) {
+  collectionsState.list = Array.isArray(list)
+    ? list.map((collection) => ({
+        ...collection,
+        books: Array.isArray(collection.books) ? collection.books : [],
+        filters: collection.type === 'filter' ? (collection.filters || {}) : null,
+      }))
+    : [];
+  collectionsState.byId = new Map();
+  collectionsState.byName = new Map();
+  collectionsState.list.forEach((collection) => {
+    collectionsState.byId.set(collection.id, collection);
+    collectionsState.byName.set(collection.name, collection);
+  });
 }
 
-function saveCollections(obj) { localStorage.setItem('collections', JSON.stringify(obj)); }
-
-function createCollection(name, type = 'static', filters = null, books = []) {
-  console.log('🔧 createCollection called:', { name, type, filters, books });
-  const collections = loadCollections();
-  console.log('🔧 Current collections:', Object.keys(collections));
-  const cleanName = String(name || '').trim();
-  if (!cleanName) {
-    console.error('❌ Empty name provided to createCollection');
-    return false;
-  }
-
-  const newCollection = {
-    type: type, // 'filter' or 'static'
-    name: cleanName,
-    filters: filters || {},
-    books: books || [], // Array of book IDs for static collections
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
-
-  console.log('🔧 Creating collection object:', newCollection);
-  collections[cleanName] = newCollection;
-
+async function refreshCollections({ silent = false } = {}) {
+  if (!window.api || typeof window.api.listCollections !== 'function') return false;
   try {
-    saveCollections(collections);
-    console.log('✅ Collection saved successfully');
+    const res = await window.api.listCollections();
+    if (res && res.ok && Array.isArray(res.collections)) {
+      rebuildCollectionsState(res.collections);
+      syncCollectionsUI();
+      if (state.currentStaticCollection && !collectionsState.byName.has(state.currentStaticCollection)) {
+        state.currentStaticCollection = null;
+        if (collectionSelect) collectionSelect.value = '';
+      }
+      return true;
+    }
+    if (!silent) alert(res?.error || 'Не удалось загрузить коллекции');
+  } catch (error) {
+    console.error('Failed to refresh collections', error);
+    if (!silent) alert(`Не удалось загрузить коллекции: ${error?.message || error}`);
+  }
+  return false;
+}
 
-    // Verify it was saved
-    const saved = loadCollections();
-    console.log('🔧 Verification - collection exists:', cleanName in saved);
+function getCollectionByName(name) {
+  return collectionsState.byName.get(name) || null;
+}
+
+function getCollectionById(id) {
+  return collectionsState.byId.get(id) || null;
+}
+
+function getStaticCollections() {
+  return collectionsState.list.filter((collection) => collection.type === 'static');
+}
+
+async function createCollection(name, type = 'static', filters = null, books = []) {
+  const cleanName = String(name || '').trim();
+  if (!cleanName) return false;
+  try {
+    const payload = {
+      name: cleanName,
+      type,
+      filters,
+      books,
+    };
+    const res = await window.api.createCollection(payload);
+    if (!res || res.ok === false) {
+      throw new Error(res?.error || 'Не удалось создать коллекцию');
+    }
+    await refreshCollections({ silent: true });
     return true;
   } catch (error) {
-    console.error('❌ Error saving collection:', error);
+    console.error('createCollection failed', error);
+    alert(error?.message || 'Не удалось создать коллекцию');
     return false;
   }
 }
 
-function addBookToCollection(bookId, collectionName) {
-  const collections = loadCollections();
-  const collection = collections[collectionName];
+async function updateCollectionFilters(name, filters) {
+  const collection = getCollectionByName(name);
   if (!collection) return false;
-
-  if (collection.type === 'static') {
-    if (!collection.books.includes(bookId)) {
-      collection.books.push(bookId);
-      collection.updatedAt = new Date().toISOString();
-      saveCollections(collections);
-      return true;
+  try {
+    const res = await window.api.updateCollection({
+      id: collection.id,
+      name: collection.name,
+      type: 'filter',
+      filters,
+    });
+    if (!res || res.ok === false) {
+      throw new Error(res?.error || 'Не удалось обновить коллекцию');
     }
+    await refreshCollections({ silent: true });
+    return true;
+  } catch (error) {
+    console.error('updateCollectionFilters failed', error);
+    alert(error?.message || 'Не удалось сохранить коллекцию');
+    return false;
   }
-  return false;
 }
 
-function removeBookFromCollection(bookId, collectionName) {
-  const collections = loadCollections();
-  const collection = collections[collectionName];
+async function deleteCollectionByName(name) {
+  const collection = getCollectionByName(name);
   if (!collection) return false;
-
-  if (collection.type === 'static') {
-    const index = collection.books.indexOf(bookId);
-    if (index > -1) {
-      collection.books.splice(index, 1);
-      collection.updatedAt = new Date().toISOString();
-      saveCollections(collections);
-      return true;
+  try {
+    const res = await window.api.deleteCollection({ id: collection.id });
+    if (!res || res.ok === false) {
+      throw new Error(res?.error || 'Не удалось удалить коллекцию');
     }
+    await refreshCollections({ silent: true });
+    return true;
+  } catch (error) {
+    console.error('deleteCollection failed', error);
+    alert(error?.message || 'Не удалось удалить коллекцию');
+    return false;
   }
-  return false;
 }
 
-function updateBookCollections(bookId, selectedCollectionNames) {
-  const collections = loadCollections();
-
-  // Get all static collections
-  const staticCollections = Object.keys(collections)
-    .filter(name => collections[name].type === 'static');
-
-  // Remove book from all static collections first
-  staticCollections.forEach(name => {
-    const collection = collections[name];
-    const index = collection.books.indexOf(bookId);
-    if (index > -1) {
-      collection.books.splice(index, 1);
-      collection.updatedAt = new Date().toISOString();
+async function updateBookCollections(bookId, selectedCollectionNames) {
+  const names = Array.isArray(selectedCollectionNames) ? selectedCollectionNames : [];
+  const idByName = new Map(getStaticCollections().map((collection) => [collection.name, collection.id]));
+  const ids = names
+    .map((name) => idByName.get(name))
+    .filter(Boolean);
+  try {
+    const res = await window.api.updateCollectionMembership({ bookId, collectionIds: ids });
+    if (!res || res.ok === false) {
+      throw new Error(res?.error || 'Не удалось обновить коллекции книги');
     }
-  });
-
-  // Add book to selected collections
-  selectedCollectionNames.forEach(name => {
-    const collection = collections[name];
-    if (collection && collection.type === 'static') {
-      if (!collection.books.includes(bookId)) {
-        collection.books.push(bookId);
-        collection.updatedAt = new Date().toISOString();
-      }
-    }
-  });
-
-  saveCollections(collections);
+    await refreshCollections({ silent: true });
+    return true;
+  } catch (error) {
+    console.error('updateBookCollections failed', error);
+    alert(error?.message || 'Не удалось обновить коллекции книги');
+    return false;
+  }
 }
 
 function getBookCollections(bookId) {
-  const collections = loadCollections();
-  return Object.keys(collections)
-    .filter(name => collections[name].type === 'static' &&
-                   collections[name].books.includes(bookId));
+  return getStaticCollections()
+    .filter((collection) => collection.books.includes(bookId))
+    .map((collection) => collection.name);
 }
 
 async function reloadDataOnly() {
@@ -1647,23 +1656,15 @@ async function deleteBookSmart(bookId) {
   const currentCollection = collectionSelect ? collectionSelect.value : null;
   const currentStaticCollection = state.currentStaticCollection;
 
-  // Remove book from all collections first
-  const collections = loadCollections();
-  const staticCollections = Object.keys(collections)
-    .filter(name => collections[name].type === 'static');
-
-  staticCollections.forEach(name => {
-    removeBookFromCollection(bookId, name);
-  });
+  // Remove book from all static collections
+  await updateBookCollections(bookId, []);
 
   // Delete the book
   await window.api.deleteBook(bookId);
 
   // Reload data without resetting filters/collections
   await reloadDataOnly();
-
-  // Update collections UI to reflect new counts
-  syncCollectionsUI();
+  await refreshCollections({ silent: true });
 
   // Restore collection state if needed
   if (currentStaticCollection) {
@@ -1759,7 +1760,7 @@ function showPromptDialog(message, defaultValue = '') {
   });
 }
 
-function showCollectionSelectionDialog(staticCollections, collections, bookId) {
+function showCollectionSelectionDialog(staticCollections, bookId) {
   return new Promise((resolve) => {
     const overlay = document.createElement('div');
     overlay.style.cssText = `
@@ -1794,18 +1795,17 @@ function showCollectionSelectionDialog(staticCollections, collections, bookId) {
     `;
 
     // Determine which collections currently contain this book
-    const bookCollections = new Set();
-    staticCollections.forEach(name => {
-      if (collections[name].books.includes(bookId)) {
-        bookCollections.add(name);
-      }
-    });
+    const bookCollections = new Set(
+      staticCollections
+        .filter((collection) => collection.books.includes(bookId))
+        .map((collection) => collection.name)
+    );
 
     let collectionsHtml = '';
     if (staticCollections.length > 0) {
-      collectionsHtml = staticCollections.map(name => {
-        const count = collections[name].books.length;
-        const isChecked = bookCollections.has(name);
+      collectionsHtml = staticCollections.map((collection) => {
+        const count = collection.books.length;
+        const isChecked = bookCollections.has(collection.name);
         return `
           <label style="
             display: flex;
@@ -1819,13 +1819,13 @@ function showCollectionSelectionDialog(staticCollections, collections, bookId) {
             transition: all 0.2s ease;
             background: ${isChecked ? 'var(--muted-surface)' : 'var(--surface)'};
           " onmouseover="this.style.background='var(--muted-surface)'" onmouseout="this.style.background='${isChecked ? 'var(--muted-surface)' : 'var(--surface)'}'">
-            <input type="checkbox" value="${name}" ${isChecked ? 'checked' : ''} style="
+            <input type="checkbox" value="${collection.name}" ${isChecked ? 'checked' : ''} style="
               width: 16px;
               height: 16px;
               accent-color: #4f46e5;
             ">
             <div style="flex: 1;">
-              <div style="font-weight: 500; font-size: 14px;">${name}</div>
+              <div style="font-weight: 500; font-size: 14px;">${collection.name}</div>
               <div style="font-size: 12px; color: var(--muted);">${count} книг</div>
             </div>
             ${isChecked ? '<span style="color: #10b981; font-size: 12px;">✓ В коллекции</span>' : ''}
@@ -1854,7 +1854,7 @@ function showCollectionSelectionDialog(staticCollections, collections, bookId) {
 
       <div style="margin-bottom: 20px;">
         <div id="collectionsContainer">
-          ${collectionsHtml}
+        ${collectionsHtml}
         </div>
 
         <button id="createNewBtn" style="
@@ -1953,28 +1953,21 @@ function showCollectionSelectionDialog(staticCollections, collections, bookId) {
 
 function showAddToCollectionDialog(bookId) {
   console.log('📚 showAddToCollectionDialog called with bookId:', bookId);
-  const collections = loadCollections();
-  const staticCollections = Object.keys(collections)
-    .filter(name => collections[name].type === 'static')
-    .sort();
+  const staticCollections = getStaticCollections().sort((a, b) => a.name.localeCompare(b.name, 'ru', { sensitivity: 'base' }));
 
-  console.log('📚 Found static collections:', staticCollections);
+  console.log('📚 Found static collections:', staticCollections.map((c) => c.name));
 
   if (staticCollections.length === 0) {
     console.log('📚 No static collections found, showing create dialog');
     if (confirm('У вас нет статических коллекций.\nСоздать новую коллекцию?')) {
-      showPromptDialog('Название коллекции:').then(name => {
+      showPromptDialog('Название коллекции:').then(async (name) => {
         console.log('📚 User entered collection name:', name);
         if (name && name.trim()) {
           console.log('📚 Creating collection with book:', name.trim(), bookId);
-          if (createCollection(name.trim(), 'static', null, [bookId])) {
-            console.log('✅ Collection created and book added');
-            syncCollectionsUI();
+          const ok = await createCollection(name.trim(), 'static', null, [bookId]);
+          if (ok) {
             render();
             alert(`Книга добавлена в коллекцию "${name.trim()}"`);
-          } else {
-            console.error('❌ Failed to create collection');
-            alert('Ошибка создания коллекции');
           }
         } else {
           console.log('❌ No name provided for collection');
@@ -1987,31 +1980,29 @@ function showAddToCollectionDialog(bookId) {
   }
 
         // Show collection selection dialog
-  showCollectionSelectionDialog(staticCollections, collections, bookId).then(result => {
+  showCollectionSelectionDialog(staticCollections, bookId).then(async (result) => {
     if (!result) return; // Cancelled
 
     if (result.action === 'create_new') {
-      // Create new collection
-      showPromptDialog('Название новой коллекции:').then(name => {
+      showPromptDialog('Название новой коллекции:').then(async (name) => {
         if (name && name.trim()) {
-          if (createCollection(name.trim(), 'static', null, [bookId])) {
-            syncCollectionsUI();
+          const ok = await createCollection(name.trim(), 'static', null, [bookId]);
+          if (ok) {
             render();
             alert(`Книга добавлена в новую коллекцию "${name.trim()}"`);
           }
         }
       });
     } else if (result.action === 'save') {
-      // Update book collections
-      updateBookCollections(bookId, result.collections);
-      syncCollectionsUI();
-      render();
-
-      const count = result.collections.length;
-      if (count === 0) {
-        alert('Книга удалена из всех коллекций');
-      } else {
-        alert(`Книга добавлена в ${count} ${count === 1 ? 'коллекцию' : count < 5 ? 'коллекции' : 'коллекций'}`);
+      const ok = await updateBookCollections(bookId, result.collections);
+      if (ok) {
+        render();
+        const count = result.collections.length;
+        if (count === 0) {
+          alert('Книга удалена из всех коллекций');
+        } else {
+          alert(`Книга добавлена в ${count} ${count === 1 ? 'коллекцию' : count < 5 ? 'коллекции' : 'коллекций'}`);
+        }
       }
     }
   });
@@ -2040,37 +2031,34 @@ function syncCollectionsUI() {
   // Save current value before rebuilding
   const currentValue = collectionSelect.value;
 
-  const cols = loadCollections();
-  const names = Object.keys(cols).sort();
+  const sorted = collectionsState.list.slice().sort((a, b) => a.name.localeCompare(b.name, 'ru', { sensitivity: 'base' }));
+  const filterCollections = sorted.filter((c) => c.type === 'filter');
+  const staticCollections = sorted.filter((c) => c.type === 'static');
 
   // Group collections by type
-  const filterCollections = names.filter(n => cols[n].type === 'filter');
-  const staticCollections = names.filter(n => cols[n].type === 'static');
-
   let html = '<option value="">Коллекции…</option>';
 
   if (filterCollections.length > 0) {
     html += '<optgroup label="🔍 Фильтр-коллекции">';
-    html += filterCollections.map(n => `<option value="${n}">${n}</option>`).join('');
+    html += filterCollections.map((collection) => `<option value="${collection.name}">${collection.name}</option>`).join('');
     html += '</optgroup>';
   }
 
   if (staticCollections.length > 0) {
     html += '<optgroup label="📚 Статические коллекции">';
-    html += staticCollections.map(n => `<option value="${n}">${n} (${cols[n].books.length})</option>`).join('');
+    html += staticCollections.map((collection) => `<option value="${collection.name}">${collection.name} (${collection.books.length})</option>`).join('');
     html += '</optgroup>';
   }
 
   collectionSelect.innerHTML = html;
 
   // Try to restore the previous value if it still exists
-  if (currentValue && names.includes(currentValue)) {
+  if (currentValue && collectionsState.byName.has(currentValue)) {
     collectionSelect.value = currentValue;
   }
 }
 function applyCollection(name) {
-  const cols = loadCollections();
-  const collection = cols[name];
+  const collection = getCollectionByName(name);
   if (!collection) return;
 
   // Clear current filters first (but preserve static collection state temporarily)
@@ -2146,43 +2134,37 @@ function attachFilterEvents() {
   if (saveCollectionBtn) saveCollectionBtn.addEventListener('click', () => {
     showSaveInline(true);
   });
-  function saveCollectionByName(name) {
+  async function saveCollectionByName(name) {
     const n = String(name || '').trim();
     if (!n) return;
-    const cols = loadCollections();
-
-    // Create new filter collection
-    cols[n] = {
-      type: 'filter',
-      name: n,
-      filters: getFilters(),
-      books: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    saveCollections(cols);
-    syncCollectionsUI();
-    if (collectionSelect) collectionSelect.value = n;
-    saveFiltersState();
-    render();
-    showSaveInline(false);
+    const filters = getFilters();
+    const existing = getCollectionByName(n);
+    const ok = existing
+      ? await updateCollectionFilters(n, filters)
+      : await createCollection(n, 'filter', filters, []);
+    if (ok) {
+      if (collectionSelect) collectionSelect.value = n;
+      saveFiltersState();
+      render();
+      showSaveInline(false);
+    }
   }
   if (collectionSaveConfirmBtn) collectionSaveConfirmBtn.addEventListener('click', () => {
     saveCollectionByName(collectionNameInput ? collectionNameInput.value : '');
   });
   if (collectionSaveCancelBtn) collectionSaveCancelBtn.addEventListener('click', () => showSaveInline(false));
   if (collectionNameInput) collectionNameInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); saveCollectionByName(collectionNameInput.value); }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      saveCollectionByName(collectionNameInput.value);
+    }
     if (e.key === 'Escape') { e.preventDefault(); showSaveInline(false); }
   });
-  if (deleteCollectionBtn) deleteCollectionBtn.addEventListener('click', () => {
+  if (deleteCollectionBtn) deleteCollectionBtn.addEventListener('click', async () => {
     const name = collectionSelect && collectionSelect.value;
     if (!name) return;
-    const cols = loadCollections();
-    delete cols[name];
-    saveCollections(cols);
-    syncCollectionsUI();
+    if (!(await deleteCollectionByName(name))) return;
+    if (collectionSelect) collectionSelect.value = '';
     clearAllFiltersAndCollections();
     render();
   });
@@ -2755,6 +2737,7 @@ if (csvImportConfirmBtn) {
       alert(message);
       closeCsvImportModal();
       await reloadDataOnly();
+      await refreshCollections({ silent: true });
       render();
     } catch (error) {
       console.error('CSV import failed', error);
@@ -2779,7 +2762,6 @@ async function load() {
   applySearch('');
   populateAuthorFilter();
   // restoreFiltersState(); // Disabled: always start with clean filters
-  syncCollectionsUI();
   rebuildSuggestStore();
   // Safety: если сохранённые фильтры на старте скрывают все книги — сбрасываем их автоматически
   try {
@@ -2794,6 +2776,7 @@ async function load() {
       }
     }
   } catch {}
+  await refreshCollections({ silent: true });
   render();
   // Доп. защита: если книги есть, но рендер показал пусто — сбросить фильтры и перерендерить
   try {
@@ -3931,19 +3914,16 @@ function initializeCollections() {
     createBtn.setAttribute('data-initialized', 'true');
     createBtn.addEventListener('click', () => {
       console.log('📝 Create collection button clicked');
-      showPromptDialog('Название новой коллекции:').then(name => {
+      showPromptDialog('Название новой коллекции:').then(async (name) => {
         console.log('📝 User entered name:', name);
         if (name && name.trim()) {
           console.log('📝 Creating collection:', name.trim());
-          if (createCollection(name.trim(), 'static')) {
+          const ok = await createCollection(name.trim(), 'static');
+          if (ok) {
             console.log('✅ Collection created successfully');
-            syncCollectionsUI();
             if (collectionSelect) collectionSelect.value = name.trim();
             applyCollection(name.trim());
             render();
-          } else {
-            console.error('❌ Failed to create collection');
-            alert('Ошибка создания коллекции');
           }
         } else {
           console.log('❌ No name provided or empty');
@@ -4728,6 +4708,13 @@ async function syncUp() {
     console.log('📤 Starting upload sync...');
     const result = await window.api.syncUp();
 
+    if (result.blocked) {
+      const remoteSchema = result.compatibility?.remote?.schemaVersion ?? result.remoteMetadata?.schemaVersion;
+      const localSchema = result.compatibility?.local?.schemaVersion ?? '—';
+      alert(`Синхронизация отменена: в облаке более новая версия данных (schema ${remoteSchema ?? 'неизвестно'}; локально ${localSchema}). Обновите приложение и попробуйте снова.`);
+      return;
+    }
+
     if (result.success) {
       alert('✅ Данные успешно загружены на сервер!\n\nЗагружено:\n• База данных\n• Настройки\n• Обложки книг');
     } else {
@@ -4758,6 +4745,13 @@ async function syncDown() {
 
     console.log('📥 Starting download sync...');
     const result = await window.api.syncDown();
+
+    if (result.blocked) {
+      const remoteSchema = result.compatibility?.remote?.schemaVersion ?? result.remoteMetadata?.schemaVersion;
+      const localSchema = result.compatibility?.local?.schemaVersion ?? '—';
+      alert(`Синхронизация отменена: в облаке данные с более новой схемой (schema ${remoteSchema ?? 'неизвестно'}; локально ${localSchema}). Обновите приложение перед загрузкой.`);
+      return;
+    }
 
     if (result.success) {
       alert('✅ Данные успешно загружены с сервера!\n\nЗагружено:\n• База данных\n• Настройки\n• Обложки книг\n\nПерезагрузите приложение для применения изменений.');
