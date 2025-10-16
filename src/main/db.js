@@ -315,6 +315,21 @@ async function migrate(ctx) {
     setSchemaVersion(ctx, 10);
     persist(ctx);
   }
+  if (getSchemaVersion(ctx) === 10) {
+    ctx.db.exec(`
+      CREATE TABLE IF NOT EXISTS filter_presets (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        slug TEXT UNIQUE,
+        filters TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_filter_presets_name_unique ON filter_presets(name COLLATE NOCASE) WHERE slug IS NULL;
+    `);
+    setSchemaVersion(ctx, 11);
+    persist(ctx);
+  }
 }
 
 function ensureAuthor(ctx, name) {
@@ -751,6 +766,118 @@ function removeBookFromAllCollections(ctx, bookId) {
     upd.free();
   }
   persist(ctx);
+}
+
+function listFilterPresets(ctx) {
+  const res = ctx.db.exec('SELECT id, name, slug, filters, created_at, updated_at FROM filter_presets ORDER BY created_at DESC');
+  if (!res[0]) return [];
+  return res[0].values.map(([id, name, slug, filters, createdAt, updatedAt]) => ({
+    id,
+    name,
+    slug: normStr(slug),
+    filters: parseJsonSafe(filters, {}),
+    createdAt,
+    updatedAt,
+  }));
+}
+
+function getFilterPresetById(ctx, id) {
+  const stmt = ctx.db.prepare('SELECT id, name, slug, filters, created_at, updated_at FROM filter_presets WHERE id = ?');
+  stmt.bind([id]);
+  let row = null;
+  if (stmt.step()) {
+    row = stmt.getAsObject();
+  }
+  stmt.free();
+  if (!row) return null;
+  return {
+    id: row.id,
+    name: row.name,
+    slug: normStr(row.slug),
+    filters: parseJsonSafe(row.filters, {}),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function getFilterPresetBySlug(ctx, slug) {
+  if (!slug) return null;
+  const stmt = ctx.db.prepare('SELECT id, name, slug, filters, created_at, updated_at FROM filter_presets WHERE slug = ?');
+  stmt.bind([slug]);
+  let row = null;
+  if (stmt.step()) {
+    row = stmt.getAsObject();
+  }
+  stmt.free();
+  if (!row) return null;
+  return {
+    id: row.id,
+    name: row.name,
+    slug: normStr(row.slug),
+    filters: parseJsonSafe(row.filters, {}),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function createFilterPreset(ctx, { name, filters, slug = null }) {
+  const cleanName = String(name || '').trim();
+  if (!cleanName && !slug) throw new Error('preset name required');
+  const now = new Date().toISOString();
+  const id = randomUUID();
+  const stmt = ctx.db.prepare('INSERT INTO filter_presets(id, name, slug, filters, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)');
+  stmt.bind([
+    id,
+    cleanName || slug,
+    slug ? String(slug) : null,
+    encodeJson(filters) || '{}',
+    now,
+    now,
+  ]);
+  stmt.step();
+  stmt.free();
+  persist(ctx);
+  return getFilterPresetById(ctx, id);
+}
+
+function updateFilterPreset(ctx, { id, name = undefined, filters = undefined, slug = undefined }) {
+  const existing = getFilterPresetById(ctx, id);
+  if (!existing) throw new Error('preset not found');
+  const now = new Date().toISOString();
+  const stmt = ctx.db.prepare('UPDATE filter_presets SET name = ?, slug = ?, filters = ?, updated_at = ? WHERE id = ?');
+  stmt.bind([
+    name !== undefined ? String(name).trim() || existing.name : existing.name,
+    slug !== undefined ? (slug ? String(slug) : null) : existing.slug,
+    filters !== undefined ? encodeJson(filters) || '{}' : encodeJson(existing.filters) || '{}',
+    now,
+    id,
+  ]);
+  stmt.step();
+  stmt.free();
+  persist(ctx);
+  return getFilterPresetById(ctx, id);
+}
+
+function deleteFilterPreset(ctx, id) {
+  const stmt = ctx.db.prepare('DELETE FROM filter_presets WHERE id = ?');
+  stmt.bind([id]);
+  stmt.step();
+  stmt.free();
+  persist(ctx);
+  return true;
+}
+
+function upsertFilterPresetBySlug(ctx, { slug, name, filters }) {
+  const existing = getFilterPresetBySlug(ctx, slug);
+  if (existing) {
+    return updateFilterPreset(ctx, {
+      id: existing.id,
+      name: name !== undefined ? name : existing.name,
+      slug,
+      filters,
+    });
+  }
+  return createFilterPreset(ctx, { name: name || slug, slug, filters });
 }
 
 function parseTags(t) {
@@ -1242,6 +1369,13 @@ module.exports = {
   logActivity,
   listActivity,
   clearActivity,
+  listFilterPresets,
+  getFilterPresetById,
+  getFilterPresetBySlug,
+  createFilterPreset,
+  updateFilterPreset,
+  deleteFilterPreset,
+  upsertFilterPresetBySlug,
   listCollections,
   getCollectionById,
   getCollectionByName,

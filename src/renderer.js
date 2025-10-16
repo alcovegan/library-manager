@@ -194,6 +194,9 @@ const collectionSelect = document.querySelector('#collectionSelect');
 const createCollectionBtn = document.querySelector('#createCollectionBtn');
 const saveCollectionBtn = document.querySelector('#saveCollectionBtn');
 const deleteCollectionBtn = document.querySelector('#deleteCollectionBtn');
+const filterPresetSelect = document.querySelector('#filterPresetSelect');
+const savePresetBtn = $('#savePresetBtn');
+const deletePresetBtn = $('#deletePresetBtn');
 
 // Debug: Check if collection buttons are found
 console.log('🔍 Collection buttons found:', {
@@ -1502,6 +1505,14 @@ const collectionsState = {
   byName: new Map(),
 };
 
+const filterPresetsState = {
+  list: [],
+  byId: new Map(),
+  last: null,
+};
+
+const FILTER_PRESET_SLUG_LAST = 'last-used-filter';
+
 function rebuildCollectionsState(list = []) {
   collectionsState.list = Array.isArray(list)
     ? list.map((collection) => ({
@@ -1516,6 +1527,25 @@ function rebuildCollectionsState(list = []) {
     collectionsState.byId.set(collection.id, collection);
     collectionsState.byName.set(collection.name, collection);
   });
+}
+
+function rebuildFilterPresetsState(list = []) {
+  filterPresetsState.list = [];
+  filterPresetsState.byId = new Map();
+  filterPresetsState.last = null;
+  list.forEach((preset) => {
+    const normalized = {
+      ...preset,
+      filters: preset && typeof preset.filters === 'object' ? preset.filters : {},
+    };
+    if (preset.slug === FILTER_PRESET_SLUG_LAST) {
+      filterPresetsState.last = normalized;
+    } else {
+      filterPresetsState.list.push(normalized);
+      filterPresetsState.byId.set(normalized.id, normalized);
+    }
+  });
+  filterPresetsState.list.sort((a, b) => a.name.localeCompare(b.name, 'ru', { sensitivity: 'base' }));
 }
 
 async function refreshCollections({ silent = false } = {}) {
@@ -1535,6 +1565,28 @@ async function refreshCollections({ silent = false } = {}) {
   } catch (error) {
     console.error('Failed to refresh collections', error);
     if (!silent) alert(`Не удалось загрузить коллекции: ${error?.message || error}`);
+  }
+  return false;
+}
+
+async function refreshFilterPresets({ applyLast = false } = {}) {
+  if (!window.api || typeof window.api.listFilterPresets !== 'function') return false;
+  try {
+    const res = await window.api.listFilterPresets();
+    if (res && res.ok && Array.isArray(res.presets)) {
+      rebuildFilterPresetsState(res.presets);
+      syncFilterPresetsUI();
+      if (applyLast && filterPresetsState.last) {
+        setFiltersFromPreset(filterPresetsState.last.filters, { skipRender: true });
+        if (filterPresetSelect) filterPresetSelect.value = '';
+        render();
+        saveFiltersState();
+      }
+      return true;
+    }
+    console.error('Failed to list filter presets', res?.error);
+  } catch (error) {
+    console.error('Failed to refresh filter presets', error);
   }
   return false;
 }
@@ -2007,23 +2059,25 @@ function showAddToCollectionDialog(bookId) {
     }
   });
 }
-const FILTERS_KEY = 'filters:v1';
 function saveFiltersState() {
-  const f = getFilters();
-  localStorage.setItem(FILTERS_KEY, JSON.stringify(f));
+  const filters = getFilters();
+  if (window.api && typeof window.api.saveLastFilterPreset === 'function') {
+    window.api.saveLastFilterPreset(filters)
+      .then((res) => {
+        if (res && res.ok && res.preset) {
+          filterPresetsState.last = res.preset;
+        }
+      })
+      .catch((error) => {
+        console.error('saveLastFilterPreset failed', error);
+      });
+  }
 }
+
 function restoreFiltersState() {
-  try {
-    const raw = localStorage.getItem(FILTERS_KEY);
-    if (!raw) return; // no saved filters — keep defaults (show all)
-    const f = JSON.parse(raw);
-    if (filterAuthor) filterAuthor.value = f.author || '';
-    if (filterFormat) filterFormat.value = f.format || '';
-    if (filterYearFrom) filterYearFrom.value = f.y1 || '';
-    if (filterYearTo) filterYearTo.value = f.y2 || '';
-    if (filterGenres) filterGenres.value = (f.genres || []).join(', ');
-    if (filterTags) filterTags.value = (f.tags || []).join(', ');
-  } catch {}
+  if (filterPresetsState.last) {
+    setFiltersFromPreset(filterPresetsState.last.filters);
+  }
 }
 function syncCollectionsUI() {
   if (!collectionSelect) return;
@@ -2057,6 +2111,45 @@ function syncCollectionsUI() {
     collectionSelect.value = currentValue;
   }
 }
+
+function syncFilterPresetsUI() {
+  if (!filterPresetSelect) return;
+  const prev = filterPresetSelect.value;
+  let html = '<option value="">Пресеты фильтров…</option>';
+  filterPresetsState.list.forEach((preset) => {
+    html += `<option value="${preset.id}">${preset.name}</option>`;
+  });
+  filterPresetSelect.innerHTML = html;
+  if (prev && filterPresetsState.byId.has(prev)) {
+    filterPresetSelect.value = prev;
+  } else {
+    filterPresetSelect.value = '';
+  }
+}
+
+function setFiltersFromPreset(filters, { skipRender = false } = {}) {
+  const f = filters && typeof filters === 'object' ? filters : {};
+  if (filterAuthor) filterAuthor.value = f.author || '';
+  if (filterFormat) filterFormat.value = f.format || '';
+  if (filterYearFrom) filterYearFrom.value = f.y1 != null ? f.y1 : '';
+  if (filterYearTo) filterYearTo.value = f.y2 != null ? f.y2 : '';
+  if (filterGenres) filterGenres.value = Array.isArray(f.genres) ? f.genres.join(', ') : '';
+  if (filterTags) filterTags.value = Array.isArray(f.tags) ? f.tags.join(', ') : '';
+  state.currentStaticCollection = null;
+  if (collectionSelect) collectionSelect.value = '';
+  if (!skipRender) {
+    render();
+    saveFiltersState();
+  }
+}
+
+function applyFilterPresetById(id) {
+  if (!id) return;
+  const preset = filterPresetsState.byId.get(id);
+  if (!preset) return;
+  setFiltersFromPreset(preset.filters);
+  if (filterPresetSelect) filterPresetSelect.value = id;
+}
 function applyCollection(name) {
   const collection = getCollectionByName(name);
   if (!collection) return;
@@ -2064,6 +2157,7 @@ function applyCollection(name) {
   // Clear current filters first (but preserve static collection state temporarily)
   const tempStaticCollection = state.currentStaticCollection;
   clearAllFilters();
+  if (filterPresetSelect) filterPresetSelect.value = '';
 
   // For static collections, restore the state that clearAllFilters just cleared
   if (collection.type === 'static') {
@@ -2093,6 +2187,7 @@ function attachFilterEvents() {
   };
   const onFilterChange = () => {
     checkAndResetCollectionIfNeeded();
+    if (filterPresetSelect) filterPresetSelect.value = '';
     saveFiltersState();
   };
 
@@ -2104,6 +2199,7 @@ function attachFilterEvents() {
   });
   if (btnClearFilters) btnClearFilters.addEventListener('click', () => {
     clearAllFiltersAndCollections();
+    if (filterPresetSelect) filterPresetSelect.value = '';
     saveFiltersState();
     render();
   });
@@ -2134,21 +2230,21 @@ function attachFilterEvents() {
   if (saveCollectionBtn) saveCollectionBtn.addEventListener('click', () => {
     showSaveInline(true);
   });
-  async function saveCollectionByName(name) {
-    const n = String(name || '').trim();
-    if (!n) return;
-    const filters = getFilters();
-    const existing = getCollectionByName(n);
-    const ok = existing
-      ? await updateCollectionFilters(n, filters)
-      : await createCollection(n, 'filter', filters, []);
-    if (ok) {
-      if (collectionSelect) collectionSelect.value = n;
-      saveFiltersState();
-      render();
-      showSaveInline(false);
-    }
+async function saveCollectionByName(name) {
+  const n = String(name || '').trim();
+  if (!n) return;
+  const filters = getFilters();
+  const existing = getCollectionByName(n);
+  const ok = existing
+    ? await updateCollectionFilters(n, filters)
+    : await createCollection(n, 'filter', filters, []);
+  if (ok) {
+    if (collectionSelect) collectionSelect.value = n;
+    saveFiltersState();
+    render();
+    showSaveInline(false);
   }
+}
   if (collectionSaveConfirmBtn) collectionSaveConfirmBtn.addEventListener('click', () => {
     saveCollectionByName(collectionNameInput ? collectionNameInput.value : '');
   });
@@ -2168,6 +2264,78 @@ function attachFilterEvents() {
     clearAllFiltersAndCollections();
     render();
   });
+}
+
+if (filterPresetSelect) {
+  filterPresetSelect.addEventListener('change', () => {
+    const id = filterPresetSelect.value;
+    if (!id) {
+      clearAllFilters();
+      state.currentStaticCollection = null;
+      saveFiltersState();
+      render();
+      return;
+    }
+    applyFilterPresetById(id);
+  });
+}
+
+if (savePresetBtn) {
+  savePresetBtn.addEventListener('click', () => {
+    saveCurrentFiltersAsPreset();
+  });
+}
+
+if (deletePresetBtn) {
+  deletePresetBtn.addEventListener('click', () => {
+    deleteSelectedPreset();
+  });
+}
+
+async function saveCurrentFiltersAsPreset() {
+  const name = await showPromptDialog('Название пресета фильтров:');
+  if (!name || !name.trim()) return;
+  const clean = name.trim();
+  const existing = filterPresetsState.list.find((preset) => preset.name.localeCompare(clean, undefined, { sensitivity: 'base' }) === 0);
+  try {
+    if (existing) {
+      const res = await window.api.updateFilterPreset({ id: existing.id, filters: getFilters() });
+      if (!res || res.ok === false) throw new Error(res?.error || 'Не удалось обновить пресет');
+    } else {
+      const res = await window.api.createFilterPreset({ name: clean, filters: getFilters() });
+      if (!res || res.ok === false) throw new Error(res?.error || 'Не удалось создать пресет');
+    }
+    await refreshFilterPresets();
+    const preset = Array.from(filterPresetsState.list).find((p) => p.name.localeCompare(clean, undefined, { sensitivity: 'base' }) === 0);
+    if (preset && filterPresetSelect) filterPresetSelect.value = preset.id;
+    alert('Пресет сохранён');
+  } catch (error) {
+    console.error('saveCurrentFiltersAsPreset failed', error);
+    alert(error?.message || 'Не удалось сохранить пресет');
+  }
+}
+
+async function deleteSelectedPreset() {
+  if (!filterPresetSelect) return;
+  const id = filterPresetSelect.value;
+  if (!id) {
+    alert('Выберите пресет для удаления');
+    return;
+  }
+  const preset = filterPresetsState.byId.get(id);
+  if (!preset) return;
+  const ok = confirm(`Удалить пресет «${preset.name}»?`);
+  if (!ok) return;
+  try {
+    const res = await window.api.deleteFilterPreset({ id });
+    if (!res || res.ok === false) throw new Error(res?.error || 'Не удалось удалить пресет');
+    await refreshFilterPresets();
+    if (filterPresetSelect) filterPresetSelect.value = '';
+    alert('Пресет удалён');
+  } catch (error) {
+    console.error('deleteSelectedPreset failed', error);
+    alert(error?.message || 'Не удалось удалить пресет');
+  }
 }
 
 function render() {
@@ -2777,6 +2945,8 @@ async function load() {
     }
   } catch {}
   await refreshCollections({ silent: true });
+  await refreshFilterPresets({ applyLast: true });
+  saveFiltersState();
   render();
   // Доп. защита: если книги есть, но рендер показал пусто — сбросить фильтры и перерендерить
   try {

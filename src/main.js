@@ -24,6 +24,8 @@ const fetch = globalThis.fetch
   ? globalThis.fetch.bind(globalThis)
   : (...args) => import('node-fetch').then(({ default: nodeFetch }) => nodeFetch(...args));
 
+const LAST_FILTER_PRESET_SLUG = 'last-used-filter';
+
 const GOOGLE_IMAGE_HINTS = [
   { key: 'extraLarge', width: 1280 },
   { key: 'large', width: 1000 },
@@ -256,6 +258,40 @@ function formatCollectionSummary(collection) {
   if (!collection) return 'Коллекция';
   const kind = collection.type === 'static' ? 'статическая' : 'фильтр';
   return `${collection.name} (${kind})`;
+}
+
+function normalizeFiltersInput(raw) {
+  const src = raw && typeof raw === 'object' ? raw : {};
+  const parseNumber = (value) => {
+    const num = Number(value);
+    return Number.isFinite(num) ? num : null;
+  };
+  const toArray = (value) => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value.map((v) => String(v).trim()).filter(Boolean);
+    if (typeof value === 'string') return value.split(',').map((v) => v.trim()).filter(Boolean);
+    return [];
+  };
+  return {
+    author: src.author ? String(src.author) : '',
+    format: src.format ? String(src.format) : '',
+    y1: parseNumber(src.y1),
+    y2: parseNumber(src.y2),
+    genres: toArray(src.genres),
+    tags: toArray(src.tags),
+  };
+}
+
+function formatFiltersSummary(filters) {
+  if (!filters || typeof filters !== 'object') return 'Без условий';
+  const parts = [];
+  if (filters.author) parts.push(`Автор: ${filters.author}`);
+  if (filters.format) parts.push(`Формат: ${filters.format}`);
+  if (filters.y1 != null) parts.push(`Год ≥ ${filters.y1}`);
+  if (filters.y2 != null) parts.push(`Год ≤ ${filters.y2}`);
+  if (Array.isArray(filters.genres) && filters.genres.length) parts.push(`Жанры: ${filters.genres.join(', ')}`);
+  if (Array.isArray(filters.tags) && filters.tags.length) parts.push(`Теги: ${filters.tags.join(', ')}`);
+  return parts.length ? parts.join('; ') : 'Без условий';
 }
 
 const BOOK_DIFF_FIELDS = {
@@ -967,6 +1003,98 @@ ipcMain.handle('collections:updateMembership', async (_event, payload) => {
       },
     });
     return { ok: true, applied };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
+});
+
+ipcMain.handle('filterPresets:list', async () => {
+  try {
+    const presets = dbLayer.listFilterPresets(db);
+    return { ok: true, presets };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
+});
+
+ipcMain.handle('filterPresets:create', async (_event, payload) => {
+  try {
+    const name = String(payload?.name || '').trim();
+    if (!name) throw new Error('name required');
+    const filters = normalizeFiltersInput(payload?.filters);
+    const preset = dbLayer.createFilterPreset(db, { name, filters });
+    recordActivity({
+      action: 'filterPreset.create',
+      entityType: 'filterPreset',
+      entityId: preset.id,
+      summary: `Создан пресет фильтров: ${preset.name}`,
+      payload: { preset, filtersSummary: formatFiltersSummary(preset.filters) },
+    });
+    return { ok: true, preset };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
+});
+
+ipcMain.handle('filterPresets:update', async (_event, payload) => {
+  try {
+    const id = String(payload?.id || '').trim();
+    if (!id) throw new Error('id required');
+    const existing = dbLayer.getFilterPresetById(db, id);
+    if (!existing) throw new Error('preset not found');
+    const filters = payload?.filters !== undefined ? normalizeFiltersInput(payload.filters) : undefined;
+    const updated = dbLayer.updateFilterPreset(db, {
+      id,
+      name: payload?.name,
+      filters,
+      slug: payload?.slug,
+    });
+    recordActivity({
+      action: 'filterPreset.update',
+      entityType: 'filterPreset',
+      entityId: id,
+      summary: `Обновлен пресет фильтров: ${updated.name}`,
+      payload: {
+        before: existing,
+        after: updated,
+        filtersSummary: formatFiltersSummary(updated.filters),
+      },
+    });
+    return { ok: true, preset: updated };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
+});
+
+ipcMain.handle('filterPresets:delete', async (_event, payload) => {
+  try {
+    const id = typeof payload === 'string' ? payload : String(payload?.id || '').trim();
+    if (!id) throw new Error('id required');
+    const existing = dbLayer.getFilterPresetById(db, id);
+    if (!existing) throw new Error('preset not found');
+    dbLayer.deleteFilterPreset(db, id);
+    recordActivity({
+      action: 'filterPreset.delete',
+      entityType: 'filterPreset',
+      entityId: id,
+      summary: `Удален пресет фильтров: ${existing.name}`,
+      payload: { preset: existing },
+    });
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
+});
+
+ipcMain.handle('filters:lastSave', async (_event, payload) => {
+  try {
+    const filters = normalizeFiltersInput(payload?.filters);
+    const preset = dbLayer.upsertFilterPresetBySlug(db, {
+      slug: LAST_FILTER_PRESET_SLUG,
+      name: 'Последний фильтр',
+      filters,
+    });
+    return { ok: true, preset };
   } catch (error) {
     return { ok: false, error: String(error?.message || error) };
   }
