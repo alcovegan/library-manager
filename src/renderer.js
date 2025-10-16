@@ -3257,27 +3257,297 @@ function formatActivityDiffValue(key, value, label) {
   return String(value);
 }
 
+const ADVANCED_SEARCH_PATTERN = /(?:\bAND\b|\bOR\b|\bNOT\b|[()"':])/i;
+
+function tokenizeSearchQuery(query) {
+  const tokens = [];
+  let buffer = '';
+  let inQuotes = false;
+  let quoteChar = '"';
+  for (let i = 0; i < query.length; i += 1) {
+    const ch = query[i];
+    if (inQuotes) {
+      if (ch === quoteChar) {
+        inQuotes = false;
+      } else {
+        buffer += ch;
+      }
+      continue;
+    }
+    if (ch === '"' || ch === '\'') {
+      inQuotes = true;
+      quoteChar = ch;
+      if (!buffer) buffer = '';
+      continue;
+    }
+    if (ch === '(' || ch === ')') {
+      if (buffer) {
+        tokens.push(buffer);
+        buffer = '';
+      }
+      tokens.push(ch);
+      continue;
+    }
+    if (/\s/.test(ch)) {
+      if (buffer) {
+        tokens.push(buffer);
+        buffer = '';
+      }
+      continue;
+    }
+    buffer += ch;
+  }
+  if (inQuotes) throw new Error('Не закрыта кавычка в поисковом запросе');
+  if (buffer) tokens.push(buffer);
+  return tokens;
+}
+
+function parseSearchExpression(tokens) {
+  let index = 0;
+
+  function peek() {
+    return tokens[index];
+  }
+
+  function consume() {
+    return tokens[index++];
+  }
+
+  function tokenIs(keyword) {
+    const token = peek();
+    return token && token.toUpperCase() === keyword;
+  }
+
+  function parseExpression() {
+    const node = parseOr();
+    if (index < tokens.length) {
+      throw new Error(`Неожиданный токен: ${tokens[index]}`);
+    }
+    return node;
+  }
+
+  function parseOr() {
+    let node = parseAnd();
+    while (tokenIs('OR')) {
+      consume();
+      const right = parseAnd();
+      node = { type: 'or', left: node, right };
+    }
+    return node;
+  }
+
+  function parseAnd() {
+    let node = parseNot();
+    while (true) {
+      if (tokenIs('AND')) {
+        consume();
+        const rightExplicit = parseNot();
+        node = { type: 'and', left: node, right: rightExplicit };
+        continue;
+      }
+      const next = peek();
+      if (!next || next === ')' || next.toUpperCase?.() === 'OR') break;
+      const rightImplicit = parseNot();
+      node = { type: 'and', left: node, right: rightImplicit };
+    }
+    return node;
+  }
+
+  function parseNot() {
+    if (tokenIs('NOT')) {
+      consume();
+      const child = parseNot();
+      return { type: 'not', child };
+    }
+    return parseTerm();
+  }
+
+  function parseTerm() {
+    const token = consume();
+    if (!token) throw new Error('Ожидался термин в запросе');
+    if (token === '(') {
+      const expr = parseOr();
+      const end = consume();
+      if (end !== ')') throw new Error('Ожидалась закрывающая скобка');
+      return expr;
+    }
+    if (token === ')') throw new Error('Лишняя закрывающая скобка');
+    return { type: 'term', value: token };
+  }
+
+  if (!tokens.length) return null;
+  return parseExpression();
+}
+
+function evaluateSearchNode(node, book) {
+  if (!node) return true;
+  switch (node.type) {
+    case 'term':
+      return bookMatchesTerm(book, node.value);
+    case 'not':
+      return !evaluateSearchNode(node.child, book);
+    case 'and':
+      return evaluateSearchNode(node.left, book) && evaluateSearchNode(node.right, book);
+    case 'or':
+      return evaluateSearchNode(node.left, book) || evaluateSearchNode(node.right, book);
+    default:
+      return true;
+  }
+}
+
+function bookMatchesTerm(book, rawTerm) {
+  if (!rawTerm) return false;
+  let field = null;
+  let value = rawTerm;
+  const colonIndex = rawTerm.indexOf(':');
+  if (colonIndex > 0) {
+    field = rawTerm.slice(0, colonIndex).toLowerCase();
+    value = rawTerm.slice(colonIndex + 1);
+  }
+  const term = String(value || '').trim().toLowerCase();
+  if (!term) return false;
+
+  const title = String(book.title || '').toLowerCase();
+  const authors = Array.isArray(book.authors) ? book.authors.map((a) => String(a || '').toLowerCase()) : [];
+  const tags = Array.isArray(book.tags) ? book.tags.map((t) => String(t || '').toLowerCase()) : [];
+  const genres = Array.isArray(book.genres) ? book.genres.map((g) => String(g || '').toLowerCase()) : [];
+  const notes = String(book.notes || '').toLowerCase();
+  const publisher = String(book.publisher || '').toLowerCase();
+  const series = String(book.series || '').toLowerCase();
+  const format = String(book.format || '').toLowerCase();
+  const language = String(book.language || '').toLowerCase();
+  const authorCombined = authors.join(' ');
+  const tagsCombined = tags.join(' ');
+  const genresCombined = genres.join(' ');
+
+  if (field) {
+    switch (field) {
+      case 'title':
+        return title.includes(term);
+      case 'author':
+      case 'authors':
+        return authors.some((a) => a.includes(term));
+      case 'tag':
+      case 'tags':
+        return tags.some((t) => t.includes(term));
+      case 'genre':
+      case 'genres':
+        return genres.some((g) => g.includes(term));
+      case 'series':
+        return series.includes(term);
+      case 'publisher':
+        return publisher.includes(term);
+      case 'notes':
+        return notes.includes(term);
+      case 'format':
+        return format.includes(term);
+      case 'language':
+        return language.includes(term);
+      case 'year':
+        return matchesYearCondition(book.year, term);
+      case 'rating':
+        return matchesNumericCondition(book.rating, term);
+      default:
+        return defaultTermMatch();
+    }
+  }
+
+  function defaultTermMatch() {
+    return (
+      title.includes(term) ||
+      authorCombined.includes(term) ||
+      tagsCombined.includes(term) ||
+      genresCombined.includes(term) ||
+      notes.includes(term) ||
+      publisher.includes(term) ||
+      series.includes(term) ||
+      format.includes(term) ||
+      language.includes(term)
+    );
+  }
+
+  return defaultTermMatch();
+}
+
+function matchesYearCondition(year, raw) {
+  if (year == null) return false;
+  const yearNumber = Number(year);
+  if (!Number.isFinite(yearNumber)) return false;
+  const trimmed = raw.trim();
+  const match = trimmed.match(/^(>=|<=|>|<|=)?\s*(\d{1,4})$/);
+  if (!match) return String(year).toLowerCase().includes(trimmed);
+  const op = match[1] || '=';
+  const value = Number(match[2]);
+  switch (op) {
+    case '>=': return yearNumber >= value;
+    case '<=': return yearNumber <= value;
+    case '>': return yearNumber > value;
+    case '<': return yearNumber < value;
+    case '=':
+    default:
+      return yearNumber === value;
+  }
+}
+
+function matchesNumericCondition(numberValue, raw) {
+  if (numberValue == null || numberValue === '') return false;
+  const num = Number(numberValue);
+  if (!Number.isFinite(num)) return false;
+  const match = raw.trim().match(/^(>=|<=|>|<|=)?\s*(\d+(?:\.\d+)?)$/);
+  if (!match) return String(num).includes(raw.trim());
+  const op = match[1] || '=';
+  const value = Number(match[2]);
+  switch (op) {
+    case '>=': return num >= value;
+    case '<=': return num <= value;
+    case '>': return num > value;
+    case '<': return num < value;
+    case '=':
+    default:
+      return num === value;
+  }
+}
+
 function applySearch(q) {
   const query = (q || '').trim();
   if (!query) {
     state.visibleBooks = [];
   } else {
-    try {
-      if (window.search && typeof window.search.fuzzy === 'function') {
-        state.visibleBooks = window.search.fuzzy(state.books, query);
-      } else {
-        const ql = query.toLowerCase();
-        state.visibleBooks = state.books.filter(b => {
-          const t = (b.title || '').toLowerCase();
-          const a = (Array.isArray(b.authors) ? b.authors.join(', ') : (b.authors || ''))
-            .toLowerCase();
-          return t.includes(ql) || a.includes(ql);
-        });
+    const isAdvanced = ADVANCED_SEARCH_PATTERN.test(query);
+    if (isAdvanced) {
+      try {
+        const tokens = tokenizeSearchQuery(query);
+        const ast = parseSearchExpression(tokens);
+        if (ast) {
+          state.visibleBooks = state.books.filter((book) => evaluateSearchNode(ast, book));
+        } else {
+          state.visibleBooks = [];
+        }
+      } catch (error) {
+        console.warn('advanced search fallback:', error);
+        applySearchBasic(query);
       }
-    } catch (_) {
-      // fallback to no filtering on unexpected error
-      state.visibleBooks = [];
+    } else {
+      applySearchBasic(query);
     }
+  }
+}
+
+function applySearchBasic(query) {
+  try {
+    if (window.search && typeof window.search.fuzzy === 'function') {
+      state.visibleBooks = window.search.fuzzy(state.books, query);
+    } else {
+      const ql = query.toLowerCase();
+      state.visibleBooks = state.books.filter((b) => {
+        const t = (b.title || '').toLowerCase();
+        const a = (Array.isArray(b.authors) ? b.authors.join(', ') : (b.authors || '')).toLowerCase();
+        return t.includes(ql) || a.includes(ql);
+      });
+    }
+  } catch (error) {
+    console.error('basic search failed', error);
+    state.visibleBooks = [];
   }
 }
 
