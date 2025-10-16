@@ -228,6 +228,7 @@ const cleanupCoversBtn = $('#cleanupCoversBtn');
 let state = {
   books: [],
   visibleBooks: [],
+  searchActive: false,
   editId: null,
   coverSourcePath: null,
   storageLocationId: null,
@@ -2340,7 +2341,7 @@ async function deleteSelectedPreset() {
 
 function render() {
   listEl.innerHTML = '';
-  const base = state.visibleBooks.length ? state.visibleBooks : state.books;
+  const base = state.searchActive ? state.visibleBooks : state.books;
   const filtered = skipFiltersOnce ? base : applyFilters(base);
   skipFiltersOnce = false;
   const list = sortBooks(filtered);
@@ -2935,7 +2936,9 @@ async function load() {
   try {
     const query = (searchInput && String(searchInput.value || '').trim()) || '';
     // С учётом поискового запроса: проверяем ту базу, которая реально попадёт в фильтрацию
-    const baseForCheck = query ? (Array.isArray(state.visibleBooks) ? state.visibleBooks : []) : state.books;
+    const baseForCheck = query
+      ? (state.searchActive && Array.isArray(state.visibleBooks) ? state.visibleBooks : [])
+      : state.books;
     if (Array.isArray(baseForCheck) && baseForCheck.length && hasAnyFilterSet()) {
       const after = applyFilters(baseForCheck);
       if (after.length === 0) {
@@ -3510,26 +3513,28 @@ function matchesNumericCondition(numberValue, raw) {
 
 function applySearch(q) {
   const query = (q || '').trim();
+  state.searchActive = !!query;
   if (!query) {
     state.visibleBooks = [];
-  } else {
-    const isAdvanced = ADVANCED_SEARCH_PATTERN.test(query);
-    if (isAdvanced) {
-      try {
-        const tokens = tokenizeSearchQuery(query);
-        const ast = parseSearchExpression(tokens);
-        if (ast) {
-          state.visibleBooks = state.books.filter((book) => evaluateSearchNode(ast, book));
-        } else {
-          state.visibleBooks = [];
-        }
-      } catch (error) {
-        console.warn('advanced search fallback:', error);
-        applySearchBasic(query);
+    return;
+  }
+
+  const isAdvanced = ADVANCED_SEARCH_PATTERN.test(query);
+  if (isAdvanced) {
+    try {
+      const tokens = tokenizeSearchQuery(query);
+      const ast = parseSearchExpression(tokens);
+      if (ast) {
+        state.visibleBooks = state.books.filter((book) => evaluateSearchNode(ast, book));
+      } else {
+        state.visibleBooks = [];
       }
-    } else {
+    } catch (error) {
+      console.warn('advanced search fallback:', error);
       applySearchBasic(query);
     }
+  } else {
+    applySearchBasic(query);
   }
 }
 
