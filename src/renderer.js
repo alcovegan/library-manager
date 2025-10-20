@@ -3530,6 +3530,26 @@ function matchesNumericCondition(numberValue, raw) {
   }
 }
 
+function applySearchAdvanced(query) {
+  try {
+    const tokens = tokenizeSearchQuery(query);
+    if (!tokens.length) {
+      state.visibleBooks = [];
+      return true;
+    }
+    const ast = parseSearchExpression(tokens);
+    if (!ast) {
+      state.visibleBooks = [];
+      return true;
+    }
+    state.visibleBooks = state.books.filter((book) => evaluateSearchNode(ast, book));
+    return true;
+  } catch (error) {
+    console.warn('advanced search fallback:', error);
+    return false;
+  }
+}
+
 function applySearch(q) {
   const query = (q || '').trim();
   state.searchActive = !!query;
@@ -3538,22 +3558,23 @@ function applySearch(q) {
     return;
   }
 
-  const isAdvanced = ADVANCED_SEARCH_PATTERN.test(query);
-  if (isAdvanced) {
-    try {
-      const tokens = tokenizeSearchQuery(query);
-      const ast = parseSearchExpression(tokens);
-      if (ast) {
-        state.visibleBooks = state.books.filter((book) => evaluateSearchNode(ast, book));
-      } else {
-        state.visibleBooks = [];
-      }
-    } catch (error) {
-      console.warn('advanced search fallback:', error);
+  const hasAdvancedSyntax = ADVANCED_SEARCH_PATTERN.test(query);
+  if (hasAdvancedSyntax) {
+    const advancedOk = applySearchAdvanced(query);
+    if (!advancedOk) {
       applySearchBasic(query);
     }
-  } else {
-    applySearchBasic(query);
+    return;
+  }
+
+  applySearchBasic(query);
+
+  const hasResults = Array.isArray(state.visibleBooks) && state.visibleBooks.length > 0;
+  if (hasResults) return;
+
+  const hasImplicitTerms = /\s/.test(query);
+  if (hasImplicitTerms) {
+    applySearchAdvanced(query);
   }
 }
 
