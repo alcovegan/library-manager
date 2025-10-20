@@ -20,6 +20,9 @@ const storageQuickAddBtn = $('#storageQuickAddBtn');
 const coverSearchBtn = $('#coverSearchBtn');
 const csvImportBtn = $('#csvImportBtn');
 const searchInput = $('#searchInput');
+const searchHelpBtn = $('#searchHelpBtn');
+const searchHelpModal = $('#searchHelpModal');
+const searchHelpCloseBtn = $('#searchHelpCloseBtn');
 const openCreateModalBtn = $('#openCreateModalBtn');
 // Modal elements
 const modalEl = $('#detailsModal');
@@ -743,6 +746,22 @@ function updateCsvImportControls() {
   if (csvImportPreview) csvImportPreview.style.display = hasRows ? 'block' : 'none';
   if (!hasRows && csvImportPreviewList) csvImportPreviewList.innerHTML = '';
   updateCsvImportSummary();
+}
+
+function openSearchHelpModal() {
+  if (!searchHelpModal) return;
+  searchHelpModal.style.display = 'flex';
+  try {
+    if (searchHelpCloseBtn) searchHelpCloseBtn.focus();
+  } catch {}
+}
+
+function closeSearchHelpModal() {
+  if (!searchHelpModal) return;
+  searchHelpModal.style.display = 'none';
+  try {
+    if (searchInput) searchInput.focus();
+  } catch {}
 }
 
 function openCsvImportModal() {
@@ -3564,6 +3583,20 @@ if (searchInput) {
   searchInput.addEventListener('input', handler);
 }
 
+if (searchHelpBtn) {
+  searchHelpBtn.addEventListener('click', () => {
+    openSearchHelpModal();
+  });
+}
+
+if (searchHelpCloseBtn) searchHelpCloseBtn.addEventListener('click', closeSearchHelpModal);
+
+if (searchHelpModal) {
+  searchHelpModal.addEventListener('click', (e) => {
+    if (e.target === searchHelpModal) closeSearchHelpModal();
+  });
+}
+
 if (closeModalBtn) closeModalBtn.addEventListener('click', tryCloseDetailsWithConfirm);
 if (closeInfoBtn) closeInfoBtn.addEventListener('click', closeInfo);
 if (modalChooseCoverBtn) {
@@ -4463,6 +4496,11 @@ if (saveSettingsBtn) {
 // Close details modal on Escape (with confirmation if dirty)
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
+    if (searchHelpModal && searchHelpModal.style.display === 'flex') {
+      e.preventDefault();
+      closeSearchHelpModal();
+      return;
+    }
     // Settings modal: confirm if dirty
     if (settingsModal && settingsModal.style.display === 'flex') {
       e.preventDefault();
