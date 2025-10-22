@@ -181,6 +181,15 @@
       .search-help-list li { margin:4px 0; }
       .search-help-fields { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:6px 16px; font-size:13px; }
       .search-help-note { font-size:12px; color:var(--muted); margin-top:6px; }
+      .bulk-toolbar { display:none; margin-bottom:12px; padding:10px 12px; border:1px dashed rgba(59,111,255,0.4); border-radius:10px; background:rgba(59,111,255,0.05); gap:12px; flex-wrap:wrap; align-items:center; }
+      .bulk-toolbar.active { display:flex; }
+      .bulk-toolbar .bulk-summary { font-weight:600; color:var(--accent); }
+      .bulk-toolbar .bulk-actions { display:flex; gap:8px; flex-wrap:wrap; }
+      .book { position:relative; }
+      .book.bulk-selectable { cursor:pointer; }
+      .book.bulk-selected { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,111,255,0.25); }
+      .book .bulk-checkbox { position:absolute; top:8px; left:8px; width:18px; height:18px; accent-color: var(--accent); display:none; }
+      .book.bulk-selectable .bulk-checkbox { display:block; }
     </style>
   </head>
   <body>
@@ -322,12 +331,25 @@
             <button id="saveCollectionBtn" type="button" class="btn">Сохранить как…</button>
             <button id="deleteCollectionBtn" type="button" class="btn">Удалить</button>
             <button id="btnClearFilters" class="btn" type="button">Сбросить</button>
+            <button id="bulkEditToggle" class="btn secondary" type="button">Массовое редактирование</button>
           </div>
           <!-- Inline save input (appears when saving) -->
           <div id="collectionSaveInline" class="row" style="display:none; align-items:center; gap:6px; width:100%;">
             <input id="collectionNameInput" class="input" type="text" placeholder="Название коллекции" style="width:18rem;" />
             <button id="collectionSaveConfirmBtn" type="button" class="btn">Ок</button>
             <button id="collectionSaveCancelBtn" type="button" class="btn">Отмена</button>
+          </div>
+        </div>
+        <div id="bulkToolbar" class="bulk-toolbar">
+          <span id="bulkSelectedCounter" class="bulk-summary">Выбрано: 0</span>
+          <div class="bulk-actions">
+            <button id="bulkAddTagsBtn" type="button" class="btn secondary">Добавить теги</button>
+            <button id="bulkRemoveTagsBtn" type="button" class="btn">Удалить теги</button>
+            <button id="bulkAddToCollectionsBtn" type="button" class="btn secondary">Добавить в коллекции…</button>
+            <button id="bulkRemoveFromCollectionsBtn" type="button" class="btn">Убрать из коллекций…</button>
+            <button id="bulkSetStorageBtn" type="button" class="btn secondary">Назначить место…</button>
+            <button id="bulkClearSelectionBtn" type="button" class="btn">Очистить выбор</button>
+            <button id="bulkExitBtn" type="button" class="btn">Выйти</button>
           </div>
         </div>
         <div id="listViewport" style="flex:1; min-height:0; overflow-y: auto; padding-right: 8px;">

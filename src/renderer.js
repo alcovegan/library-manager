@@ -200,6 +200,17 @@ const deleteCollectionBtn = document.querySelector('#deleteCollectionBtn');
 const filterPresetSelect = document.querySelector('#filterPresetSelect');
 const savePresetBtn = $('#savePresetBtn');
 const deletePresetBtn = $('#deletePresetBtn');
+const bulkEditToggle = $('#bulkEditToggle');
+const bulkToolbar = $('#bulkToolbar');
+const bulkSelectedCounter = $('#bulkSelectedCounter');
+const bulkAddTagsBtn = $('#bulkAddTagsBtn');
+const bulkRemoveTagsBtn = $('#bulkRemoveTagsBtn');
+const bulkAddToCollectionsBtn = $('#bulkAddToCollectionsBtn');
+const bulkRemoveFromCollectionsBtn = $('#bulkRemoveFromCollectionsBtn');
+const bulkSetStorageBtn = $('#bulkSetStorageBtn');
+const bulkClearSelectionBtn = $('#bulkClearSelectionBtn');
+const bulkExitBtn = $('#bulkExitBtn');
+const listViewportEl = document.querySelector('#listViewport');
 
 // Debug: Check if collection buttons are found
 console.log('🔍 Collection buttons found:', {
@@ -237,6 +248,9 @@ let state = {
   storageLocationId: null,
   selectedId: null,
   currentStaticCollection: null, // Name of currently active static collection
+  bulkMode: false,
+  bulkSelectedIds: new Set(),
+  bulkBusy: false,
   modal: {
     id: null,
     coverSourcePath: null,
@@ -1685,7 +1699,8 @@ async function deleteCollectionByName(name) {
   }
 }
 
-async function updateBookCollections(bookId, selectedCollectionNames) {
+async function updateBookCollections(bookId, selectedCollectionNames, options = {}) {
+  const refresh = options && Object.prototype.hasOwnProperty.call(options, 'refresh') ? !!options.refresh : true;
   const names = Array.isArray(selectedCollectionNames) ? selectedCollectionNames : [];
   const idByName = new Map(getStaticCollections().map((collection) => [collection.name, collection.id]));
   const ids = names
@@ -1696,7 +1711,9 @@ async function updateBookCollections(bookId, selectedCollectionNames) {
     if (!res || res.ok === false) {
       throw new Error(res?.error || 'Не удалось обновить коллекции книги');
     }
-    await refreshCollections({ silent: true });
+    if (refresh) {
+      await refreshCollections({ silent: true });
+    }
     return true;
   } catch (error) {
     console.error('updateBookCollections failed', error);
@@ -1832,7 +1849,176 @@ function showPromptDialog(message, defaultValue = '') {
   });
 }
 
-function showCollectionSelectionDialog(staticCollections, bookId) {
+function escapeBookIdForSelector(id) {
+  const str = String(id);
+  if (window.CSS && typeof window.CSS.escape === 'function') {
+    return CSS.escape(str);
+  }
+  return str.replace(/"/g, '\\"');
+}
+
+function parseCommaSeparatedList(value) {
+  if (!value) return [];
+  return String(value)
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function buildBookUpdatePayload(book) {
+  if (!book) return null;
+  return {
+    id: book.id,
+    title: book.title || '',
+    authors: Array.isArray(book.authors) ? book.authors.slice() : [],
+    coverSourcePath: null,
+    series: book.series ?? null,
+    seriesIndex: book.seriesIndex ?? null,
+    year: book.year ?? null,
+    publisher: book.publisher ?? null,
+    isbn: book.isbn ?? null,
+    language: book.language ?? null,
+    rating: book.rating ?? null,
+    notes: book.notes ?? null,
+    tags: Array.isArray(book.tags) ? book.tags.slice() : [],
+    titleAlt: book.titleAlt ?? null,
+    authorsAlt: Array.isArray(book.authorsAlt) ? book.authorsAlt.slice() : [],
+    format: book.format ?? null,
+    genres: Array.isArray(book.genres) ? book.genres.slice() : [],
+    storageLocationId: book.storageLocationId ?? null,
+  };
+}
+
+function applyUpdatedBook(updated) {
+  if (!updated || !updated.id) return;
+  const idStr = String(updated.id);
+  const merge = (list) => {
+    if (!Array.isArray(list)) return;
+    const idx = list.findIndex((item) => String(item.id) === idStr);
+    if (idx === -1) return;
+    list[idx] = {
+      ...list[idx],
+      ...updated,
+      authors: Array.isArray(updated.authors) ? updated.authors : list[idx].authors,
+      tags: Array.isArray(updated.tags) ? updated.tags : list[idx].tags,
+      genres: Array.isArray(updated.genres) ? updated.genres : list[idx].genres,
+    };
+  };
+  merge(state.books);
+  merge(state.visibleBooks);
+}
+
+function getBulkSelectedBooks() {
+  const ids = Array.from(state.bulkSelectedIds);
+  if (!ids.length) return [];
+  const byId = new Map(state.books.map((b) => [String(b.id), b]));
+  return ids
+    .map((id) => byId.get(String(id)))
+    .filter(Boolean);
+}
+
+function clearBulkSelection() {
+  state.bulkSelectedIds.clear();
+  if (listEl) {
+    listEl.querySelectorAll('.book.bulk-selected').forEach((el) => {
+      el.classList.remove('bulk-selected');
+      const checkbox = el.querySelector('.bulk-checkbox');
+      if (checkbox) checkbox.checked = false;
+    });
+  }
+  updateBulkSummary();
+}
+
+function setBulkMode(enabled) {
+  const next = !!enabled;
+  if (state.bulkMode === next) {
+    updateBulkToolbar();
+    return;
+  }
+  state.bulkMode = next;
+  state.bulkBusy = false;
+  if (!state.bulkMode) {
+    clearBulkSelection();
+  } else {
+    state.selectedId = null;
+  }
+  updateBulkToolbar();
+  render();
+}
+
+function toggleBulkMode(forced) {
+  if (typeof forced === 'boolean') {
+    setBulkMode(forced);
+  } else {
+    setBulkMode(!state.bulkMode);
+  }
+}
+
+function toggleBulkSelection(bookId) {
+  if (!state.bulkMode || state.bulkBusy) return;
+  const idStr = String(bookId);
+  if (state.bulkSelectedIds.has(idStr)) {
+    state.bulkSelectedIds.delete(idStr);
+  } else {
+    state.bulkSelectedIds.add(idStr);
+  }
+  const selector = `[data-book-id="${escapeBookIdForSelector(idStr)}"]`;
+  const item = listEl ? listEl.querySelector(selector) : null;
+  const selected = state.bulkSelectedIds.has(idStr);
+  if (item) {
+    item.classList.toggle('bulk-selected', selected);
+    const checkbox = item.querySelector('.bulk-checkbox');
+    if (checkbox) checkbox.checked = selected;
+    const actionsEl = item.querySelector('.actions');
+    if (actionsEl) actionsEl.style.display = state.bulkMode ? 'none' : 'flex';
+  }
+  updateBulkSummary();
+}
+
+function updateBulkToolbar() {
+  if (bulkToolbar) {
+    bulkToolbar.classList.toggle('active', state.bulkMode);
+  }
+  if (bulkEditToggle) {
+    bulkEditToggle.textContent = state.bulkMode ? 'Выйти из массового режима' : 'Массовое редактирование';
+    bulkEditToggle.classList.toggle('primary', state.bulkMode);
+  }
+  updateBulkSummary();
+}
+
+function updateBulkSummary() {
+  const count = state.bulkSelectedIds.size;
+  if (bulkSelectedCounter) {
+    bulkSelectedCounter.textContent = `Выбрано: ${count}`;
+  }
+  const actionButtons = [
+    bulkAddTagsBtn,
+    bulkRemoveTagsBtn,
+    bulkAddToCollectionsBtn,
+    bulkRemoveFromCollectionsBtn,
+    bulkSetStorageBtn,
+  ].filter(Boolean);
+  const disabledActions = !state.bulkMode || state.bulkBusy || count === 0;
+  actionButtons.forEach((btn) => {
+    btn.disabled = disabledActions;
+  });
+  if (bulkClearSelectionBtn) {
+    bulkClearSelectionBtn.disabled = !state.bulkMode || state.bulkBusy || count === 0;
+  }
+  if (bulkExitBtn) {
+    bulkExitBtn.disabled = state.bulkBusy;
+  }
+  if (bulkToolbar) {
+    bulkToolbar.style.opacity = state.bulkBusy ? '0.6' : '1';
+  }
+}
+
+function showCollectionSelectionDialog(staticCollections, bookId, options = {}) {
+  const {
+    titleText = 'Управление коллекциями',
+    messageText = 'Выберите коллекции для этой книги',
+    preselectedNames = null,
+  } = options || {};
   return new Promise((resolve) => {
     const overlay = document.createElement('div');
     overlay.style.cssText = `
@@ -1867,11 +2053,16 @@ function showCollectionSelectionDialog(staticCollections, bookId) {
     `;
 
     // Determine which collections currently contain this book
-    const bookCollections = new Set(
-      staticCollections
-        .filter((collection) => collection.books.includes(bookId))
-        .map((collection) => collection.name)
-    );
+    let bookCollections;
+    if (Array.isArray(preselectedNames)) {
+      bookCollections = new Set(preselectedNames);
+    } else {
+      bookCollections = new Set(
+        staticCollections
+          .filter((collection) => collection.books.includes(bookId))
+          .map((collection) => collection.name)
+      );
+    }
 
     let collectionsHtml = '';
     if (staticCollections.length > 0) {
@@ -1920,8 +2111,8 @@ function showCollectionSelectionDialog(staticCollections, bookId) {
     dialog.innerHTML = `
       <div style="text-align: center; margin-bottom: 24px;">
         <div style="font-size: 24px; margin-bottom: 8px;">📚</div>
-        <h3 style="margin: 0; font-size: 18px; font-weight: 600;">Управление коллекциями</h3>
-        <p style="margin: 8px 0 0 0; font-size: 13px; color: var(--muted);">Выберите коллекции для этой книги</p>
+        <h3 style="margin: 0; font-size: 18px; font-weight: 600;">${titleText}</h3>
+        <p style="margin: 8px 0 0 0; font-size: 13px; color: var(--muted);">${messageText}</p>
       </div>
 
       <div style="margin-bottom: 20px;">
@@ -2078,6 +2269,297 @@ function showAddToCollectionDialog(bookId) {
       }
     }
   });
+}
+
+function showStorageSelectionDialog(locations) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    `;
+    const dialog = document.createElement('div');
+    dialog.style.cssText = `
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      min-width: 320px;
+      max-width: 420px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    `;
+    const options = Array.isArray(locations) ? locations : [];
+    const selectOptions = ['<option value="">— Без места хранения —</option>']
+      .concat(
+        options.map((loc) => {
+          const label = `${loc.code}${loc.title ? ` — ${loc.title}` : ''}${loc.isActive ? '' : ' (архив)'}`;
+          const disabled = loc.isActive ? '' : ' disabled';
+          return `<option value="${loc.id}"${disabled}>${label}</option>`;
+        })
+      )
+      .join('');
+    dialog.innerHTML = `
+      <h3 style="margin:0; font-size:16px;">Назначить место хранения</h3>
+      <p style="margin:0; font-size:13px; color:var(--muted);">Выберите полку, которая будет назначена всем выбранным книгам. Выберите «Без места хранения», чтобы снять назначение.</p>
+      <select id="bulkStorageSelect" class="input" style="width:100%;">
+        ${selectOptions}
+      </select>
+      <div style="display:flex; gap:8px; justify-content:flex-end;">
+        <button id="bulkStorageCancel" class="btn">Отмена</button>
+        <button id="bulkStorageApply" class="btn primary">Применить</button>
+      </div>
+    `;
+    const selectEl = dialog.querySelector('#bulkStorageSelect');
+    const cancelBtn = dialog.querySelector('#bulkStorageCancel');
+    const applyBtn = dialog.querySelector('#bulkStorageApply');
+    const cleanup = () => {
+      document.body.removeChild(overlay);
+    };
+    cancelBtn.addEventListener('click', () => {
+      cleanup();
+      resolve(null);
+    });
+    applyBtn.addEventListener('click', () => {
+      const value = selectEl ? selectEl.value : '';
+      cleanup();
+      resolve({ storageId: value ? String(value) : null });
+    });
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        cleanup();
+        resolve(null);
+      }
+    });
+    dialog.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        cancelBtn.click();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        applyBtn.click();
+      }
+    });
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+    setTimeout(() => {
+      try { selectEl?.focus(); } catch {}
+    }, 50);
+  });
+}
+
+function ensureBulkSelection() {
+  if (!state.bulkMode) {
+    alert('Сначала включите массовое редактирование.');
+    return false;
+  }
+  if (state.bulkBusy) {
+    alert('Дождитесь завершения текущего массового действия.');
+    return false;
+  }
+  if (!state.bulkSelectedIds.size) {
+    alert('Выберите хотя бы одну книгу.');
+    return false;
+  }
+  return true;
+}
+
+async function bulkAddTags() {
+  if (!ensureBulkSelection()) return;
+  const value = await showPromptDialog('Введите теги для добавления (через запятую):');
+  const tagsToAdd = parseCommaSeparatedList(value);
+  if (!tagsToAdd.length) return;
+  state.bulkBusy = true;
+  updateBulkSummary();
+  try {
+    const selectedBooks = getBulkSelectedBooks();
+    for (const book of selectedBooks) {
+      const payload = buildBookUpdatePayload(book);
+      const tagMap = new Map();
+      payload.tags.forEach((tag) => {
+        const norm = tag.toLowerCase();
+        if (!tagMap.has(norm)) tagMap.set(norm, tag);
+      });
+      tagsToAdd.forEach((tag) => {
+        const norm = tag.toLowerCase();
+        if (!tagMap.has(norm)) tagMap.set(norm, tag);
+      });
+      payload.tags = Array.from(tagMap.values());
+      const updated = await window.api.updateBook(payload);
+      applyUpdatedBook(updated);
+    }
+    applySearch(searchInput?.value || '');
+    render();
+    alert(`Обновлено книг: ${state.bulkSelectedIds.size}`);
+  } catch (error) {
+    console.error('bulkAddTags failed', error);
+    alert(error?.message || 'Не удалось добавить теги');
+  } finally {
+    state.bulkBusy = false;
+    updateBulkSummary();
+  }
+}
+
+async function bulkRemoveTags() {
+  if (!ensureBulkSelection()) return;
+  const value = await showPromptDialog('Введите теги для удаления (через запятую):');
+  const tagsToRemove = parseCommaSeparatedList(value).map((tag) => tag.toLowerCase());
+  if (!tagsToRemove.length) return;
+  state.bulkBusy = true;
+  updateBulkSummary();
+  try {
+    const selectedBooks = getBulkSelectedBooks();
+    for (const book of selectedBooks) {
+      const payload = buildBookUpdatePayload(book);
+      if (!payload.tags.length) continue;
+      payload.tags = payload.tags.filter((tag) => !tagsToRemove.includes(tag.toLowerCase()));
+      const updated = await window.api.updateBook(payload);
+      applyUpdatedBook(updated);
+    }
+    applySearch(searchInput?.value || '');
+    render();
+    alert(`Обновлено книг: ${state.bulkSelectedIds.size}`);
+  } catch (error) {
+    console.error('bulkRemoveTags failed', error);
+    alert(error?.message || 'Не удалось удалить теги');
+  } finally {
+    state.bulkBusy = false;
+    updateBulkSummary();
+  }
+}
+
+function getStaticCollectionsForSelected() {
+  const selectedIds = new Set(Array.from(state.bulkSelectedIds).map(String));
+  return getStaticCollections().filter((collection) =>
+    Array.isArray(collection.books) &&
+    collection.books.some((bookId) => selectedIds.has(String(bookId)))
+  );
+}
+
+async function bulkAddToCollections() {
+  if (!ensureBulkSelection()) return;
+  const staticCollections = getStaticCollections().sort((a, b) => a.name.localeCompare(b.name, 'ru', { sensitivity: 'base' }));
+  if (!staticCollections.length) {
+    alert('Создайте хотя бы одну статическую коллекцию.');
+    return;
+  }
+  const result = await showCollectionSelectionDialog(staticCollections, '__bulk__', {
+    titleText: 'Добавить в коллекции',
+    messageText: 'Выберите коллекции, куда добавить выбранные книги',
+    preselectedNames: [],
+  });
+  if (!result || result.action !== 'save') return;
+  if (result.action === 'create_new') {
+    alert('Создание коллекции доступно в режиме одиночной книги.');
+    return;
+  }
+  const targetNames = Array.isArray(result.collections) ? result.collections.filter(Boolean) : [];
+  if (!targetNames.length) return;
+  state.bulkBusy = true;
+  updateBulkSummary();
+  try {
+    const selectedBooks = getBulkSelectedBooks();
+    for (const book of selectedBooks) {
+      const existingNames = new Set(getBookCollections(book.id));
+      targetNames.forEach((name) => existingNames.add(name));
+      await updateBookCollections(book.id, Array.from(existingNames), { refresh: false });
+    }
+    await refreshCollections({ silent: true });
+    render();
+    alert(`Книги добавлены в коллекции (${targetNames.join(', ')}).`);
+  } catch (error) {
+    console.error('bulkAddToCollections failed', error);
+    alert(error?.message || 'Не удалось обновить коллекции');
+  } finally {
+    state.bulkBusy = false;
+    updateBulkSummary();
+  }
+}
+
+async function bulkRemoveFromCollections() {
+  if (!ensureBulkSelection()) return;
+  const collectionsForSelected = getStaticCollectionsForSelected().sort((a, b) => a.name.localeCompare(b.name, 'ru', { sensitivity: 'base' }));
+  if (!collectionsForSelected.length) {
+    alert('Выбранные книги не состоят ни в одной статической коллекции.');
+    return;
+  }
+  const selectedIds = Array.from(state.bulkSelectedIds).map(String);
+  const inAll = collectionsForSelected.filter((collection) => {
+    const bookSet = new Set(collection.books.map((id) => String(id)));
+    return selectedIds.every((id) => bookSet.has(id));
+  }).map((collection) => collection.name);
+  const result = await showCollectionSelectionDialog(collectionsForSelected, '__bulk__', {
+    titleText: 'Удалить из коллекций',
+    messageText: 'Выберите коллекции, из которых нужно исключить выбранные книги',
+    preselectedNames: inAll,
+  });
+  if (!result) return;
+  if (result.action === 'create_new') {
+    alert('Создание коллекции доступно в режиме одиночной книги.');
+    return;
+  }
+  if (result.action !== 'save') return;
+  const targetNames = Array.isArray(result.collections) ? result.collections.filter(Boolean) : [];
+  if (!targetNames.length) return;
+  state.bulkBusy = true;
+  updateBulkSummary();
+  try {
+    const selectedBooks = getBulkSelectedBooks();
+    for (const book of selectedBooks) {
+      const existingNames = new Set(getBookCollections(book.id));
+      targetNames.forEach((name) => existingNames.delete(name));
+      await updateBookCollections(book.id, Array.from(existingNames), { refresh: false });
+    }
+    await refreshCollections({ silent: true });
+    render();
+    alert(`Книги удалены из коллекций (${targetNames.join(', ')}).`);
+  } catch (error) {
+    console.error('bulkRemoveFromCollections failed', error);
+    alert(error?.message || 'Не удалось обновить коллекции');
+  } finally {
+    state.bulkBusy = false;
+    updateBulkSummary();
+  }
+}
+
+async function bulkSetStorage() {
+  if (!ensureBulkSelection()) return;
+  if (!storageState.locations.length) {
+    await loadStorageLocations();
+  }
+  const result = await showStorageSelectionDialog(storageState.locations);
+  if (!result) return;
+  const selection = Object.prototype.hasOwnProperty.call(result, 'storageId') ? result.storageId : null;
+  state.bulkBusy = true;
+  updateBulkSummary();
+  try {
+    const selectedBooks = getBulkSelectedBooks();
+    for (const book of selectedBooks) {
+      const payload = buildBookUpdatePayload(book);
+      payload.storageLocationId = selection || null;
+      const updated = await window.api.updateBook(payload);
+      applyUpdatedBook(updated);
+    }
+    applySearch(searchInput?.value || '');
+    render();
+    alert(`Обновлено книг: ${state.bulkSelectedIds.size}`);
+  } catch (error) {
+    console.error('bulkSetStorage failed', error);
+    alert(error?.message || 'Не удалось обновить место хранения');
+  } finally {
+    state.bulkBusy = false;
+    updateBulkSummary();
+  }
 }
 function saveFiltersState() {
   const filters = getFilters();
@@ -2359,6 +2841,7 @@ async function deleteSelectedPreset() {
 }
 
 function render() {
+  const prevScrollTop = listViewportEl ? listViewportEl.scrollTop : 0;
   listEl.innerHTML = '';
   const base = state.searchActive ? state.visibleBooks : state.books;
   const filtered = skipFiltersOnce ? base : applyFilters(base);
@@ -2372,8 +2855,25 @@ function render() {
   for (const b of list) {
     const el = document.createElement('div');
     el.className = 'book';
+    el.dataset.bookId = String(b.id);
     el.classList.add('bg-white','border','border-slate-200','rounded-xl','shadow-sm','hover:shadow','transition');
-    if (b.id === state.selectedId) el.classList.add('selected');
+    const isBulkMode = state.bulkMode;
+    const bookIdStr = String(b.id);
+    if (!isBulkMode && b.id === state.selectedId) el.classList.add('selected');
+    if (isBulkMode) el.classList.add('bulk-selectable');
+    const isBulkSelected = state.bulkSelectedIds.has(bookIdStr);
+    if (isBulkMode && isBulkSelected) el.classList.add('bulk-selected');
+    if (isBulkMode) {
+      const bulkCheckbox = document.createElement('input');
+      bulkCheckbox.type = 'checkbox';
+      bulkCheckbox.className = 'bulk-checkbox';
+      bulkCheckbox.checked = isBulkSelected;
+      bulkCheckbox.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        toggleBulkSelection(bookIdStr);
+      });
+      el.appendChild(bulkCheckbox);
+    }
     const img = document.createElement('img');
     img.className = 'thumb';
     img.classList.add('rounded-md','border','border-slate-200');
@@ -2473,12 +2973,21 @@ function render() {
     actions.appendChild(collectionsBtn);
     actions.appendChild(delBtn);
 
+    actions.style.display = isBulkMode ? 'none' : 'flex';
     meta.appendChild(actions);
     el.appendChild(img);
     el.appendChild(meta);
-    el.addEventListener('click', () => { state.selectedId = b.id; openInfo(b); });
+    el.addEventListener('click', () => {
+      if (state.bulkMode) {
+        toggleBulkSelection(bookIdStr);
+      } else {
+        state.selectedId = b.id;
+        openInfo(b);
+      }
+    });
     listEl.appendChild(el);
   }
+  if (listViewportEl) listViewportEl.scrollTop = prevScrollTop;
 }
 
 function formatLoanDate(value) {
@@ -3618,6 +4127,17 @@ if (searchHelpModal) {
   });
 }
 
+if (bulkEditToggle) bulkEditToggle.addEventListener('click', () => toggleBulkMode());
+if (bulkAddTagsBtn) bulkAddTagsBtn.addEventListener('click', bulkAddTags);
+if (bulkRemoveTagsBtn) bulkRemoveTagsBtn.addEventListener('click', bulkRemoveTags);
+if (bulkAddToCollectionsBtn) bulkAddToCollectionsBtn.addEventListener('click', bulkAddToCollections);
+if (bulkRemoveFromCollectionsBtn) bulkRemoveFromCollectionsBtn.addEventListener('click', bulkRemoveFromCollections);
+if (bulkSetStorageBtn) bulkSetStorageBtn.addEventListener('click', bulkSetStorage);
+if (bulkClearSelectionBtn) bulkClearSelectionBtn.addEventListener('click', () => clearBulkSelection());
+if (bulkExitBtn) bulkExitBtn.addEventListener('click', () => setBulkMode(false));
+
+updateBulkToolbar();
+
 if (closeModalBtn) closeModalBtn.addEventListener('click', tryCloseDetailsWithConfirm);
 if (closeInfoBtn) closeInfoBtn.addEventListener('click', closeInfo);
 if (modalChooseCoverBtn) {
@@ -4538,6 +5058,12 @@ document.addEventListener('keydown', (e) => {
     if (modalEl && modalEl.style.display === 'flex') {
       e.preventDefault();
       tryCloseDetailsWithConfirm();
+      return;
+    }
+    if (state.bulkMode) {
+      e.preventDefault();
+      setBulkMode(false);
+      return;
     }
   }
   // Focus search with '/'
