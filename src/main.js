@@ -279,12 +279,14 @@ function normalizeFiltersInput(raw) {
     y2: parseNumber(src.y2),
     genres: toArray(src.genres),
     tags: toArray(src.tags),
+    search: src.search ? String(src.search) : '',
   };
 }
 
 function formatFiltersSummary(filters) {
   if (!filters || typeof filters !== 'object') return 'Без условий';
   const parts = [];
+  if (filters.search) parts.push(`Поиск: ${filters.search}`);
   if (filters.author) parts.push(`Автор: ${filters.author}`);
   if (filters.format) parts.push(`Формат: ${filters.format}`);
   if (filters.y1 != null) parts.push(`Год ≥ ${filters.y1}`);

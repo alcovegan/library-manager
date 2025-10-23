@@ -1283,6 +1283,12 @@ function getFilters() {
   };
 }
 
+function buildPresetFilters() {
+  const filters = { ...getFilters() };
+  filters.search = searchInput ? String(searchInput.value || '') : '';
+  return filters;
+}
+
 function applyFilters(arr) {
   // First check if we're viewing a static collection
   if (state.currentStaticCollection) {
@@ -1363,7 +1369,7 @@ function checkAndResetCollectionIfNeeded() {
   }
 }
 
-function clearAllFilters() {
+function clearAllFilters({ preserveSearch = true } = {}) {
   if (filterAuthor) filterAuthor.value = '';
   if (filterFormat) filterFormat.value = '';
   if (filterYearFrom) filterYearFrom.value = '';
@@ -1371,10 +1377,14 @@ function clearAllFilters() {
   if (filterGenres) filterGenres.value = '';
   if (filterTags) filterTags.value = '';
   state.currentStaticCollection = null; // Clear static collection
+  if (!preserveSearch) {
+    if (searchInput) searchInput.value = '';
+    applySearch('');
+  }
 }
 
-function clearAllFiltersAndCollections() {
-  clearAllFilters();
+function clearAllFiltersAndCollections(options) {
+  clearAllFilters(options);
   if (collectionSelect) collectionSelect.value = '';
 }
 
@@ -1570,7 +1580,14 @@ function rebuildFilterPresetsState(list = []) {
   list.forEach((preset) => {
     const normalized = {
       ...preset,
-      filters: preset && typeof preset.filters === 'object' ? preset.filters : {},
+      filters: (() => {
+        if (preset && typeof preset.filters === 'object' && preset.filters !== null) {
+          const obj = { ...preset.filters };
+          if (typeof obj.search !== 'string') obj.search = '';
+          return obj;
+        }
+        return { search: '' };
+      })(),
     };
     if (preset.slug === FILTER_PRESET_SLUG_LAST) {
       filterPresetsState.last = normalized;
@@ -2562,7 +2579,7 @@ async function bulkSetStorage() {
   }
 }
 function saveFiltersState() {
-  const filters = getFilters();
+  const filters = buildPresetFilters();
   if (window.api && typeof window.api.saveLastFilterPreset === 'function') {
     window.api.saveLastFilterPreset(filters)
       .then((res) => {
@@ -2617,7 +2634,7 @@ function syncCollectionsUI() {
 function syncFilterPresetsUI() {
   if (!filterPresetSelect) return;
   const prev = filterPresetSelect.value;
-  let html = '<option value="">Пресеты фильтров…</option>';
+  let html = '<option value="">Сохранённые поиски…</option>';
   filterPresetsState.list.forEach((preset) => {
     html += `<option value="${preset.id}">${preset.name}</option>`;
   });
@@ -2637,6 +2654,12 @@ function setFiltersFromPreset(filters, { skipRender = false } = {}) {
   if (filterYearTo) filterYearTo.value = f.y2 != null ? f.y2 : '';
   if (filterGenres) filterGenres.value = Array.isArray(f.genres) ? f.genres.join(', ') : '';
   if (filterTags) filterTags.value = Array.isArray(f.tags) ? f.tags.join(', ') : '';
+  if (searchInput) {
+    searchInput.value = typeof f.search === 'string' ? f.search : '';
+    applySearch(searchInput.value);
+  } else {
+    applySearch('');
+  }
   state.currentStaticCollection = null;
   if (collectionSelect) collectionSelect.value = '';
   if (!skipRender) {
@@ -2658,7 +2681,7 @@ function applyCollection(name) {
 
   // Clear current filters first (but preserve static collection state temporarily)
   const tempStaticCollection = state.currentStaticCollection;
-  clearAllFilters();
+  clearAllFilters({ preserveSearch: true });
   if (filterPresetSelect) filterPresetSelect.value = '';
 
   // For static collections, restore the state that clearAllFilters just cleared
@@ -2700,7 +2723,7 @@ function attachFilterEvents() {
     }
   });
   if (btnClearFilters) btnClearFilters.addEventListener('click', () => {
-    clearAllFiltersAndCollections();
+    clearAllFiltersAndCollections({ preserveSearch: false });
     if (filterPresetSelect) filterPresetSelect.value = '';
     saveFiltersState();
     render();
@@ -2772,7 +2795,7 @@ if (filterPresetSelect) {
   filterPresetSelect.addEventListener('change', () => {
     const id = filterPresetSelect.value;
     if (!id) {
-      clearAllFilters();
+      clearAllFilters({ preserveSearch: false });
       state.currentStaticCollection = null;
       saveFiltersState();
       render();
@@ -2795,25 +2818,25 @@ if (deletePresetBtn) {
 }
 
 async function saveCurrentFiltersAsPreset() {
-  const name = await showPromptDialog('Название пресета фильтров:');
+  const name = await showPromptDialog('Название сохранённого поиска:');
   if (!name || !name.trim()) return;
   const clean = name.trim();
   const existing = filterPresetsState.list.find((preset) => preset.name.localeCompare(clean, undefined, { sensitivity: 'base' }) === 0);
   try {
     if (existing) {
-      const res = await window.api.updateFilterPreset({ id: existing.id, filters: getFilters() });
-      if (!res || res.ok === false) throw new Error(res?.error || 'Не удалось обновить пресет');
+      const res = await window.api.updateFilterPreset({ id: existing.id, filters: buildPresetFilters() });
+      if (!res || res.ok === false) throw new Error(res?.error || 'Не удалось обновить поиск');
     } else {
-      const res = await window.api.createFilterPreset({ name: clean, filters: getFilters() });
-      if (!res || res.ok === false) throw new Error(res?.error || 'Не удалось создать пресет');
+      const res = await window.api.createFilterPreset({ name: clean, filters: buildPresetFilters() });
+      if (!res || res.ok === false) throw new Error(res?.error || 'Не удалось создать поиск');
     }
     await refreshFilterPresets();
     const preset = Array.from(filterPresetsState.list).find((p) => p.name.localeCompare(clean, undefined, { sensitivity: 'base' }) === 0);
     if (preset && filterPresetSelect) filterPresetSelect.value = preset.id;
-    alert('Пресет сохранён');
+    alert('Поиск сохранён');
   } catch (error) {
     console.error('saveCurrentFiltersAsPreset failed', error);
-    alert(error?.message || 'Не удалось сохранить пресет');
+    alert(error?.message || 'Не удалось сохранить поиск');
   }
 }
 
@@ -2821,22 +2844,22 @@ async function deleteSelectedPreset() {
   if (!filterPresetSelect) return;
   const id = filterPresetSelect.value;
   if (!id) {
-    alert('Выберите пресет для удаления');
+    alert('Выберите сохранённый поиск');
     return;
   }
   const preset = filterPresetsState.byId.get(id);
   if (!preset) return;
-  const ok = confirm(`Удалить пресет «${preset.name}»?`);
+  const ok = confirm(`Удалить поиск «${preset.name}»?`);
   if (!ok) return;
   try {
     const res = await window.api.deleteFilterPreset({ id });
-    if (!res || res.ok === false) throw new Error(res?.error || 'Не удалось удалить пресет');
+    if (!res || res.ok === false) throw new Error(res?.error || 'Не удалось удалить поиск');
     await refreshFilterPresets();
     if (filterPresetSelect) filterPresetSelect.value = '';
-    alert('Пресет удалён');
+    alert('Поиск удалён');
   } catch (error) {
     console.error('deleteSelectedPreset failed', error);
-    alert(error?.message || 'Не удалось удалить пресет');
+    alert(error?.message || 'Не удалось удалить поиск');
   }
 }
 
@@ -4109,6 +4132,7 @@ if (searchInput) {
   const handler = debounce((e) => {
     applySearch(e.target.value);
     render();
+    saveFiltersState();
   }, 120);
   searchInput.addEventListener('input', handler);
 }
