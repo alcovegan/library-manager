@@ -201,6 +201,8 @@ const filterAuthor = document.querySelector('#filterAuthor');
 const filterFormat = document.querySelector('#filterFormat');
 const filterYearFrom = document.querySelector('#filterYearFrom');
 const filterYearTo = document.querySelector('#filterYearTo');
+const filterGoodreadsFrom = document.querySelector('#filterGoodreadsFrom');
+const filterGoodreadsTo = document.querySelector('#filterGoodreadsTo');
 const filterGenres = document.querySelector('#filterGenres');
 const filterTags = document.querySelector('#filterTags');
 const btnClearFilters = document.querySelector('#btnClearFilters');
@@ -1428,6 +1430,16 @@ function sortBooks(arr) {
       }
       return collator.compare(x.title || '', y.title || '');
     });
+  } else if (mode === 'goodreads') {
+    a.sort((x, y) => {
+      const rx = typeof x.goodreadsRating === 'number' ? x.goodreadsRating : -Infinity;
+      const ry = typeof y.goodreadsRating === 'number' ? y.goodreadsRating : -Infinity;
+      if (ry !== rx) return ry - rx;
+      const cx = typeof x.goodreadsRatingsCount === 'number' ? x.goodreadsRatingsCount : -Infinity;
+      const cy = typeof y.goodreadsRatingsCount === 'number' ? y.goodreadsRatingsCount : -Infinity;
+      if (cy !== cx) return cy - cx;
+      return collator.compare(x.title || '', y.title || '');
+    });
   } else {
     // title (default)
     a.sort((x, y) => collator.compare(x.title || '', y.title || ''));
@@ -1440,6 +1452,10 @@ function getFilters() {
   const v2 = filterYearTo ? String(filterYearTo.value || '').trim() : '';
   const y1 = v1 === '' ? NaN : Number(v1);
   const y2 = v2 === '' ? NaN : Number(v2);
+  const gr1 = filterGoodreadsFrom ? String(filterGoodreadsFrom.value || '').trim() : '';
+  const gr2 = filterGoodreadsTo ? String(filterGoodreadsTo.value || '').trim() : '';
+  const g1 = gr1 === '' ? NaN : Number(gr1);
+  const g2 = gr2 === '' ? NaN : Number(gr2);
   return {
     author: filterAuthor ? filterAuthor.value : '',
     format: filterFormat ? filterFormat.value : '',
@@ -1447,6 +1463,8 @@ function getFilters() {
     y2: Number.isFinite(y2) ? y2 : NaN,
     genres: filterGenres ? filterGenres.value.split(',').map(s=>s.trim()).filter(Boolean) : [],
     tags: filterTags ? filterTags.value.split(',').map(s=>s.trim()).filter(Boolean) : [],
+    goodreadsMin: Number.isFinite(g1) ? g1 : null,
+    goodreadsMax: Number.isFinite(g2) ? g2 : null,
   };
 }
 
@@ -1482,13 +1500,29 @@ function applyFilters(arr) {
       const haveT = new Set(Array.isArray(b.tags) ? b.tags.map(x=>x.toLowerCase()) : []);
       if (!f.tags.every(t => haveT.has(t.toLowerCase()))) return false;
     }
+    if (typeof f.goodreadsMin === 'number') {
+      if (typeof b.goodreadsRating !== 'number' || b.goodreadsRating < f.goodreadsMin) return false;
+    }
+    if (typeof f.goodreadsMax === 'number') {
+      if (typeof b.goodreadsRating !== 'number' || b.goodreadsRating > f.goodreadsMax) return false;
+    }
     return true;
   });
 }
 
 function hasAnyFilterSet() {
   const f = getFilters();
-  return !!(f.author || f.format || (!Number.isNaN(f.y1)) || (!Number.isNaN(f.y2)) || f.genres.length || f.tags.length || state.currentStaticCollection);
+  return !!(
+    f.author ||
+    f.format ||
+    (!Number.isNaN(f.y1)) ||
+    (!Number.isNaN(f.y2)) ||
+    typeof f.goodreadsMin === 'number' ||
+    typeof f.goodreadsMax === 'number' ||
+    f.genres.length ||
+    f.tags.length ||
+    state.currentStaticCollection
+  );
 }
 
 function filtersMatchCollection(collectionName) {
@@ -1514,12 +1548,14 @@ function filtersMatchCollection(collectionName) {
     const formatMatch = (currentFilters.format || '') === (savedFilters.format || '');
     const y1Match = (Number.isNaN(currentFilters.y1) ? '' : currentFilters.y1) === (Number.isNaN(savedFilters.y1) ? '' : savedFilters.y1);
     const y2Match = (Number.isNaN(currentFilters.y2) ? '' : currentFilters.y2) === (Number.isNaN(savedFilters.y2) ? '' : savedFilters.y2);
+    const gr1Match = (currentFilters.goodreadsMin ?? '') === (savedFilters.goodreadsMin ?? '');
+    const gr2Match = (currentFilters.goodreadsMax ?? '') === (savedFilters.goodreadsMax ?? '');
 
     // Compare arrays
     const genresMatch = JSON.stringify((currentFilters.genres || []).sort()) === JSON.stringify((savedFilters.genres || []).sort());
     const tagsMatch = JSON.stringify((currentFilters.tags || []).sort()) === JSON.stringify((savedFilters.tags || []).sort());
 
-    return authorMatch && formatMatch && y1Match && y2Match && genresMatch && tagsMatch;
+    return authorMatch && formatMatch && y1Match && y2Match && gr1Match && gr2Match && genresMatch && tagsMatch;
   }
 
   return false;
@@ -1541,6 +1577,8 @@ function clearAllFilters({ preserveSearch = true } = {}) {
   if (filterFormat) filterFormat.value = '';
   if (filterYearFrom) filterYearFrom.value = '';
   if (filterYearTo) filterYearTo.value = '';
+  if (filterGoodreadsFrom) filterGoodreadsFrom.value = '';
+  if (filterGoodreadsTo) filterGoodreadsTo.value = '';
   if (filterGenres) filterGenres.value = '';
   if (filterTags) filterTags.value = '';
   state.currentStaticCollection = null; // Clear static collection
@@ -2832,6 +2870,8 @@ function setFiltersFromPreset(filters, { skipRender = false } = {}) {
   if (filterFormat) filterFormat.value = f.format || '';
   if (filterYearFrom) filterYearFrom.value = f.y1 != null ? f.y1 : '';
   if (filterYearTo) filterYearTo.value = f.y2 != null ? f.y2 : '';
+  if (filterGoodreadsFrom) filterGoodreadsFrom.value = f.goodreadsMin != null ? f.goodreadsMin : '';
+  if (filterGoodreadsTo) filterGoodreadsTo.value = f.goodreadsMax != null ? f.goodreadsMax : '';
   if (filterGenres) filterGenres.value = Array.isArray(f.genres) ? f.genres.join(', ') : '';
   if (filterTags) filterTags.value = Array.isArray(f.tags) ? f.tags.join(', ') : '';
   if (searchInput) {
@@ -2876,6 +2916,8 @@ function applyCollection(name) {
     if (filterFormat) filterFormat.value = f.format || '';
     if (filterYearFrom) filterYearFrom.value = f.y1 || '';
     if (filterYearTo) filterYearTo.value = f.y2 || '';
+    if (filterGoodreadsFrom) filterGoodreadsFrom.value = f.goodreadsMin != null ? f.goodreadsMin : '';
+    if (filterGoodreadsTo) filterGoodreadsTo.value = f.goodreadsMax != null ? f.goodreadsMax : '';
     if (filterGenres) filterGenres.value = (f.genres || []).join(', ');
     if (filterTags) filterTags.value = (f.tags || []).join(', ');
   } else if (collection.type === 'static') {
@@ -2896,7 +2938,7 @@ function attachFilterEvents() {
     saveFiltersState();
   };
 
-  [filterAuthor, filterFormat, filterYearFrom, filterYearTo, filterGenres, filterTags].forEach(el => {
+  [filterAuthor, filterFormat, filterYearFrom, filterYearTo, filterGoodreadsFrom, filterGoodreadsTo, filterGenres, filterTags].forEach(el => {
     if (el) {
       el.addEventListener('input', onChange);
       el.addEventListener('input', onFilterChange);
@@ -3117,6 +3159,21 @@ function render() {
     meta.appendChild(title);
     meta.appendChild(authors);
     if (ratingInfo) meta.appendChild(ratingEl);
+    if (b.goodreadsRating != null) {
+      const grBadge = document.createElement('span');
+      grBadge.className = 'badge-gr';
+      grBadge.title = b.goodreadsRatingsCount != null
+        ? `Goodreads: ${b.goodreadsRating.toFixed(2)} • ${b.goodreadsRatingsCount} ratings`
+        : `Goodreads: ${b.goodreadsRating.toFixed(2)}`;
+      const countLabel = b.goodreadsRatingsCount != null ? Intl.NumberFormat('en-US').format(b.goodreadsRatingsCount) : null;
+      grBadge.textContent = countLabel
+        ? `GR ${b.goodreadsRating.toFixed(2)} • ${countLabel}`
+        : `GR ${b.goodreadsRating.toFixed(2)}`;
+      const badgeWrapper = document.createElement('div');
+      badgeWrapper.style.marginTop = '4px';
+      badgeWrapper.appendChild(grBadge);
+      meta.appendChild(badgeWrapper);
+    }
 
     // Add collection badges
     const bookCollections = getBookCollections(b.id);
@@ -4224,6 +4281,15 @@ function bookMatchesTerm(book, rawTerm) {
         return format.includes(term);
       case 'language':
         return language.includes(term);
+      case 'original':
+      case 'originaltitle':
+        return originalTitleEn.includes(term);
+      case 'originalauthor':
+      case 'originalauthors':
+        return originalAuthorsEn.includes(term);
+      case 'goodreads':
+      case 'gr':
+        return matchesNumericCondition(book.goodreadsRating, term);
       case 'year':
         return matchesYearCondition(book.year, term);
       case 'rating':

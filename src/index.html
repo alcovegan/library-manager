@@ -313,6 +313,7 @@
               <option value="title">Название</option>
               <option value="author">Автор</option>
               <option value="date">Дата добавления</option>
+              <option value="goodreads">Рейтинг Goodreads</option>
               <option value="series">Серия</option>
             </select>
           </div>
@@ -332,6 +333,8 @@
             </select>
             <input id="filterYearFrom" class="input" type="number" placeholder="Год от" style="width:7rem;" />
             <input id="filterYearTo" class="input" type="number" placeholder="Год до" style="width:7rem;" />
+            <input id="filterGoodreadsFrom" class="input" type="number" step="0.1" placeholder="GR от" style="width:6rem;" />
+            <input id="filterGoodreadsTo" class="input" type="number" step="0.1" placeholder="GR до" style="width:6rem;" />
             <input id="filterGenres" class="input" type="text" placeholder="Жанры, через запятую" style="min-width:14rem; flex:1 1 14rem;" />
           </div>
           <!-- Right group: collections controls -->
@@ -993,3 +996,14 @@
     <script src="renderer.js"></script>
   </body>
   </html>
+      .badge-gr {
+        display:inline-flex;
+        align-items:center;
+        gap:4px;
+        padding:2px 6px;
+        font-size:11px;
+        font-weight:600;
+        color:#0f172a;
+        background:linear-gradient(135deg, #a7f3d0, #6ee7b7);
+        border-radius:999px;
+      }

@@ -281,6 +281,8 @@ function normalizeFiltersInput(raw) {
     genres: toArray(src.genres),
     tags: toArray(src.tags),
     search: src.search ? String(src.search) : '',
+    goodreadsMin: parseNumber(src.goodreadsMin),
+    goodreadsMax: parseNumber(src.goodreadsMax),
   };
 }
 
@@ -292,6 +294,8 @@ function formatFiltersSummary(filters) {
   if (filters.format) parts.push(`Формат: ${filters.format}`);
   if (filters.y1 != null) parts.push(`Год ≥ ${filters.y1}`);
   if (filters.y2 != null) parts.push(`Год ≤ ${filters.y2}`);
+  if (filters.goodreadsMin != null) parts.push(`GR ≥ ${filters.goodreadsMin}`);
+  if (filters.goodreadsMax != null) parts.push(`GR ≤ ${filters.goodreadsMax}`);
   if (Array.isArray(filters.genres) && filters.genres.length) parts.push(`Жанры: ${filters.genres.join(', ')}`);
   if (Array.isArray(filters.tags) && filters.tags.length) parts.push(`Теги: ${filters.tags.join(', ')}`);
   return parts.length ? parts.join('; ') : 'Без условий';
