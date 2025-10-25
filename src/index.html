@@ -484,8 +484,11 @@
               <div><code>language:</code> язык</div>
               <div><code>year:</code> год издания</div>
               <div><code>rating:</code> оценка</div>
+              <div><code>original:</code> оригинальное название (EN)</div>
+              <div><code>originalauthors:</code> авторы на английском</div>
+              <div><code>goodreads:</code>, <code>gr:</code> рейтинг Goodreads</div>
             </div>
-            <div class="search-help-note">Для числовых полей доступны сравнения: <code>year:&gt;=2000</code>, <code>rating:&lt;4.5</code>. Пробелы после двоеточия не требуются.</div>
+            <div class="search-help-note">Для числовых полей доступны сравнения: <code>year:&gt;=2000</code>, <code>rating:&lt;4.5</code>, <code>goodreads:&gt;=4</code>. Пробелы после двоеточия не требуются.</div>
           </div>
           <div class="search-help-section">
             <strong>Примеры</strong>
@@ -493,6 +496,8 @@
               <li><code>author:лем AND NOT tag:прочитано</code> — книги Лема, которые ещё не отмечены как прочитанные.</li>
               <li><code>(genre:фантастика OR tag:космос) AND year:&gt;=2000</code> — фантастика или книги о космосе, изданные после 2000 года.</li>
               <li><code>"гарри поттер" OR series:"hogwarts"</code> — точное совпадение фразы или книги из серии «hogwarts».</li>
+              <li><code>goodreads:&gt;=4.2</code> — книги с рейтингом Goodreads 4.2 и выше.</li>
+              <li><code>original:"anna: the biography"</code> — поиск по оригинальному названию на английском.</li>
             </ul>
           </div>
         </div>
