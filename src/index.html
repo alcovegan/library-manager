@@ -190,6 +190,24 @@
       .book.bulk-selected { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,111,255,0.25); }
       .book .bulk-checkbox { position:absolute; left:16px; transform:none; width:18px; height:18px; accent-color: var(--accent); display:none; background:var(--surface); border-radius:4px; box-shadow:0 1px 2px rgba(15,23,42,0.12); }
       .book.bulk-selectable .bulk-checkbox { display:block; }
+      details.goodreads-panel {
+        border:1px solid var(--border);
+        border-radius:12px;
+        padding:8px 12px 12px;
+        background:var(--surface);
+        margin-top:12px;
+      }
+      details.goodreads-panel summary {
+        font-weight:600;
+        cursor:pointer;
+        outline:none;
+      }
+      .goodreads-grid {
+        display:grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap:8px 12px;
+        margin-top:8px;
+      }
     </style>
   </head>
   <body>
@@ -578,6 +596,43 @@
                 <label>Теги (через запятую)</label>
                 <input id="modalTags" type="text" />
               </div>
+            </div>
+            <div class="row" style="margin-top:8px; gap:8px; align-items:center;">
+              <button id="goodreadsLookupBtn" type="button" class="btn secondary">🤖 Найти книгу на Goodreads</button>
+              <span id="goodreadsStatus" style="font-size:12px; color:var(--muted); display:none;"></span>
+            </div>
+            <details id="goodreadsPanel" class="goodreads-panel">
+              <summary>Оригинал и данные Goodreads</summary>
+              <div class="goodreads-grid">
+                <div>
+                  <label>Оригинальное название (EN)</label>
+                  <input id="modalOriginalTitleEn" type="text" placeholder="Например, Anna: The Biography" />
+                </div>
+                <div>
+                  <label>Авторы (EN, через запятую)</label>
+                  <input id="modalOriginalAuthorsEn" type="text" placeholder="Amy Odell" />
+                </div>
+                <div>
+                  <label>Оценка Goodreads</label>
+                  <input id="modalGoodreadsRating" type="text" placeholder="—" readonly />
+                </div>
+                <div>
+                  <label>Количество оценок</label>
+                  <input id="modalGoodreadsRatingsCount" type="text" placeholder="—" readonly />
+                </div>
+                <div>
+                  <label>Количество отзывов</label>
+                  <input id="modalGoodreadsReviewsCount" type="text" placeholder="—" readonly />
+                </div>
+                <div>
+                  <label>Ссылка на Goodreads</label>
+                  <input id="modalGoodreadsUrl" type="text" placeholder="https://www.goodreads.com/..." style="text-transform:none;" />
+                </div>
+              </div>
+            </details>
+            <div id="goodreadsResultBox" class="card" style="display:none; margin-top:8px;">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;">Найдено на Goodreads</div>
+              <div id="goodreadsResultContent" style="display:flex; flex-direction:column; gap:4px; font-size:13px;"></div>
             </div>
             <label>Заметки</label>
             <textarea id="modalNotes" rows="3" style="resize:vertical;"></textarea>

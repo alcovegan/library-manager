@@ -52,6 +52,17 @@ const modalTags = $('#modalTags');
 const modalNotes = $('#modalNotes');
 const modalFormat = document.querySelector('#modalFormat');
 const modalGenres = document.querySelector('#modalGenres');
+const modalOriginalTitleEn = $('#modalOriginalTitleEn');
+const modalOriginalAuthorsEn = $('#modalOriginalAuthorsEn');
+const modalGoodreadsRatingInput = $('#modalGoodreadsRating');
+const modalGoodreadsRatingsCountInput = $('#modalGoodreadsRatingsCount');
+const modalGoodreadsReviewsCountInput = $('#modalGoodreadsReviewsCount');
+const modalGoodreadsUrlInput = $('#modalGoodreadsUrl');
+const goodreadsPanel = document.querySelector('#goodreadsPanel');
+const goodreadsLookupBtn = $('#goodreadsLookupBtn');
+const goodreadsStatus = $('#goodreadsStatus');
+const goodreadsResultBox = $('#goodreadsResultBox');
+const goodreadsResultContent = $('#goodreadsResultContent');
 const modalSaveBtn = $('#modalSaveBtn');
 const modalCollectionsBtn = $('#modalCollectionsBtn');
 const modalStorageSelect = $('#modalStorageSelect');
@@ -258,6 +269,9 @@ let state = {
     authorsAlt: [],
     snapshot: null,
     storageLocationId: null,
+    goodreads: null,
+    originalTitleEn: null,
+    originalAuthorsEn: [],
   },
   settings: {
     snapshot: null,
@@ -285,6 +299,138 @@ const activityState = {
   needsRefresh: true,
   pendingReload: false,
 };
+
+function resetGoodreadsWidgets() {
+  state.modal.goodreads = null;
+  if (state.modal) {
+    state.modal.originalTitleEn = null;
+    state.modal.originalAuthorsEn = [];
+  }
+  if (goodreadsStatus) {
+    goodreadsStatus.textContent = '';
+    goodreadsStatus.style.display = 'none';
+    goodreadsStatus.style.color = 'var(--muted)';
+  }
+  if (goodreadsResultBox) goodreadsResultBox.style.display = 'none';
+  if (goodreadsResultContent) goodreadsResultContent.innerHTML = '';
+  if (goodreadsPanel) goodreadsPanel.open = false;
+  if (modalOriginalTitleEn) modalOriginalTitleEn.value = '';
+  if (modalOriginalAuthorsEn) modalOriginalAuthorsEn.value = '';
+  if (modalGoodreadsRatingInput) modalGoodreadsRatingInput.value = '';
+  if (modalGoodreadsRatingsCountInput) modalGoodreadsRatingsCountInput.value = '';
+  if (modalGoodreadsReviewsCountInput) modalGoodreadsReviewsCountInput.value = '';
+  if (modalGoodreadsUrlInput) modalGoodreadsUrlInput.value = '';
+}
+
+function renderGoodreadsResult(info) {
+  if (!goodreadsResultBox || !goodreadsResultContent) return;
+  if (!info) {
+    goodreadsResultBox.style.display = 'none';
+    goodreadsResultContent.innerHTML = '';
+    return;
+  }
+  if (goodreadsPanel && !goodreadsPanel.open) {
+    goodreadsPanel.open = true;
+  }
+  const parts = [];
+  if (info.originalTitle) {
+    parts.push(`<div><strong>${escapeHtml(info.originalTitle)}</strong></div>`);
+  }
+  if (Array.isArray(info.originalAuthors) && info.originalAuthors.length) {
+    parts.push(`<div>Автор(ы): ${escapeHtml(info.originalAuthors.join(', '))}</div>`);
+  }
+  const ratingKnown = typeof info.averageRating === 'number';
+  const ratingLabel = ratingKnown ? info.averageRating.toFixed(2) : '—';
+  const countKnown = typeof info.ratingsCount === 'number';
+  const formatter = new Intl.NumberFormat('en-US');
+  const countLabel = countKnown ? formatter.format(info.ratingsCount) : null;
+  const reviewsKnown = typeof info.reviewsCount === 'number';
+  const reviewsLabel = reviewsKnown ? formatter.format(info.reviewsCount) : null;
+  let ratingLine = `Рейтинг: ${ratingLabel}`;
+  if (countLabel || reviewsLabel) {
+    const pieces = [];
+    if (countLabel) pieces.push(`оценок: ${countLabel}`);
+    if (reviewsLabel) pieces.push(`отзывов: ${reviewsLabel}`);
+    ratingLine += ` (${pieces.join(', ')})`;
+  }
+  parts.push(`<div>${ratingLine}</div>`);
+  const url = sanitizeUrl(info.goodreadsUrl);
+  if (url) {
+    parts.push(`<a href="${escapeHtml(url)}" target="_blank" rel="noopener" style="color:var(--accent); font-size:12px;">Открыть на Goodreads</a>`);
+  }
+  if (info.notes) {
+    parts.push(`<div style="font-size:12px; color:var(--muted);">${escapeHtml(info.notes)}</div>`);
+  }
+  if (info.confidence) {
+    parts.push(`<div style="font-size:11px; color:var(--muted);">Уверенность: ${escapeHtml(info.confidence)}</div>`);
+  }
+  goodreadsResultContent.innerHTML = parts.join('');
+  goodreadsResultBox.style.display = 'block';
+}
+
+async function lookupGoodreadsForModal() {
+  if (!window.api || typeof window.api.lookupGoodreads !== 'function') {
+    alert('API Goodreads пока не доступен.');
+    return;
+  }
+  const title = modalTitle ? modalTitle.value.trim() : '';
+  if (!title) {
+    alert('Укажите название книги перед поиском.');
+    return;
+  }
+  const authors = modalAuthors ? modalAuthors.value.split(',').map((a) => a.trim()).filter(Boolean) : [];
+  const payload = {
+    title,
+    authors,
+    isbn: modalIsbn ? modalIsbn.value.trim() || null : null,
+    year: modalYear ? modalYear.value.trim() || null : null,
+  };
+  if (goodreadsStatus) {
+    goodreadsStatus.style.display = 'inline';
+    goodreadsStatus.style.color = 'var(--muted)';
+    goodreadsStatus.textContent = 'Ищем…';
+  }
+  renderGoodreadsResult(null);
+  try {
+    const res = await window.api.lookupGoodreads(payload);
+    if (!res || res.ok === false) {
+      throw new Error(res?.error || 'Не удалось получить данные');
+    }
+    state.modal.goodreads = res.info || null;
+    renderGoodreadsResult(state.modal.goodreads);
+    if (state.modal.goodreads) {
+      const info = state.modal.goodreads;
+      if (modalGoodreadsRatingInput) modalGoodreadsRatingInput.value = typeof info.averageRating === 'number' ? info.averageRating.toFixed(2) : '';
+      if (modalGoodreadsRatingsCountInput) modalGoodreadsRatingsCountInput.value = info.ratingsCount != null ? String(info.ratingsCount) : '';
+      if (modalGoodreadsReviewsCountInput) modalGoodreadsReviewsCountInput.value = info.reviewsCount != null ? String(info.reviewsCount) : '';
+      if (modalGoodreadsUrlInput) modalGoodreadsUrlInput.value = info.goodreadsUrl || '';
+      if (modalOriginalTitleEn && info.originalTitle) {
+        modalOriginalTitleEn.value = info.originalTitle;
+        state.modal.originalTitleEn = info.originalTitle;
+      }
+      if (modalOriginalAuthorsEn && Array.isArray(info.originalAuthors)) {
+        modalOriginalAuthorsEn.value = info.originalAuthors.join(', ');
+        state.modal.originalAuthorsEn = info.originalAuthors;
+      }
+      if (goodreadsPanel) goodreadsPanel.open = true;
+    }
+    if (res.info && !state.modal.titleAlt && res.info.originalTitle) {
+      state.modal.titleAlt = res.info.originalTitle;
+    }
+    if (goodreadsStatus) {
+      goodreadsStatus.style.display = 'inline';
+      goodreadsStatus.style.color = 'var(--accent)';
+      goodreadsStatus.textContent = 'Готово';
+    }
+  } catch (error) {
+    console.error('goodreads lookup failed', error);
+    if (goodreadsStatus) {
+      goodreadsStatus.style.display = 'inline';
+      goodreadsStatus.style.color = 'var(--danger)';
+      goodreadsStatus.textContent = `Ошибка: ${error?.message || error}`;
+    }
+  }
+}
 
 function markActivityDirty() {
   activityState.needsRefresh = true;
@@ -329,6 +475,27 @@ const HISTORY_CATEGORY_FILTERS = {
   backup: 'backup',
   activity: 'activity',
 };
+
+function escapeHtml(value) {
+  if (value === null || value === undefined) return '';
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function sanitizeUrl(url) {
+  if (!url) return null;
+  try {
+    const parsed = new URL(String(url));
+    if (!parsed.protocol.startsWith('http')) return null;
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
 
 const csvImportState = {
   headers: [],
@@ -1877,9 +2044,22 @@ function escapeBookIdForSelector(id) {
 function parseCommaSeparatedList(value) {
   if (!value) return [];
   return String(value)
-    .split(',')
+    .split(/[;,]/)
     .map((part) => part.trim())
     .filter(Boolean);
+}
+
+function parseFloatFromInput(el) {
+  if (!el) return null;
+  const raw = String(el.value || '').replace(/\s+/g, '').replace(',', '.');
+  if (!raw) return null;
+  const num = Number(raw);
+  return Number.isFinite(num) ? num : null;
+}
+
+function parseIntFromInput(el) {
+  const num = parseFloatFromInput(el);
+  return num == null ? null : Math.round(num);
 }
 
 function buildBookUpdatePayload(book) {
@@ -3083,6 +3263,7 @@ function startEdit(b) {
 }
 
 function openDetails(b) {
+  resetGoodreadsWidgets();
   // populate modal fields
   state.modal.id = b?.id || null;
   modalTitle.value = b?.title || '';
@@ -3104,6 +3285,29 @@ function openDetails(b) {
   state.modal.authorsAlt = Array.isArray(b?.authorsAlt) ? b.authorsAlt : [];
   state.modal.storageLocationId = b?.storageLocationId || null;
   if (modalStorageSelect) modalStorageSelect.value = b?.storageLocationId || '';
+  state.modal.originalTitleEn = b?.originalTitleEn || null;
+  state.modal.originalAuthorsEn = Array.isArray(b?.originalAuthorsEn) ? b.originalAuthorsEn : [];
+  if (modalOriginalTitleEn) modalOriginalTitleEn.value = b?.originalTitleEn || '';
+  if (modalOriginalAuthorsEn) modalOriginalAuthorsEn.value = Array.isArray(b?.originalAuthorsEn) ? b.originalAuthorsEn.join(', ') : '';
+  if (modalGoodreadsRatingInput) modalGoodreadsRatingInput.value = typeof b?.goodreadsRating === 'number' ? b.goodreadsRating.toFixed(2) : '';
+  if (modalGoodreadsRatingsCountInput) modalGoodreadsRatingsCountInput.value = b?.goodreadsRatingsCount != null ? String(b.goodreadsRatingsCount) : '';
+  if (modalGoodreadsReviewsCountInput) modalGoodreadsReviewsCountInput.value = b?.goodreadsReviewsCount != null ? String(b.goodreadsReviewsCount) : '';
+  if (modalGoodreadsUrlInput) modalGoodreadsUrlInput.value = b?.goodreadsUrl || '';
+  if (goodreadsPanel) {
+    const hasGoodreadsData = Boolean(b && (b.goodreadsRating != null || b.goodreadsRatingsCount != null || b.goodreadsReviewsCount != null || b.goodreadsUrl || b.originalTitleEn || (Array.isArray(b.originalAuthorsEn) && b.originalAuthorsEn.length)));
+    goodreadsPanel.open = hasGoodreadsData;
+  }
+  if (b && (b.goodreadsRating != null || b.goodreadsRatingsCount != null || b.goodreadsReviewsCount != null || b.goodreadsUrl)) {
+    state.modal.goodreads = {
+      averageRating: b.goodreadsRating ?? null,
+      ratingsCount: b.goodreadsRatingsCount ?? null,
+      reviewsCount: b.goodreadsReviewsCount ?? null,
+      goodreadsUrl: b.goodreadsUrl || null,
+      originalTitle: b.originalTitleEn || null,
+      originalAuthors: Array.isArray(b.originalAuthorsEn) ? b.originalAuthorsEn : [],
+    };
+    renderGoodreadsResult(state.modal.goodreads);
+  }
   setModalPreview(b?.coverPath || null);
   modalEl.style.display = 'flex';
   // clear previous search results
@@ -3167,6 +3371,12 @@ function captureModalSnapshot() {
     titleAlt: state.modal.titleAlt || null,
     authorsAlt: Array.isArray(state.modal.authorsAlt) ? state.modal.authorsAlt.join(',') : '',
     storageLocationId: modalStorageSelect ? (modalStorageSelect.value || '') : '',
+    goodreadsAverage: parseFloatFromInput(modalGoodreadsRatingInput),
+    goodreadsRatingsCount: modalGoodreadsRatingsCountInput ? modalGoodreadsRatingsCountInput.value : '',
+    goodreadsReviewsCount: modalGoodreadsReviewsCountInput ? modalGoodreadsReviewsCountInput.value : '',
+    goodreadsUrl: modalGoodreadsUrlInput ? modalGoodreadsUrlInput.value : '',
+    originalTitleEn: modalOriginalTitleEn ? modalOriginalTitleEn.value : '',
+    originalAuthorsEn: modalOriginalAuthorsEn ? modalOriginalAuthorsEn.value : '',
   };
 }
 
@@ -3205,9 +3415,22 @@ function openInfo(b) {
   if (b.year || b.publisher) metaRows.push('<div><b>Издательство/Год:</b> ' + esc(b.publisher || '') + (b.year?(' ('+b.year+')'):'') + '</div>');
   if (b.isbn) metaRows.push('<div><b>ISBN:</b> ' + esc(b.isbn) + '</div>');
   if (b.language) metaRows.push('<div><b>Язык:</b> ' + esc(b.language) + '</div>');
+  if (b.originalTitleEn) metaRows.push('<div><b>Оригинальное название (EN):</b> ' + esc(b.originalTitleEn) + '</div>');
+  if (Array.isArray(b.originalAuthorsEn) && b.originalAuthorsEn.length) metaRows.push('<div><b>Автор(ы EN):</b> ' + esc(b.originalAuthorsEn.join(', ')) + '</div>');
   if (ratingInfo) {
     const valueLabel = ratingInfo.value.toFixed(ratingInfo.value % 1 === 0 ? 0 : 1);
     metaRows.push('<div><b>Рейтинг:</b> ' + ratingInfo.html + ' <span style="margin-left:6px; color:var(--muted); font-size:12px;">' + valueLabel + '</span></div>');
+  }
+  if (b.goodreadsRating != null) {
+    const parts = [`${esc(b.goodreadsRating.toFixed(2))}`];
+    if (b.goodreadsRatingsCount != null) parts.push(`оценок: ${esc(String(b.goodreadsRatingsCount))}`);
+    if (b.goodreadsReviewsCount != null) parts.push(`отзывов: ${esc(String(b.goodreadsReviewsCount))}`);
+    let line = `<div><b>Goodreads:</b> ${parts.join(' • ')}`;
+    if (b.goodreadsUrl) {
+      line += ` — <a href="${esc(b.goodreadsUrl)}" style="color:var(--accent);" target="_blank" rel="noopener">ссылка</a>`;
+    }
+    line += '</div>';
+    metaRows.push(line);
   }
   if (Array.isArray(b.tags) && b.tags.length) metaRows.push('<div><b>Теги:</b> ' + b.tags.map(t=>'<span style="display:inline-block; padding:2px 6px; border:1px solid var(--border); border-radius:999px; margin-right:6px;">'+esc(t)+'</span>').join('') + '</div>');
   if (b.notes) metaRows.push('<div><b>Заметки:</b><br><div style="white-space:pre-wrap; background:var(--muted-surface); border:1px solid var(--border); border-radius:8px; padding:8px;">' + esc(b.notes) + '</div></div>');
@@ -3970,6 +4193,10 @@ function bookMatchesTerm(book, rawTerm) {
   const series = String(book.series || '').toLowerCase();
   const format = String(book.format || '').toLowerCase();
   const language = String(book.language || '').toLowerCase();
+  const originalTitleEn = String(book.originalTitleEn || '').toLowerCase();
+  const originalAuthorsEn = Array.isArray(book.originalAuthorsEn)
+    ? book.originalAuthorsEn.map((a) => String(a || '').toLowerCase()).join(' ')
+    : '';
   const authorCombined = authors.join(' ');
   const tagsCombined = tags.join(' ');
   const genresCombined = genres.join(' ');
@@ -4016,7 +4243,9 @@ function bookMatchesTerm(book, rawTerm) {
       publisher.includes(term) ||
       series.includes(term) ||
       format.includes(term) ||
-      language.includes(term)
+      language.includes(term) ||
+      originalTitleEn.includes(term) ||
+      originalAuthorsEn.includes(term)
     );
   }
 
@@ -4148,6 +4377,12 @@ if (searchHelpCloseBtn) searchHelpCloseBtn.addEventListener('click', closeSearch
 if (searchHelpModal) {
   searchHelpModal.addEventListener('click', (e) => {
     if (e.target === searchHelpModal) closeSearchHelpModal();
+  });
+}
+
+if (goodreadsLookupBtn) {
+  goodreadsLookupBtn.addEventListener('click', () => {
+    lookupGoodreadsForModal();
   });
 }
 
@@ -4423,6 +4658,12 @@ if (modalSaveBtn) {
       titleAlt: state.modal.titleAlt || null,
       authorsAlt: Array.isArray(state.modal.authorsAlt) ? state.modal.authorsAlt : [],
       storageLocationId: modalStorageSelect ? (modalStorageSelect.value || null) : null,
+      originalTitleEn: modalOriginalTitleEn ? (modalOriginalTitleEn.value.trim() || null) : null,
+      originalAuthorsEn: modalOriginalAuthorsEn ? parseCommaSeparatedList(modalOriginalAuthorsEn.value) : [],
+      goodreadsRating: parseFloatFromInput(modalGoodreadsRatingInput),
+      goodreadsRatingsCount: parseIntFromInput(modalGoodreadsRatingsCountInput),
+      goodreadsReviewsCount: parseIntFromInput(modalGoodreadsReviewsCountInput),
+      goodreadsUrl: modalGoodreadsUrlInput ? (modalGoodreadsUrlInput.value.trim() || null) : null,
     };
       if (!payload.title) { alert('Введите название'); return; }
       if (payload.id) {

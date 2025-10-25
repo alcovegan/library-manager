@@ -330,6 +330,18 @@ async function migrate(ctx) {
     setSchemaVersion(ctx, 11);
     persist(ctx);
   }
+  if (getSchemaVersion(ctx) === 11) {
+    ctx.db.exec(`
+      ALTER TABLE books ADD COLUMN goodreadsRating REAL;
+      ALTER TABLE books ADD COLUMN goodreadsRatingsCount INTEGER;
+      ALTER TABLE books ADD COLUMN goodreadsReviewsCount INTEGER;
+      ALTER TABLE books ADD COLUMN goodreadsUrl TEXT;
+      ALTER TABLE books ADD COLUMN originalTitleEn TEXT;
+      ALTER TABLE books ADD COLUMN originalAuthorsEn TEXT;
+    `);
+    setSchemaVersion(ctx, 12);
+    persist(ctx);
+  }
 }
 
 function ensureAuthor(ctx, name) {
@@ -382,6 +394,12 @@ function listBooks(ctx) {
       b.format,
       b.genres,
       b.storageLocationId,
+      b.goodreadsRating,
+      b.goodreadsRatingsCount,
+      b.goodreadsReviewsCount,
+      b.goodreadsUrl,
+      b.originalTitleEn,
+      b.originalAuthorsEn,
       (
         SELECT h.action
         FROM book_storage_history h
@@ -414,7 +432,7 @@ function listBooks(ctx) {
     ORDER BY b.title COLLATE NOCASE
   `);
   const rows = res[0] ? res[0].values : [];
-  return rows.map(([id, title, coverPath, createdAt, updatedAt, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres, storageLocationId, latestAction, latestPerson, latestNote, latestCreatedAt]) => {
+  return rows.map(([id, title, coverPath, createdAt, updatedAt, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres, storageLocationId, goodreadsRating, goodreadsRatingsCount, goodreadsReviewsCount, goodreadsUrl, originalTitleEn, originalAuthorsEn, latestAction, latestPerson, latestNote, latestCreatedAt]) => {
     const latestActionNorm = normStr(latestAction);
     return {
       id,
@@ -436,6 +454,12 @@ function listBooks(ctx) {
       format: normStr(format),
       genres: parseJsonArray(genres),
       storageLocationId: normStr(storageLocationId),
+      goodreadsRating: normFloat(goodreadsRating),
+      goodreadsRatingsCount: normInt(goodreadsRatingsCount),
+      goodreadsReviewsCount: normInt(goodreadsReviewsCount),
+      goodreadsUrl: normStr(goodreadsUrl),
+      originalTitleEn: normStr(originalTitleEn),
+      originalAuthorsEn: parseJsonArray(originalAuthorsEn),
       storageLatestAction: latestActionNorm,
       storageLatestPerson: normStr(latestPerson),
       storageLatestNote: normStr(latestNote),
@@ -469,6 +493,12 @@ function getBookById(ctx, id) {
       b.format,
       b.genres,
       b.storageLocationId,
+      b.goodreadsRating,
+      b.goodreadsRatingsCount,
+      b.goodreadsReviewsCount,
+      b.goodreadsUrl,
+      b.originalTitleEn,
+      b.originalAuthorsEn,
       (
         SELECT h.action
         FROM book_storage_history h
@@ -523,6 +553,12 @@ function getBookById(ctx, id) {
     format,
     genres,
     storageLocationId,
+    goodreadsRating,
+    goodreadsRatingsCount,
+    goodreadsReviewsCount,
+    goodreadsUrl,
+    originalTitleEn,
+    originalAuthorsEn,
     latestAction,
     latestPerson,
     latestNote,
@@ -549,6 +585,12 @@ function getBookById(ctx, id) {
     format: normStr(format),
     genres: parseJsonArray(genres),
     storageLocationId: normStr(storageLocationId),
+    goodreadsRating: normFloat(goodreadsRating),
+    goodreadsRatingsCount: normInt(goodreadsRatingsCount),
+    goodreadsReviewsCount: normInt(goodreadsReviewsCount),
+    goodreadsUrl: normStr(goodreadsUrl),
+    originalTitleEn: normStr(originalTitleEn),
+    originalAuthorsEn: parseJsonArray(originalAuthorsEn),
     storageLatestAction: latestActionNorm,
     storageLatestPerson: normStr(latestPerson),
     storageLatestNote: normStr(latestNote),
@@ -893,11 +935,11 @@ function parseJsonArray(v) { try { const a = JSON.parse(v || '[]'); return Array
 function strArray(arr) { try { return JSON.stringify(Array.isArray(arr) ? arr : []); } catch { return '[]'; } }
 function parseJsonSafe(v, fallback = null) { if (v === undefined || v === null || v === '') return fallback; try { return JSON.parse(v); } catch { return fallback; } }
 
-function createBook(ctx, { title, authors = [], coverPath = null, series=null, seriesIndex=null, year=null, publisher=null, isbn=null, language=null, rating=null, notes=null, tags=[], titleAlt=null, authorsAlt=[], format=null, genres=[], storageLocationId=null }) {
+function createBook(ctx, { title, authors = [], coverPath = null, series=null, seriesIndex=null, year=null, publisher=null, isbn=null, language=null, rating=null, notes=null, tags=[], titleAlt=null, authorsAlt=[], format=null, genres=[], storageLocationId=null, goodreadsRating=null, goodreadsRatingsCount=null, goodreadsReviewsCount=null, goodreadsUrl=null, originalTitleEn=null, originalAuthorsEn=[] }) {
   const now = new Date().toISOString();
   const id = randomUUID();
   const storedCoverPath = toStoredCoverPath(ctx, coverPath);
-  const insBook = ctx.db.prepare('INSERT INTO books(id, title, coverPath, createdAt, updatedAt, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres, storageLocationId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+  const insBook = ctx.db.prepare('INSERT INTO books(id, title, coverPath, createdAt, updatedAt, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres, storageLocationId, goodreadsRating, goodreadsRatingsCount, goodreadsReviewsCount, goodreadsUrl, originalTitleEn, originalAuthorsEn) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
   insBook.bind([
     id,
     title,
@@ -918,6 +960,12 @@ function createBook(ctx, { title, authors = [], coverPath = null, series=null, s
     normStr(format),
     strArray(genres),
     normStr(storageLocationId),
+    normFloat(goodreadsRating),
+    normInt(goodreadsRatingsCount),
+    normInt(goodreadsReviewsCount),
+    normStr(goodreadsUrl),
+    normStr(originalTitleEn),
+    strArray(originalAuthorsEn),
   ]);
   insBook.step();
   insBook.free();
@@ -951,6 +999,12 @@ function createBook(ctx, { title, authors = [], coverPath = null, series=null, s
     format: normStr(format),
     genres,
     storageLocationId: normStr(storageLocationId),
+    goodreadsRating: normFloat(goodreadsRating),
+    goodreadsRatingsCount: normInt(goodreadsRatingsCount),
+    goodreadsReviewsCount: normInt(goodreadsReviewsCount),
+    goodreadsUrl: normStr(goodreadsUrl),
+    originalTitleEn: normStr(originalTitleEn),
+    originalAuthorsEn: strArray(originalAuthorsEn),
   };
 }
 
@@ -1082,10 +1136,10 @@ function getBookStorageId(ctx, bookId) {
   return value ? String(value) : null;
 }
 
-function updateBook(ctx, { id, title, authors = [], coverPath = null, series=null, seriesIndex=null, year=null, publisher=null, isbn=null, language=null, rating=null, notes=null, tags=[], titleAlt=null, authorsAlt=[], format=null, genres=[], storageLocationId=null }) {
+function updateBook(ctx, { id, title, authors = [], coverPath = null, series=null, seriesIndex=null, year=null, publisher=null, isbn=null, language=null, rating=null, notes=null, tags=[], titleAlt=null, authorsAlt=[], format=null, genres=[], storageLocationId=null, goodreadsRating=null, goodreadsRatingsCount=null, goodreadsReviewsCount=null, goodreadsUrl=null, originalTitleEn=null, originalAuthorsEn=[] }) {
   const now = new Date().toISOString();
   const storedCoverPath = toStoredCoverPath(ctx, coverPath);
-  const upd = ctx.db.prepare('UPDATE books SET title = ?, coverPath = ?, updatedAt = ?, series = ?, seriesIndex = ?, year = ?, publisher = ?, isbn = ?, language = ?, rating = ?, notes = ?, tags = ?, titleAlt = ?, authorsAlt = ?, format = ?, genres = ?, storageLocationId = ? WHERE id = ?');
+  const upd = ctx.db.prepare('UPDATE books SET title = ?, coverPath = ?, updatedAt = ?, series = ?, seriesIndex = ?, year = ?, publisher = ?, isbn = ?, language = ?, rating = ?, notes = ?, tags = ?, titleAlt = ?, authorsAlt = ?, format = ?, genres = ?, storageLocationId = ?, goodreadsRating = ?, goodreadsRatingsCount = ?, goodreadsReviewsCount = ?, goodreadsUrl = ?, originalTitleEn = ?, originalAuthorsEn = ? WHERE id = ?');
   upd.bind([
     title,
     storedCoverPath,
@@ -1104,6 +1158,12 @@ function updateBook(ctx, { id, title, authors = [], coverPath = null, series=nul
     normStr(format),
     strArray(genres),
     normStr(storageLocationId),
+    normFloat(goodreadsRating),
+    normInt(goodreadsRatingsCount),
+    normInt(goodreadsReviewsCount),
+    normStr(goodreadsUrl),
+    normStr(originalTitleEn),
+    strArray(originalAuthorsEn),
     id,
   ]);
   upd.step();
@@ -1138,6 +1198,12 @@ function updateBook(ctx, { id, title, authors = [], coverPath = null, series=nul
     format: normStr(format),
     genres,
     storageLocationId: normStr(storageLocationId),
+    goodreadsRating: normFloat(goodreadsRating),
+    goodreadsRatingsCount: normInt(goodreadsRatingsCount),
+    goodreadsReviewsCount: normInt(goodreadsReviewsCount),
+    goodreadsUrl: normStr(goodreadsUrl),
+    originalTitleEn: normStr(originalTitleEn),
+    originalAuthorsEn: strArray(originalAuthorsEn),
   };
 }
 

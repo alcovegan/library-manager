@@ -13,6 +13,7 @@ const dbLayer = require('./main/db');
 const settings = require('./main/settings');
 const isbnProvider = require('./main/providers/isbn');
 const aiIsbn = require('./main/ai/isbn_enrich');
+const goodreadsEnrich = require('./main/ai/goodreads_enrich');
 const syncManager = require('./main/sync/sync_manager');
 const { version: APP_VERSION } = require('../package.json');
 
@@ -306,6 +307,12 @@ const BOOK_DIFF_FIELDS = {
   isbn: { label: 'isbn' },
   language: { label: 'язык' },
   rating: { label: 'рейтинг', type: 'number' },
+  goodreadsRating: { label: 'рейтинг Goodreads', type: 'number' },
+  goodreadsRatingsCount: { label: 'оценки Goodreads', type: 'number' },
+  goodreadsReviewsCount: { label: 'отзывы Goodreads', type: 'number' },
+  goodreadsUrl: { label: 'ссылка Goodreads' },
+  originalTitleEn: { label: 'оригинальное название (EN)' },
+  originalAuthorsEn: { label: 'авторы (EN)', type: 'array' },
   notes: { label: 'заметки' },
   tags: { label: 'теги', type: 'array' },
   format: { label: 'формат' },
@@ -538,7 +545,7 @@ app.on('window-all-closed', () => {
 ipcMain.handle('books:list', async () => dbLayer.listBooks(db));
 
 ipcMain.handle('books:add', async (event, payload) => {
-  const { title, authors, coverSourcePath, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres, storageLocationId, storageNote } = payload;
+  const { title, authors, coverSourcePath, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres, storageLocationId, storageNote, goodreadsRating, goodreadsRatingsCount, goodreadsReviewsCount, goodreadsUrl, originalTitleEn, originalAuthorsEn } = payload;
   let storageId = storageLocationId ? String(storageLocationId).trim() || null : null;
   if (storageId) {
     const loc = dbLayer.getStorageLocation(db, storageId);
@@ -555,6 +562,12 @@ ipcMain.handle('books:add', async (event, payload) => {
     format: format ? String(format) : null,
     genres: Array.isArray(genres) ? genres : [],
     storageLocationId: storageId,
+    goodreadsRating: typeof goodreadsRating === 'number' ? goodreadsRating : (goodreadsRating != null ? Number(goodreadsRating) : null),
+    goodreadsRatingsCount: typeof goodreadsRatingsCount === 'number' ? goodreadsRatingsCount : (goodreadsRatingsCount != null ? Number(goodreadsRatingsCount) : null),
+    goodreadsReviewsCount: typeof goodreadsReviewsCount === 'number' ? goodreadsReviewsCount : (goodreadsReviewsCount != null ? Number(goodreadsReviewsCount) : null),
+    goodreadsUrl: goodreadsUrl ? String(goodreadsUrl).trim() || null : null,
+    originalTitleEn: originalTitleEn ? String(originalTitleEn).trim() || null : null,
+    originalAuthorsEn: Array.isArray(originalAuthorsEn) ? originalAuthorsEn.map((a) => String(a).trim()).filter(Boolean) : [],
   });
   if (storageId) {
     dbLayer.insertStorageHistory(db, { bookId: book.id, fromLocationId: null, toLocationId: storageId, action: 'move', note: storageNote || null });
@@ -586,7 +599,7 @@ ipcMain.handle('books:add', async (event, payload) => {
 });
 
 ipcMain.handle('books:update', async (event, payload) => {
-  const { id, title, authors, coverSourcePath, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres, storageLocationId, storageNote } = payload;
+  const { id, title, authors, coverSourcePath, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres, storageLocationId, storageNote, goodreadsRating, goodreadsRatingsCount, goodreadsReviewsCount, goodreadsUrl, originalTitleEn, originalAuthorsEn } = payload;
   const beforeSnapshot = getBookSnapshot(id);
   const row = db.db.exec(`SELECT id, coverPath, storageLocationId FROM books WHERE id = '${String(id).replace(/'/g, "''")}'`);
   const current = row[0] && row[0].values[0]
@@ -618,6 +631,12 @@ ipcMain.handle('books:update', async (event, payload) => {
     format: format ? String(format) : null,
     genres: Array.isArray(genres) ? genres : [],
     storageLocationId: storageId,
+    goodreadsRating: typeof goodreadsRating === 'number' ? goodreadsRating : (goodreadsRating != null ? Number(goodreadsRating) : null),
+    goodreadsRatingsCount: typeof goodreadsRatingsCount === 'number' ? goodreadsRatingsCount : (goodreadsRatingsCount != null ? Number(goodreadsRatingsCount) : null),
+    goodreadsReviewsCount: typeof goodreadsReviewsCount === 'number' ? goodreadsReviewsCount : (goodreadsReviewsCount != null ? Number(goodreadsReviewsCount) : null),
+    goodreadsUrl: goodreadsUrl ? String(goodreadsUrl).trim() || null : null,
+    originalTitleEn: originalTitleEn ? String(originalTitleEn).trim() || null : null,
+    originalAuthorsEn: Array.isArray(originalAuthorsEn) ? originalAuthorsEn.map((a) => String(a).trim()).filter(Boolean) : [],
   });
   const prevStorage = current.storageLocationId ? String(current.storageLocationId) : null;
   if (prevStorage !== storageId) {
@@ -1435,6 +1454,17 @@ ipcMain.handle('ai:isbn:clearCache', async (evt, payload) => {
     return { ok: true };
   } catch (e) {
     return { ok: false, error: String(e?.message || e) };
+  }
+});
+
+ipcMain.handle('goodreads:lookup', async (_event, payload) => {
+  try {
+    console.log('🔍 [Goodreads] lookup requested for', payload?.title || '(без названия)');
+    const info = await goodreadsEnrich.fetchGoodreadsInfo(payload || {});
+    return { ok: true, info };
+  } catch (error) {
+    console.error('❌ [MAIN] goodreads:lookup failed', error);
+    return { ok: false, error: error?.message || String(error) };
   }
 });
 
