@@ -58,11 +58,13 @@ const modalGoodreadsRatingInput = $('#modalGoodreadsRating');
 const modalGoodreadsRatingsCountInput = $('#modalGoodreadsRatingsCount');
 const modalGoodreadsReviewsCountInput = $('#modalGoodreadsReviewsCount');
 const modalGoodreadsUrlInput = $('#modalGoodreadsUrl');
+const goodreadsRefreshBtn = $('#goodreadsRefreshBtn');
 const goodreadsPanel = document.querySelector('#goodreadsPanel');
 const goodreadsLookupBtn = $('#goodreadsLookupBtn');
 const goodreadsStatus = $('#goodreadsStatus');
 const goodreadsResultBox = $('#goodreadsResultBox');
 const goodreadsResultContent = $('#goodreadsResultContent');
+const goodreadsFetchedLabel = $('#goodreadsFetchedLabel');
 const modalSaveBtn = $('#modalSaveBtn');
 const modalCollectionsBtn = $('#modalCollectionsBtn');
 const modalStorageSelect = $('#modalStorageSelect');
@@ -274,6 +276,7 @@ let state = {
     goodreads: null,
     originalTitleEn: null,
     originalAuthorsEn: [],
+    goodreadsFetchedAt: null,
   },
   settings: {
     snapshot: null,
@@ -304,10 +307,9 @@ const activityState = {
 
 function resetGoodreadsWidgets() {
   state.modal.goodreads = null;
-  if (state.modal) {
-    state.modal.originalTitleEn = null;
-    state.modal.originalAuthorsEn = [];
-  }
+  state.modal.originalTitleEn = null;
+  state.modal.originalAuthorsEn = [];
+  state.modal.goodreadsFetchedAt = null;
   if (goodreadsStatus) {
     goodreadsStatus.textContent = '';
     goodreadsStatus.style.display = 'none';
@@ -322,6 +324,8 @@ function resetGoodreadsWidgets() {
   if (modalGoodreadsRatingsCountInput) modalGoodreadsRatingsCountInput.value = '';
   if (modalGoodreadsReviewsCountInput) modalGoodreadsReviewsCountInput.value = '';
   if (modalGoodreadsUrlInput) modalGoodreadsUrlInput.value = '';
+  updateGoodreadsFetchedLabel();
+  updateGoodreadsRefreshState();
 }
 
 function renderGoodreadsResult(info) {
@@ -370,7 +374,38 @@ function renderGoodreadsResult(info) {
   goodreadsResultBox.style.display = 'block';
 }
 
-async function lookupGoodreadsForModal() {
+function applyGoodreadsInfo(info, { markFetched = true } = {}) {
+  if (!info) return;
+  state.modal.goodreads = {
+    averageRating: info.averageRating ?? null,
+    ratingsCount: info.ratingsCount ?? null,
+    reviewsCount: info.reviewsCount ?? null,
+    goodreadsUrl: info.goodreadsUrl || null,
+    originalTitle: info.originalTitle || null,
+    originalAuthors: Array.isArray(info.originalAuthors) ? info.originalAuthors : [],
+  };
+  if (modalGoodreadsRatingInput) modalGoodreadsRatingInput.value = typeof info.averageRating === 'number' ? info.averageRating.toFixed(2) : '';
+  if (modalGoodreadsRatingsCountInput) modalGoodreadsRatingsCountInput.value = info.ratingsCount != null ? String(info.ratingsCount) : '';
+  if (modalGoodreadsReviewsCountInput) modalGoodreadsReviewsCountInput.value = info.reviewsCount != null ? String(info.reviewsCount) : '';
+  if (modalGoodreadsUrlInput) modalGoodreadsUrlInput.value = info.goodreadsUrl || '';
+  if (modalOriginalTitleEn && info.originalTitle) {
+    modalOriginalTitleEn.value = info.originalTitle;
+    state.modal.originalTitleEn = info.originalTitle;
+  }
+  if (modalOriginalAuthorsEn && Array.isArray(info.originalAuthors)) {
+    modalOriginalAuthorsEn.value = info.originalAuthors.join(', ');
+    state.modal.originalAuthorsEn = info.originalAuthors;
+  }
+  if (markFetched) {
+    state.modal.goodreadsFetchedAt = new Date().toISOString();
+    updateGoodreadsFetchedLabel();
+  }
+  renderGoodreadsResult(state.modal.goodreads);
+  updateGoodreadsRefreshState();
+  if (goodreadsPanel) goodreadsPanel.open = true;
+}
+
+async function lookupGoodreadsForModal(preferExisting = false) {
   if (!window.api || typeof window.api.lookupGoodreads !== 'function') {
     alert('API Goodreads пока не доступен.');
     return;
@@ -387,35 +422,25 @@ async function lookupGoodreadsForModal() {
     isbn: modalIsbn ? modalIsbn.value.trim() || null : null,
     year: modalYear ? modalYear.value.trim() || null : null,
   };
+  if (preferExisting) {
+    payload.goodreadsUrl = modalGoodreadsUrlInput ? modalGoodreadsUrlInput.value.trim() || null : null;
+    if (!payload.goodreadsUrl) {
+      alert('Сначала найдите книгу на Goodreads или укажите ссылку.');
+      return;
+    }
+  }
   if (goodreadsStatus) {
     goodreadsStatus.style.display = 'inline';
     goodreadsStatus.style.color = 'var(--muted)';
-    goodreadsStatus.textContent = 'Ищем…';
+    goodreadsStatus.textContent = preferExisting ? 'Обновляем…' : 'Ищем…';
   }
   renderGoodreadsResult(null);
   try {
-    const res = await window.api.lookupGoodreads(payload);
+    const res = await window.api.lookupGoodreads(payload, { preferExistingUrl: preferExisting });
     if (!res || res.ok === false) {
       throw new Error(res?.error || 'Не удалось получить данные');
     }
-    state.modal.goodreads = res.info || null;
-    renderGoodreadsResult(state.modal.goodreads);
-    if (state.modal.goodreads) {
-      const info = state.modal.goodreads;
-      if (modalGoodreadsRatingInput) modalGoodreadsRatingInput.value = typeof info.averageRating === 'number' ? info.averageRating.toFixed(2) : '';
-      if (modalGoodreadsRatingsCountInput) modalGoodreadsRatingsCountInput.value = info.ratingsCount != null ? String(info.ratingsCount) : '';
-      if (modalGoodreadsReviewsCountInput) modalGoodreadsReviewsCountInput.value = info.reviewsCount != null ? String(info.reviewsCount) : '';
-      if (modalGoodreadsUrlInput) modalGoodreadsUrlInput.value = info.goodreadsUrl || '';
-      if (modalOriginalTitleEn && info.originalTitle) {
-        modalOriginalTitleEn.value = info.originalTitle;
-        state.modal.originalTitleEn = info.originalTitle;
-      }
-      if (modalOriginalAuthorsEn && Array.isArray(info.originalAuthors)) {
-        modalOriginalAuthorsEn.value = info.originalAuthors.join(', ');
-        state.modal.originalAuthorsEn = info.originalAuthors;
-      }
-      if (goodreadsPanel) goodreadsPanel.open = true;
-    }
+    applyGoodreadsInfo(res.info || null);
     if (res.info && !state.modal.titleAlt && res.info.originalTitle) {
       state.modal.titleAlt = res.info.originalTitle;
     }
@@ -3344,12 +3369,14 @@ function openDetails(b) {
   if (modalStorageSelect) modalStorageSelect.value = b?.storageLocationId || '';
   state.modal.originalTitleEn = b?.originalTitleEn || null;
   state.modal.originalAuthorsEn = Array.isArray(b?.originalAuthorsEn) ? b.originalAuthorsEn : [];
+  state.modal.goodreadsFetchedAt = b?.goodreadsFetchedAt || null;
   if (modalOriginalTitleEn) modalOriginalTitleEn.value = b?.originalTitleEn || '';
   if (modalOriginalAuthorsEn) modalOriginalAuthorsEn.value = Array.isArray(b?.originalAuthorsEn) ? b.originalAuthorsEn.join(', ') : '';
   if (modalGoodreadsRatingInput) modalGoodreadsRatingInput.value = typeof b?.goodreadsRating === 'number' ? b.goodreadsRating.toFixed(2) : '';
   if (modalGoodreadsRatingsCountInput) modalGoodreadsRatingsCountInput.value = b?.goodreadsRatingsCount != null ? String(b.goodreadsRatingsCount) : '';
   if (modalGoodreadsReviewsCountInput) modalGoodreadsReviewsCountInput.value = b?.goodreadsReviewsCount != null ? String(b.goodreadsReviewsCount) : '';
   if (modalGoodreadsUrlInput) modalGoodreadsUrlInput.value = b?.goodreadsUrl || '';
+  updateGoodreadsFetchedLabel();
   if (goodreadsPanel) {
     const hasGoodreadsData = Boolean(b && (b.goodreadsRating != null || b.goodreadsRatingsCount != null || b.goodreadsReviewsCount != null || b.goodreadsUrl || b.originalTitleEn || (Array.isArray(b.originalAuthorsEn) && b.originalAuthorsEn.length)));
     goodreadsPanel.open = hasGoodreadsData;
@@ -3379,6 +3406,7 @@ function openDetails(b) {
   attachAutocomplete(modalGenres, 'genres', { multiple: true });
   attachAutocomplete(modalTags, 'tags', { multiple: true });
   updateModalLoanStatus(b);
+  updateGoodreadsRefreshState();
 }
 
 function updateModalLoanStatus(book) {
@@ -3434,6 +3462,7 @@ function captureModalSnapshot() {
     goodreadsUrl: modalGoodreadsUrlInput ? modalGoodreadsUrlInput.value : '',
     originalTitleEn: modalOriginalTitleEn ? modalOriginalTitleEn.value : '',
     originalAuthorsEn: modalOriginalAuthorsEn ? modalOriginalAuthorsEn.value : '',
+    goodreadsFetchedAt: state.modal.goodreadsFetchedAt || null,
   };
 }
 
@@ -4452,6 +4481,12 @@ if (goodreadsLookupBtn) {
   });
 }
 
+if (goodreadsRefreshBtn) {
+  goodreadsRefreshBtn.addEventListener('click', () => {
+    lookupGoodreadsForModal(true);
+  });
+}
+
 if (bulkEditToggle) bulkEditToggle.addEventListener('click', () => toggleBulkMode());
 if (bulkAddTagsBtn) bulkAddTagsBtn.addEventListener('click', bulkAddTags);
 if (bulkRemoveTagsBtn) bulkRemoveTagsBtn.addEventListener('click', bulkRemoveTags);
@@ -4488,6 +4523,16 @@ if (modalCoverUrlInput) {
       e.preventDefault();
       loadCoverFromUrl(modalCoverUrlInput, true);
     }
+  });
+}
+
+if (modalGoodreadsUrlInput) {
+  modalGoodreadsUrlInput.addEventListener('input', () => {
+    if (state?.modal) {
+      const value = modalGoodreadsUrlInput.value.trim();
+      state.modal.goodreadsUrl = value || null;
+    }
+    updateGoodreadsRefreshState();
   });
 }
 
@@ -6251,4 +6296,33 @@ async function cleanupCovers() {
 // Attach cleanup button event listener
 if (cleanupCoversBtn) {
   cleanupCoversBtn.addEventListener('click', cleanupCovers);
+}
+function updateGoodreadsRefreshState() {
+  if (!goodreadsRefreshBtn) return;
+  const hasUrl = modalGoodreadsUrlInput && modalGoodreadsUrlInput.value.trim();
+  goodreadsRefreshBtn.disabled = !hasUrl;
+  if (hasUrl) {
+    goodreadsRefreshBtn.title = 'Обновить данные из Goodreads по сохранённой ссылке';
+  } else {
+    goodreadsRefreshBtn.title = 'Кнопка активируется после поиска книги на Goodreads';
+  }
+}
+
+function updateGoodreadsFetchedLabel() {
+  if (!goodreadsFetchedLabel) return;
+  const iso = state?.modal?.goodreadsFetchedAt;
+  if (!iso) {
+    goodreadsFetchedLabel.textContent = '';
+    goodreadsFetchedLabel.style.display = 'none';
+    return;
+  }
+  try {
+    const date = new Date(iso);
+    const formatted = date.toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' });
+    goodreadsFetchedLabel.textContent = `Последнее обновление: ${formatted}`;
+    goodreadsFetchedLabel.style.display = 'block';
+  } catch {
+    goodreadsFetchedLabel.textContent = '';
+    goodreadsFetchedLabel.style.display = 'none';
+  }
 }
