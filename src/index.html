@@ -607,6 +607,7 @@
             </div>
             <div class="row" style="margin-top:8px; gap:8px; align-items:center;">
               <button id="goodreadsLookupBtn" type="button" class="btn secondary">🤖 Найти книгу на Goodreads</button>
+              <button id="goodreadsRefreshBtn" type="button" class="btn" disabled>🔄 Обновить данные</button>
               <span id="goodreadsStatus" style="font-size:12px; color:var(--muted); display:none;"></span>
             </div>
             <details id="goodreadsPanel" class="goodreads-panel">
@@ -637,6 +638,7 @@
                   <input id="modalGoodreadsUrl" type="text" placeholder="https://www.goodreads.com/..." style="text-transform:none;" />
                 </div>
               </div>
+              <div id="goodreadsFetchedLabel" style="margin-top:8px; font-size:12px; color:var(--muted);"></div>
             </details>
             <div id="goodreadsResultBox" class="card" style="display:none; margin-top:8px;">
               <div style="font-size:12px; color:var(--muted); margin-bottom:4px;">Найдено на Goodreads</div>

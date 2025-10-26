@@ -41,7 +41,7 @@ contextBridge.exposeInMainWorld('api', {
   updateFilterPreset: (payload) => ipcRenderer.invoke('filterPresets:update', payload),
   deleteFilterPreset: (payload) => ipcRenderer.invoke('filterPresets:delete', payload),
   saveLastFilterPreset: (filters) => ipcRenderer.invoke('filters:lastSave', { filters }),
-  lookupGoodreads: (payload) => ipcRenderer.invoke('goodreads:lookup', payload),
+  lookupGoodreads: (payload, options = {}) => ipcRenderer.invoke('goodreads:lookup', { payload, options }),
   listActivity: (options) => ipcRenderer.invoke('activity:list', options),
   clearActivity: (options) => ipcRenderer.invoke('activity:clear', options),
   exportActivity: (options) => ipcRenderer.invoke('activity:export', options),

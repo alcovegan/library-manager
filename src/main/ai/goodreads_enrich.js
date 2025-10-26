@@ -250,15 +250,28 @@ async function enrichGoodreadsFromPage(url) {
   };
 }
 
-async function fetchGoodreadsInfo(book) {
+async function fetchGoodreadsInfo(book, { preferExistingUrl = false } = {}) {
   if (!book || typeof book !== 'object') {
     throw new Error('book payload required');
   }
-  const prompt = buildPrompt(book);
-  const response = await callAI(prompt);
-  const parsed = safeParseJSON(response);
-  if (!parsed) {
-    throw new Error('Не удалось разобрать ответ Perplexity');
+  let parsed = null;
+  let response = null;
+  if (preferExistingUrl && book.goodreadsUrl) {
+    parsed = {
+      originalTitle: book.originalTitleEn || book.title || null,
+      originalAuthors: Array.isArray(book.originalAuthorsEn) ? book.originalAuthorsEn : [],
+      goodreadsUrl: book.goodreadsUrl,
+      goodreadsId: book.goodreadsId || null,
+      confidence: 'existing',
+      notes: 'Использована сохранённая ссылка на Goodreads',
+    };
+  } else {
+    const prompt = buildPrompt(book);
+    response = await callAI(prompt);
+    parsed = safeParseJSON(response);
+    if (!parsed) {
+      throw new Error('Не удалось разобрать ответ Perplexity');
+    }
   }
   if (!parsed.goodreadsUrl) {
     throw new Error('Perplexity не смог найти ссылку на Goodreads');
