@@ -257,9 +257,13 @@ async function fetchGoodreadsInfo(book, { preferExistingUrl = false } = {}) {
   let parsed = null;
   let response = null;
   if (preferExistingUrl && book.goodreadsUrl) {
+    const normalizedOriginalTitle = book.originalTitleEn ? String(book.originalTitleEn).trim() : '';
+    const normalizedOriginalAuthors = Array.isArray(book.originalAuthorsEn)
+      ? book.originalAuthorsEn.map((name) => String(name || '').trim()).filter(Boolean)
+      : [];
     parsed = {
-      originalTitle: book.originalTitleEn || book.title || null,
-      originalAuthors: Array.isArray(book.originalAuthorsEn) ? book.originalAuthorsEn : [],
+      originalTitle: normalizedOriginalTitle || null,
+      originalAuthors: normalizedOriginalAuthors.length ? normalizedOriginalAuthors : null,
       goodreadsUrl: book.goodreadsUrl,
       goodreadsId: book.goodreadsId || null,
       confidence: 'existing',

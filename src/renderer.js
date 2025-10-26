@@ -416,12 +416,19 @@ async function lookupGoodreadsForModal(preferExisting = false) {
     return;
   }
   const authors = modalAuthors ? modalAuthors.value.split(',').map((a) => a.trim()).filter(Boolean) : [];
+  const originalTitle = (modalOriginalTitleEn ? modalOriginalTitleEn.value.trim() : '') || (state?.modal?.originalTitleEn || '');
+  let originalAuthorsEn = modalOriginalAuthorsEn ? parseCommaSeparatedList(modalOriginalAuthorsEn.value) : [];
+  if (!originalAuthorsEn.length && Array.isArray(state?.modal?.originalAuthorsEn) && state.modal.originalAuthorsEn.length) {
+    originalAuthorsEn = state.modal.originalAuthorsEn.map((a) => String(a).trim()).filter(Boolean);
+  }
   const payload = {
     title,
     authors,
     isbn: modalIsbn ? modalIsbn.value.trim() || null : null,
     year: modalYear ? modalYear.value.trim() || null : null,
   };
+  if (originalTitle) payload.originalTitleEn = originalTitle;
+  if (originalAuthorsEn.length) payload.originalAuthorsEn = originalAuthorsEn;
   if (preferExisting) {
     payload.goodreadsUrl = modalGoodreadsUrlInput ? modalGoodreadsUrlInput.value.trim() || null : null;
     if (!payload.goodreadsUrl) {
