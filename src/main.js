@@ -26,6 +26,13 @@ const fetch = globalThis.fetch
   : (...args) => import('node-fetch').then(({ default: nodeFetch }) => nodeFetch(...args));
 
 const LAST_FILTER_PRESET_SLUG = 'last-used-filter';
+const VOCAB_LABELS = {
+  authors: 'авторы',
+  series: 'серии',
+  publisher: 'издательства',
+  genres: 'жанры',
+  tags: 'теги',
+};
 
 const GOOGLE_IMAGE_HINTS = [
   { key: 'extraLarge', width: 1280 },
@@ -1123,6 +1130,72 @@ ipcMain.handle('filters:lastSave', async (_event, payload) => {
       filters,
     });
     return { ok: true, preset };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
+});
+
+ipcMain.handle('vocab:list', async () => {
+  try {
+    const vocab = dbLayer.listVocabulary(db);
+    return { ok: true, vocab };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
+});
+
+ipcMain.handle('vocab:addCustom', async (_event, payload) => {
+  try {
+    const domain = payload?.domain;
+    const value = payload?.value;
+    if (!domain || !value) throw new Error('domain and value required');
+    const entry = dbLayer.addCustomVocabularyEntry(db, domain, value);
+    recordActivity({
+      action: 'vocab.add',
+      entityType: 'vocabulary',
+      entityId: `${domain}:${entry.id}`,
+      summary: `Добавлено значение для "${VOCAB_LABELS[domain] || domain}": ${entry.value}`,
+      payload: { domain, value: entry.value },
+    });
+    return { ok: true, entry };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
+});
+
+ipcMain.handle('vocab:deleteCustom', async (_event, payload) => {
+  try {
+    const id = typeof payload === 'string' ? payload : String(payload?.id || '').trim();
+    if (!id) throw new Error('id required');
+    dbLayer.deleteCustomVocabularyEntry(db, id);
+    recordActivity({
+      action: 'vocab.delete',
+      entityType: 'vocabulary',
+      entityId: id,
+      summary: 'Удалено пользовательское значение словаря',
+      payload: { id },
+    });
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
+});
+
+ipcMain.handle('vocab:rename', async (_event, payload) => {
+  try {
+    const domain = payload?.domain;
+    const from = payload?.from;
+    const to = payload?.to;
+    if (!domain || !from || !to) throw new Error('domain, from и to обязательны');
+    const result = dbLayer.renameVocabularyValue(db, domain, from, to);
+    recordActivity({
+      action: 'vocab.rename',
+      entityType: 'vocabulary',
+      entityId: `${domain}:${from}`,
+      summary: `Переименовано "${VOCAB_LABELS[domain] || domain}": ${from} → ${to}`,
+      payload: { domain, from, to, affected: result.affected },
+    });
+    return { ok: true, affected: result.affected || 0 };
   } catch (error) {
     return { ok: false, error: String(error?.message || error) };
   }

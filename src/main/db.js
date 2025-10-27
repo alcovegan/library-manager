@@ -349,6 +349,20 @@ async function migrate(ctx) {
     setSchemaVersion(ctx, 13);
     persist(ctx);
   }
+  if (getSchemaVersion(ctx) === 13) {
+    ctx.db.exec(`
+      CREATE TABLE IF NOT EXISTS vocab_custom (
+        id TEXT PRIMARY KEY,
+        domain TEXT NOT NULL,
+        value TEXT NOT NULL,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        UNIQUE(domain, value)
+      );
+    `);
+    setSchemaVersion(ctx, 14);
+    persist(ctx);
+  }
 }
 
 function ensureAuthor(ctx, name) {
@@ -377,6 +391,263 @@ function authorsForBook(ctx, bookId) {
   `);
   if (!res[0]) return [];
   return res[0].values.map(v => v[0]);
+}
+
+const VOCAB_DOMAINS = ['authors', 'series', 'publisher', 'genres', 'tags'];
+
+function normalizeVocabValue(value) {
+  if (value === null || value === undefined) return '';
+  return String(value).trim();
+}
+
+function emptyVocabBucket() {
+  return VOCAB_DOMAINS.reduce((acc, domain) => {
+    acc[domain] = new Map();
+    return acc;
+  }, {});
+}
+
+function addVocabEntry(bucket, domain, value, count = 0, source = 'books', meta = {}) {
+  if (!VOCAB_DOMAINS.includes(domain)) return;
+  const normalized = normalizeVocabValue(value);
+  if (!normalized) return;
+  const map = bucket[domain];
+  if (!map.has(normalized)) {
+    map.set(normalized, {
+      value: normalized,
+      count: 0,
+      sources: { books: false, custom: false },
+      customId: null,
+    });
+  }
+  const entry = map.get(normalized);
+  entry.count += Number(count) || 0;
+  if (source === 'books') {
+    entry.sources.books = true;
+  } else if (source === 'custom') {
+    entry.sources.custom = true;
+    if (meta && meta.id) entry.customId = meta.id;
+  }
+}
+
+function rowsToValues(res) {
+  if (!res[0]) return [];
+  return res[0].values;
+}
+
+function listVocabulary(ctx) {
+  const bucket = emptyVocabBucket();
+  // Authors
+  const authorsRows = rowsToValues(ctx.db.exec(`
+    SELECT a.name AS value, COUNT(ba.bookId) AS usageCount
+    FROM authors a
+    LEFT JOIN book_authors ba ON ba.authorId = a.id
+    GROUP BY a.id
+    ORDER BY lower(a.name)
+  `));
+  authorsRows.forEach(([value, count]) => addVocabEntry(bucket, 'authors', value, count, 'books'));
+  // Series
+  const seriesRows = rowsToValues(ctx.db.exec(`
+    SELECT series AS value, COUNT(*) AS usageCount
+    FROM books
+    WHERE series IS NOT NULL AND TRIM(series) != ''
+    GROUP BY series
+    ORDER BY lower(series)
+  `));
+  seriesRows.forEach(([value, count]) => addVocabEntry(bucket, 'series', value, count, 'books'));
+  // Publisher
+  const publisherRows = rowsToValues(ctx.db.exec(`
+    SELECT publisher AS value, COUNT(*) AS usageCount
+    FROM books
+    WHERE publisher IS NOT NULL AND TRIM(publisher) != ''
+    GROUP BY publisher
+    ORDER BY lower(publisher)
+  `));
+  publisherRows.forEach(([value, count]) => addVocabEntry(bucket, 'publisher', value, count, 'books'));
+  // Genres
+  const genresRows = rowsToValues(ctx.db.exec(`
+    SELECT trim(json_each.value) AS value, COUNT(*) AS usageCount
+    FROM books, json_each(books.genres)
+    WHERE json_valid(books.genres) = 1 AND json_type(books.genres) = 'array' AND trim(json_each.value) != ''
+    GROUP BY value
+    ORDER BY lower(value)
+  `));
+  genresRows.forEach(([value, count]) => addVocabEntry(bucket, 'genres', value, count, 'books'));
+  // Tags
+  const tagsRows = rowsToValues(ctx.db.exec(`
+    SELECT trim(json_each.value) AS value, COUNT(*) AS usageCount
+    FROM books, json_each(books.tags)
+    WHERE json_valid(books.tags) = 1 AND json_type(books.tags) = 'array' AND trim(json_each.value) != ''
+    GROUP BY value
+    ORDER BY lower(value)
+  `));
+  tagsRows.forEach(([value, count]) => addVocabEntry(bucket, 'tags', value, count, 'books'));
+  // Custom entries
+  const customRows = rowsToValues(ctx.db.exec(`
+    SELECT id, domain, value FROM vocab_custom ORDER BY lower(value)
+  `));
+  customRows.forEach(([id, domain, value]) => addVocabEntry(bucket, domain, value, 0, 'custom', { id }));
+  const collator = new Intl.Collator('ru', { sensitivity: 'base', numeric: true });
+  return VOCAB_DOMAINS.reduce((acc, domain) => {
+    const arr = Array.from(bucket[domain].values()).sort((a, b) => collator.compare(a.value, b.value));
+    acc[domain] = arr;
+    return acc;
+  }, {});
+}
+
+function addCustomVocabularyEntry(ctx, domain, value) {
+  if (!VOCAB_DOMAINS.includes(domain)) throw new Error('invalid domain');
+  const normalized = normalizeVocabValue(value);
+  if (!normalized) throw new Error('value required');
+  const now = new Date().toISOString();
+  const id = randomUUID();
+  const stmt = ctx.db.prepare('INSERT INTO vocab_custom(id, domain, value, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?)');
+  stmt.bind([id, domain, normalized, now, now]);
+  stmt.step();
+  stmt.free();
+  persist(ctx);
+  return { id, domain, value: normalized, createdAt: now, updatedAt: now };
+}
+
+function deleteCustomVocabularyEntry(ctx, id) {
+  const stmt = ctx.db.prepare('DELETE FROM vocab_custom WHERE id = ?');
+  stmt.bind([id]);
+  stmt.step();
+  stmt.free();
+  persist(ctx);
+}
+
+function updateCustomEntryValue(ctx, domain, fromValue, toValue) {
+  const stmt = ctx.db.prepare('UPDATE vocab_custom SET value = ?, updatedAt = ? WHERE domain = ? AND value = ?');
+  const now = new Date().toISOString();
+  try {
+    stmt.bind([toValue, now, domain, fromValue]);
+    stmt.step();
+    stmt.free();
+  } catch (error) {
+    stmt.free();
+    const message = String(error?.message || '').toLowerCase();
+    if (message.includes('unique')) {
+      const del = ctx.db.prepare('DELETE FROM vocab_custom WHERE domain = ? AND value = ?');
+      del.bind([domain, fromValue]);
+      del.step();
+      del.free();
+    } else {
+      throw error;
+    }
+  }
+}
+
+function replaceArrayValue(ctx, column, fromValue, toValue) {
+  const res = ctx.db.exec(`
+    SELECT id, ${column} FROM books
+    WHERE ${column} IS NOT NULL AND ${column} != ''
+  `);
+  if (!res[0]) return 0;
+  const rows = res[0].values;
+  const stmt = ctx.db.prepare(`UPDATE books SET ${column} = ?, updatedAt = ? WHERE id = ?`);
+  const now = new Date().toISOString();
+  let affected = 0;
+  rows.forEach(([id, raw]) => {
+    const arr = parseJsonArray(raw);
+    if (!arr.length) return;
+    let changed = false;
+    const next = arr.map((item) => {
+      if (item === fromValue) {
+        changed = true;
+        return toValue;
+      }
+      return item;
+    }).filter((item, idx, self) => item && self.indexOf(item) === idx);
+    if (changed) {
+      stmt.bind([JSON.stringify(next), now, id]);
+      stmt.step();
+      stmt.reset();
+      affected += 1;
+    }
+  });
+  stmt.free();
+  return affected;
+}
+
+function renameAuthorValue(ctx, fromValue, toValue) {
+  const trimmedFrom = normalizeVocabValue(fromValue);
+  const trimmedTo = normalizeVocabValue(toValue);
+  if (!trimmedFrom || !trimmedTo) return 0;
+  const sel = ctx.db.prepare('SELECT id FROM authors WHERE name = ?');
+  sel.bind([trimmedFrom]);
+  let sourceId = null;
+  if (sel.step()) {
+    sourceId = sel.getAsObject().id;
+  }
+  sel.free();
+  if (!sourceId) return 0;
+  const booksRes = ctx.db.exec(`
+    SELECT DISTINCT bookId FROM book_authors WHERE authorId = '${sourceId}'
+  `);
+  const affectedBooks = booksRes[0] ? booksRes[0].values.map((row) => row[0]) : [];
+  const targetId = ensureAuthor(ctx, trimmedTo);
+  ctx.db.exec(`
+    DELETE FROM book_authors
+    WHERE authorId = '${sourceId}'
+      AND EXISTS (
+        SELECT 1 FROM book_authors ba2
+        WHERE ba2.bookId = book_authors.bookId AND ba2.authorId = '${targetId}'
+      )
+  `);
+  ctx.db.exec(`
+    UPDATE book_authors SET authorId = '${targetId}'
+    WHERE authorId = '${sourceId}'
+  `);
+  ctx.db.exec(`DELETE FROM authors WHERE id = '${sourceId}'`);
+  if (affectedBooks.length) {
+    const now = new Date().toISOString();
+    const ids = affectedBooks.map((id) => `'${String(id).replace(/'/g, "''")}'`).join(', ');
+    ctx.db.exec(`UPDATE books SET updatedAt = '${now}' WHERE id IN (${ids})`);
+  }
+  return affectedBooks.length;
+}
+
+function renameVocabularyValue(ctx, domain, fromValue, toValue) {
+  if (!VOCAB_DOMAINS.includes(domain)) throw new Error('invalid domain');
+  const from = normalizeVocabValue(fromValue);
+  const to = normalizeVocabValue(toValue);
+  if (!from || !to) throw new Error('value required');
+  if (from === to) return { affected: 0 };
+  let affected = 0;
+  const now = new Date().toISOString();
+  switch (domain) {
+    case 'authors':
+      affected = renameAuthorValue(ctx, from, to);
+      break;
+    case 'series': {
+      const stmt = ctx.db.prepare('UPDATE books SET series = ?, updatedAt = ? WHERE TRIM(COALESCE(series, "")) = ?');
+      stmt.bind([to, now, from]);
+      stmt.step();
+      stmt.free();
+      affected = ctx.db.getRowsModified ? ctx.db.getRowsModified() : 0;
+      break;
+    }
+    case 'publisher': {
+      const stmt = ctx.db.prepare('UPDATE books SET publisher = ?, updatedAt = ? WHERE TRIM(COALESCE(publisher, "")) = ?');
+      stmt.bind([to, now, from]);
+      stmt.step();
+      stmt.free();
+      affected = ctx.db.getRowsModified ? ctx.db.getRowsModified() : 0;
+      break;
+    }
+    case 'genres':
+      affected = replaceArrayValue(ctx, 'genres', from, to);
+      break;
+    case 'tags':
+      affected = replaceArrayValue(ctx, 'tags', from, to);
+      break;
+    default:
+      break;
+  }
+  updateCustomEntryValue(ctx, domain, from, to);
+  persist(ctx);
+  return { affected };
 }
 
 function listBooks(ctx) {
@@ -1467,6 +1738,10 @@ module.exports = {
   setCollectionBooks,
   updateBookMembership,
   removeBookFromAllCollections,
+  listVocabulary,
+  addCustomVocabularyEntry,
+  deleteCustomVocabularyEntry,
+  renameVocabularyValue,
   resolveCoverPath,
   listStorageLocations,
   createStorageLocation,

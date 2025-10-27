@@ -75,7 +75,13 @@ const modalStorageQuickAddBtn = $('#modalStorageQuickAddBtn');
 const modalLoanStatus = document.querySelector('#modalLoanStatus');
 const modalLoanDetails = document.querySelector('#modalLoanDetails');
 const themeToggle = $('#themeToggle');
+const openVocabManagerBtn = $('#openVocabManagerBtn');
 const openSettingsBtn = $('#openSettingsBtn');
+const vocabManagerModal = $('#vocabManagerModal');
+const vocabManagerCloseBtn = $('#vocabManagerCloseBtn');
+const vocabTabsContainer = $('#vocabTabs');
+const vocabListEl = $('#vocabList');
+const vocabAddBtn = $('#vocabAddBtn');
 const btnViewGrid = document.querySelector('#btnViewGrid');
 const btnViewList = document.querySelector('#btnViewList');
 const btnDenseNormal = document.querySelector('#btnDenseNormal');
@@ -280,7 +286,14 @@ let state = {
   },
   settings: {
     snapshot: null,
-  }
+  },
+  customVocabulary: {
+    authors: [],
+    series: [],
+    publisher: [],
+    genres: [],
+    tags: [],
+  },
 };
 
 // Skip applying filters on the very first render to avoid stale-localStorage hiding all
@@ -303,6 +316,26 @@ const activityState = {
   filters: { category: 'all', search: '' },
   needsRefresh: true,
   pendingReload: false,
+};
+
+const VOCAB_DOMAIN_META = {
+  genres: { label: 'Жанры' },
+  tags: { label: 'Теги' },
+  publisher: { label: 'Издательства' },
+  series: { label: 'Серии' },
+  authors: { label: 'Авторы' },
+};
+
+const vocabState = {
+  currentDomain: 'genres',
+  data: {
+    authors: [],
+    series: [],
+    publisher: [],
+    genres: [],
+    tags: [],
+  },
+  loading: false,
 };
 
 function resetGoodreadsWidgets() {
@@ -1649,6 +1682,13 @@ function rebuildSuggestStore() {
     const publisher = new Set();
     const tags = new Set();
     const genres = new Set();
+    const custom = state.customVocabulary || {};
+    const addCustomValues = (set, list) => {
+      (Array.isArray(list) ? list : []).forEach((value) => {
+        const normalized = String(value || '').trim();
+        if (normalized) set.add(normalized);
+      });
+    };
     (state.books || []).forEach((b) => {
       (Array.isArray(b.authors) ? b.authors : []).forEach((a) => { const s = String(a || '').trim(); if (s) authors.add(s); });
       const s = String(b.series || '').trim(); if (s) series.add(s);
@@ -1656,6 +1696,11 @@ function rebuildSuggestStore() {
       (Array.isArray(b.tags) ? b.tags : []).forEach((t) => { const s = String(t || '').trim(); if (s) tags.add(s); });
       (Array.isArray(b.genres) ? b.genres : []).forEach((g) => { const s = String(g || '').trim(); if (s) genres.add(s); });
     });
+    addCustomValues(authors, custom.authors);
+    addCustomValues(series, custom.series);
+    addCustomValues(publisher, custom.publisher);
+    addCustomValues(tags, custom.tags);
+    addCustomValues(genres, custom.genres);
     const collator = new Intl.Collator('ru', { sensitivity: 'base', numeric: true });
     _suggest = {
       authors: Array.from(authors).sort(collator.compare),
@@ -2101,6 +2146,175 @@ function showPromptDialog(message, defaultValue = '') {
       input.select();
     }, 100);
   });
+}
+
+function getEmptyCustomVocabulary() {
+  return {
+    authors: [],
+    series: [],
+    publisher: [],
+    genres: [],
+    tags: [],
+  };
+}
+
+function syncCustomVocabularyFromVocabState() {
+  const custom = getEmptyCustomVocabulary();
+  Object.entries(vocabState.data || {}).forEach(([domain, entries]) => {
+    if (!Array.isArray(entries) || !custom[domain]) return;
+    entries.forEach((entry) => {
+      if (entry?.sources?.custom) {
+        const value = String(entry.value || '').trim();
+        if (value) custom[domain].push(value);
+      }
+    });
+  });
+  state.customVocabulary = custom;
+  rebuildSuggestStore();
+}
+
+function renderVocabList() {
+  if (!vocabListEl) return;
+  const domain = vocabState.currentDomain;
+  const entries = Array.isArray(vocabState.data[domain]) ? vocabState.data[domain] : [];
+  if (vocabState.loading) {
+    vocabListEl.innerHTML = '<div class="empty" style="padding:16px;">Загружаем…</div>';
+    return;
+  }
+  if (!entries.length) {
+    vocabListEl.innerHTML = '<div class="empty" style="padding:16px;">Пока нет значений.</div>';
+    return;
+  }
+  const rows = entries.map((entry) => {
+    const countLabel = entry.count ? `Использований: ${entry.count}` : 'Пока не используется';
+    const sourceParts = [];
+    if (entry.sources?.books) sourceParts.push('книги');
+    if (entry.sources?.custom) sourceParts.push('ручное');
+    const sourceLabel = sourceParts.length ? `Источник: ${sourceParts.join(' + ')}` : '';
+    const canDelete = entry.sources?.custom && !entry.sources?.books && entry.count === 0 && entry.customId;
+    return `
+      <div class="card" style="padding:12px; display:flex; align-items:center; gap:12px;">
+        <div style="flex:1; min-width:0;">
+          <div style="font-weight:600;">${escapeHtml(entry.value)}</div>
+          <div style="font-size:12px; color:var(--muted); display:flex; flex-wrap:wrap; gap:12px; margin-top:4px;">
+            <span>${countLabel}</span>
+            ${sourceLabel ? `<span>${escapeHtml(sourceLabel)}</span>` : ''}
+          </div>
+        </div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          <button class="btn secondary" data-action="rename" data-value="${escapeHtml(entry.value)}">Переименовать</button>
+          ${canDelete ? `<button class="btn danger" data-action="delete" data-id="${escapeHtml(entry.customId)}">Удалить</button>` : ''}
+        </div>
+      </div>
+    `;
+  });
+  vocabListEl.innerHTML = rows.join('');
+}
+
+async function refreshVocabularyData({ silent = false } = {}) {
+  if (!window.api?.listVocabulary) return;
+  try {
+    vocabState.loading = true;
+    if (!silent) renderVocabList();
+    const res = await window.api.listVocabulary();
+    vocabState.loading = false;
+    if (!res || res.ok === false) {
+      throw new Error(res?.error || 'Не удалось получить данные');
+    }
+    const data = res.vocab || {};
+    vocabState.data = {
+      authors: data.authors || [],
+      series: data.series || [],
+      publisher: data.publisher || [],
+      genres: data.genres || [],
+      tags: data.tags || [],
+    };
+    syncCustomVocabularyFromVocabState();
+    if (!silent) renderVocabList();
+  } catch (error) {
+    vocabState.loading = false;
+    if (!silent && vocabListEl) {
+      vocabListEl.innerHTML = `<div class="empty" style="padding:16px;">Ошибка загрузки: ${escapeHtml(error?.message || error)}</div>`;
+    }
+    console.error('vocab load failed', error);
+  }
+}
+
+function setVocabDomain(domain) {
+  if (!VOCAB_DOMAIN_META[domain]) return;
+  vocabState.currentDomain = domain;
+  if (vocabTabsContainer) {
+    const buttons = vocabTabsContainer.querySelectorAll('[data-vocab-tab]');
+    buttons.forEach((btn) => {
+      const isActive = btn.dataset.vocabTab === domain;
+      btn.classList.toggle('active', isActive);
+    });
+  }
+  renderVocabList();
+}
+
+function openVocabManager() {
+  if (!vocabManagerModal) return;
+  vocabManagerModal.style.display = 'flex';
+  refreshVocabularyData({ silent: false });
+}
+
+function closeVocabManager() {
+  if (!vocabManagerModal) return;
+  vocabManagerModal.style.display = 'none';
+}
+
+async function handleVocabAdd() {
+  const domain = vocabState.currentDomain;
+  if (!VOCAB_DOMAIN_META[domain]) return;
+  const label = VOCAB_DOMAIN_META[domain].label;
+  const value = await showPromptDialog(`Новое значение для «${label}»`);
+  if (!value) return;
+  try {
+    const res = await window.api.addVocabularyEntry({ domain, value });
+    if (!res || res.ok === false) {
+      throw new Error(res?.error || 'Не удалось добавить значение');
+    }
+    await refreshVocabularyData({ silent: true });
+    renderVocabList();
+    alert(`Добавлено значение «${value}» для ${label.toLowerCase()}`);
+  } catch (error) {
+    alert(`Не удалось добавить: ${error?.message || error}`);
+  }
+}
+
+async function handleVocabRename(value) {
+  const domain = vocabState.currentDomain;
+  const safeValue = String(value || '').trim();
+  if (!VOCAB_DOMAIN_META[domain] || !safeValue) return;
+  const next = await showPromptDialog('Новое значение', safeValue);
+  if (!next || next === value) return;
+  try {
+    const res = await window.api.renameVocabularyEntry({ domain, from: safeValue, to: next });
+    if (!res || res.ok === false) {
+      throw new Error(res?.error || 'Не удалось переименовать');
+    }
+    await reloadDataOnly();
+    await refreshVocabularyData({ silent: true });
+    renderVocabList();
+  } catch (error) {
+    alert(`Не удалось переименовать: ${error?.message || error}`);
+  }
+}
+
+async function handleVocabDelete(id) {
+  if (!id) return;
+  if (!confirm('Удалить пользовательское значение?')) return;
+  try {
+    const res = await window.api.deleteVocabularyEntry({ id });
+    if (!res || res.ok === false) {
+      throw new Error(res?.error || 'Не удалось удалить');
+    }
+    await refreshVocabularyData({ silent: true });
+    renderVocabList();
+  } catch (error) {
+    alert(`Не удалось удалить: ${error?.message || error}`);
+  }
 }
 
 function escapeBookIdForSelector(id) {
@@ -3797,6 +4011,7 @@ async function load() {
   if (searchInput) searchInput.value = '';
   applySearch('');
   populateAuthorFilter();
+  await refreshVocabularyData({ silent: true });
   // restoreFiltersState(); // Disabled: always start with clean filters
   rebuildSuggestStore();
   // Safety: если сохранённые фильтры на старте скрывают все книги — сбрасываем их автоматически
@@ -5228,6 +5443,41 @@ if (openSettingsBtn) {
     openSettings();
     // snapshot current settings to detect unsaved changes
     state.settings.snapshot = captureSettingsSnapshot();
+  });
+}
+if (openVocabManagerBtn) {
+  openVocabManagerBtn.addEventListener('click', () => {
+    openVocabManager();
+  });
+}
+if (vocabManagerCloseBtn) {
+  vocabManagerCloseBtn.addEventListener('click', closeVocabManager);
+}
+if (vocabManagerModal) {
+  vocabManagerModal.addEventListener('click', (event) => {
+    if (event.target === vocabManagerModal) closeVocabManager();
+  });
+}
+if (vocabTabsContainer) {
+  vocabTabsContainer.addEventListener('click', (event) => {
+    const btn = event.target.closest('[data-vocab-tab]');
+    if (!btn) return;
+    setVocabDomain(btn.dataset.vocabTab);
+  });
+}
+if (vocabAddBtn) {
+  vocabAddBtn.addEventListener('click', handleVocabAdd);
+}
+if (vocabListEl) {
+  vocabListEl.addEventListener('click', (event) => {
+    const btn = event.target.closest('button[data-action]');
+    if (!btn) return;
+    const action = btn.dataset.action;
+    if (action === 'rename') {
+      handleVocabRename(btn.dataset.value);
+    } else if (action === 'delete') {
+      handleVocabDelete(btn.dataset.id);
+    }
   });
 }
 if (openEnrichBtn) {

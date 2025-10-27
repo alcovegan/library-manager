@@ -159,6 +159,16 @@
       body.theme-dark .seg { border-color: var(--border); }
       body.theme-dark .seg > button { background: transparent; }
       body.theme-dark .seg > button.active { background: rgba(255,255,255,0.08); }
+      .btn.secondary.active {
+        background: rgba(59,111,255,0.12);
+        border-color: rgba(59,111,255,0.6);
+        color: var(--accent);
+      }
+      body.theme-dark .btn.secondary.active {
+        background: rgba(99,102,241,0.25);
+        border-color: rgba(129,140,248,0.6);
+        color: #c7d2ff;
+      }
       /* layout + unified controls */
       html, body { height: 100%; }
       body { margin: 0; display: flex; flex-direction: column; }
@@ -239,6 +249,9 @@
           </button>
           <button id="syncBtn" class="icon-btn" title="Синхронизация">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>
+          </button>
+          <button id="openVocabManagerBtn" class="icon-btn" title="Справочники автодополнения">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M5 4h14v2H5zm0 5h14v2H5zm0 5h9v2H5z"/></svg>
           </button>
           <button id="openSettingsBtn" class="icon-btn" title="Настройки">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94a7.49 7.49 0 0 0 .05-.94 7.49 7.49 0 0 0-.05-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.5 7.5 0 0 0-1.63-.94l-.36-2.54A.5.5 0 0 0 13.31 1h-3.62a.5.5 0 0 0-.5.42l-.36 2.54c-.58.23-1.12.54-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.69 7.98a.5.5 0 0 0 .12.64l2.03 1.58c-.03.31-.05.62-.05.94s.02.63.05.94L2.81 13.7a.5.5 0 0 0-.12.64l1.92 3.32c.14.24.43.34.69.22l2.39-.96c.51.39 1.05.71 1.63.94l.36 2.54c.04.24.25.42.5.42h3.62c.25 0 .46-.18.5-.42l.36-2.54c.58-.23 1.12-.54 1.63-.94l2.39.96c.26.12.55.02.69-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/></svg>
@@ -996,6 +1009,33 @@
           <div class="row" style="margin-top:12px;">
             <button id="saveSettingsBtn" class="primary">Сохранить</button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="vocabManagerModal" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:60; padding:24px 12px; box-sizing:border-box;">
+      <div class="modal-backdrop" style="position:absolute; inset:0; background:rgba(0,0,0,0.45); backdrop-filter:blur(2px);"></div>
+      <div class="modal-card" style="position:relative; width:min(720px,96vw); max-height:100%; overflow:hidden; background:var(--surface); border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow); display:flex; flex-direction:column;">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:16px; border-bottom:1px solid var(--border);">
+          <div>
+            <h3 style="margin:0;">Справочники автодополнения</h3>
+            <div style="font-size:12px; color:var(--muted); margin-top:4px;">Управляйте жанрами, тегами, издательствами, авторами и сериями</div>
+          </div>
+          <button id="vocabManagerCloseBtn" class="btn">Закрыть</button>
+        </div>
+        <div style="padding:16px; display:flex; flex-direction:column; gap:12px; overflow:auto;">
+          <div style="display:flex; flex-wrap:wrap; gap:8px;" id="vocabTabs">
+            <button type="button" class="btn secondary active" data-vocab-tab="genres">Жанры</button>
+            <button type="button" class="btn secondary" data-vocab-tab="tags">Теги</button>
+            <button type="button" class="btn secondary" data-vocab-tab="publisher">Издательства</button>
+            <button type="button" class="btn secondary" data-vocab-tab="series">Серии</button>
+            <button type="button" class="btn secondary" data-vocab-tab="authors">Авторы</button>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <button id="vocabAddBtn" type="button" class="btn primary">Добавить значение</button>
+            <span style="font-size:12px; color:var(--muted);">Добавьте новый вариант или переименуйте существующие значения, чтобы исправить опечатки.</span>
+          </div>
+          <div id="vocabList" style="display:flex; flex-direction:column; gap:8px; max-height:55vh; overflow:auto;"></div>
         </div>
       </div>
     </div>
