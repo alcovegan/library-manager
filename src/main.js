@@ -1201,6 +1201,18 @@ ipcMain.handle('vocab:rename', async (_event, payload) => {
   }
 });
 
+ipcMain.handle('vocab:listBooks', async (_event, payload) => {
+  try {
+    const domain = payload?.domain;
+    const value = payload?.value;
+    if (!domain || !value) throw new Error('domain и value обязательны');
+    const books = dbLayer.listVocabularyBooks(db, domain, value, { limit: payload?.limit });
+    return { ok: true, books };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
+});
+
 ipcMain.handle('books:bulkAdd', async (_event, payload) => {
   try {
     const entries = Array.isArray(payload?.entries) ? payload.entries : [];

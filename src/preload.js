@@ -46,6 +46,7 @@ contextBridge.exposeInMainWorld('api', {
   addVocabularyEntry: (payload) => ipcRenderer.invoke('vocab:addCustom', payload),
   deleteVocabularyEntry: (payload) => ipcRenderer.invoke('vocab:deleteCustom', payload),
   renameVocabularyEntry: (payload) => ipcRenderer.invoke('vocab:rename', payload),
+  listVocabularyBooks: (payload) => ipcRenderer.invoke('vocab:listBooks', payload),
   listActivity: (options) => ipcRenderer.invoke('activity:list', options),
   clearActivity: (options) => ipcRenderer.invoke('activity:clear', options),
   exportActivity: (options) => ipcRenderer.invoke('activity:export', options),

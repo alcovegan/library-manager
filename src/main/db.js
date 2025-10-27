@@ -650,6 +650,106 @@ function renameVocabularyValue(ctx, domain, fromValue, toValue) {
   return { affected };
 }
 
+function listVocabularyBooks(ctx, domain, value, options = {}) {
+  if (!VOCAB_DOMAINS.includes(domain)) throw new Error('invalid domain');
+  const trimmed = normalizeVocabValue(value);
+  if (!trimmed) return [];
+  const limit = Number(options.limit) || 100;
+  const limitSafe = Math.max(1, Math.min(limit, 200));
+  const ids = [];
+  switch (domain) {
+    case 'authors': {
+      const stmt = ctx.db.prepare(`
+        SELECT DISTINCT b.id
+        FROM books b
+        JOIN book_authors ba ON ba.bookId = b.id
+        JOIN authors a ON a.id = ba.authorId
+        WHERE a.name = ?
+        ORDER BY lower(b.title)
+        LIMIT ?
+      `);
+      stmt.bind([trimmed, limitSafe]);
+      while (stmt.step()) {
+        ids.push(stmt.getAsObject().id);
+      }
+      stmt.free();
+      break;
+    }
+    case 'series': {
+      const stmt = ctx.db.prepare(`
+        SELECT id
+        FROM books
+        WHERE TRIM(COALESCE(series, '')) = ?
+        ORDER BY lower(title)
+        LIMIT ?
+      `);
+      stmt.bind([trimmed, limitSafe]);
+      while (stmt.step()) {
+        ids.push(stmt.getAsObject().id);
+      }
+      stmt.free();
+      break;
+    }
+    case 'publisher': {
+      const stmt = ctx.db.prepare(`
+        SELECT id
+        FROM books
+        WHERE TRIM(COALESCE(publisher, '')) = ?
+        ORDER BY lower(title)
+        LIMIT ?
+      `);
+      stmt.bind([trimmed, limitSafe]);
+      while (stmt.step()) {
+        ids.push(stmt.getAsObject().id);
+      }
+      stmt.free();
+      break;
+    }
+    case 'genres':
+    case 'tags': {
+      const column = domain;
+      const stmt = ctx.db.prepare(`
+        SELECT id
+        FROM books
+        WHERE json_valid(${column}) = 1
+          AND json_type(${column}) = 'array'
+          AND EXISTS (
+            SELECT 1 FROM json_each(${column})
+            WHERE trim(json_each.value) = ?
+          )
+        ORDER BY lower(title)
+        LIMIT ?
+      `);
+      stmt.bind([trimmed, limitSafe]);
+      while (stmt.step()) {
+        ids.push(stmt.getAsObject().id);
+      }
+      stmt.free();
+      break;
+    }
+    default:
+      break;
+  }
+  if (!ids.length) return [];
+  const uniqueIds = Array.from(new Set(ids));
+  return uniqueIds
+    .map((id) => {
+      try {
+        return getBookById(ctx, id);
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean)
+    .map((book) => ({
+      id: book.id,
+      title: book.title,
+      authors: Array.isArray(book.authors) ? book.authors : [],
+      series: book.series || null,
+      publisher: book.publisher || null,
+    }));
+}
+
 function listBooks(ctx) {
   const res = ctx.db.exec(`
     SELECT
@@ -1742,6 +1842,7 @@ module.exports = {
   addCustomVocabularyEntry,
   deleteCustomVocabularyEntry,
   renameVocabularyValue,
+  listVocabularyBooks,
   resolveCoverPath,
   listStorageLocations,
   createStorageLocation,

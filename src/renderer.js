@@ -336,6 +336,8 @@ const vocabState = {
     tags: [],
   },
   loading: false,
+  openKey: null,
+  books: {},
 };
 
 function resetGoodreadsWidgets() {
@@ -2173,6 +2175,68 @@ function syncCustomVocabularyFromVocabState() {
   rebuildSuggestStore();
 }
 
+function getVocabKey(domain, value) {
+  return `${domain}::${value}`;
+}
+
+function getVocabBookState(key) {
+  if (!vocabState.books) vocabState.books = {};
+  if (!vocabState.books[key]) {
+    vocabState.books[key] = { status: 'idle', items: [], error: null };
+  }
+  return vocabState.books[key];
+}
+
+function renderVocabBooksContent(key) {
+  const stateEntry = getVocabBookState(key);
+  if (stateEntry.status === 'loading') {
+    return '<div style="padding:12px; font-size:12px; color:var(--muted);">Загружаем список книг…</div>';
+  }
+  if (stateEntry.status === 'error') {
+    const err = escapeHtml(stateEntry.error || 'Не удалось загрузить книги');
+    return `<div style="padding:12px; font-size:12px; color:var(--danger);">Ошибка: ${err}</div>`;
+  }
+  if (!Array.isArray(stateEntry.items) || stateEntry.items.length === 0) {
+    return '<div style="padding:12px; font-size:12px; color:var(--muted);">Книг с этим значением пока нет.</div>';
+  }
+  const bookRows = stateEntry.items.map((book) => {
+    const title = escapeHtml(book.title || '(без названия)');
+    const authors = Array.isArray(book.authors) && book.authors.length
+      ? escapeHtml(book.authors.join(', '))
+      : '—';
+    return `
+      <div class="card" style="padding:10px; display:flex; justify-content:space-between; align-items:center; gap:12px;">
+        <div style="min-width:0;">
+          <div style="font-weight:600;" title="${title}">${title}</div>
+          <div style="font-size:12px; color:var(--muted);" title="${authors}">${authors}</div>
+        </div>
+        <button class="btn secondary" data-action="open-book" data-book-id="${escapeHtml(book.id || '')}">Открыть</button>
+      </div>
+    `;
+  });
+  return `
+    <div style="display:flex; flex-direction:column; gap:8px; padding:12px;">
+      ${bookRows.join('')}
+    </div>
+  `;
+}
+
+function updateVocabBooksUI() {
+  if (!vocabListEl) return;
+  const key = vocabState.openKey;
+  const slots = vocabListEl.querySelectorAll('.vocab-books');
+  slots.forEach((slot) => {
+    const slotKey = slot.dataset.slot || '';
+    if (slotKey === key) {
+      slot.style.display = 'block';
+      slot.innerHTML = renderVocabBooksContent(slotKey);
+    } else {
+      slot.style.display = 'none';
+      slot.innerHTML = '';
+    }
+  });
+}
+
 function renderVocabList() {
   if (!vocabListEl) return;
   const domain = vocabState.currentDomain;
@@ -2192,23 +2256,32 @@ function renderVocabList() {
     if (entry.sources?.custom) sourceParts.push('ручное');
     const sourceLabel = sourceParts.length ? `Источник: ${sourceParts.join(' + ')}` : '';
     const canDelete = entry.sources?.custom && !entry.sources?.books && entry.count === 0 && entry.customId;
+    const key = getVocabKey(domain, entry.value || '');
+    const showBooksButton = entry.count
+      ? `<button class="btn secondary" data-action="show-books" data-domain="${domain}" data-value="${escapeHtml(entry.value)}" data-key="${escapeHtml(key)}">Показать книги (${entry.count})</button>`
+      : '';
     return `
-      <div class="card" style="padding:12px; display:flex; align-items:center; gap:12px;">
-        <div style="flex:1; min-width:0;">
-          <div style="font-weight:600;">${escapeHtml(entry.value)}</div>
-          <div style="font-size:12px; color:var(--muted); display:flex; flex-wrap:wrap; gap:12px; margin-top:4px;">
-            <span>${countLabel}</span>
-            ${sourceLabel ? `<span>${escapeHtml(sourceLabel)}</span>` : ''}
+      <div class="card" style="padding:12px; display:flex; flex-direction:column; gap:10px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:600;">${escapeHtml(entry.value)}</div>
+            <div style="font-size:12px; color:var(--muted); display:flex; flex-wrap:wrap; gap:12px; margin-top:4px;">
+              <span>${countLabel}</span>
+              ${sourceLabel ? `<span>${escapeHtml(sourceLabel)}</span>` : ''}
+            </div>
+          </div>
+          <div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
+            ${showBooksButton}
+            <button class="btn secondary" data-action="rename" data-value="${escapeHtml(entry.value)}">Переименовать</button>
+            ${canDelete ? `<button class="btn danger" data-action="delete" data-id="${escapeHtml(entry.customId)}">Удалить</button>` : ''}
           </div>
         </div>
-        <div style="display:flex; gap:6px; flex-wrap:wrap;">
-          <button class="btn secondary" data-action="rename" data-value="${escapeHtml(entry.value)}">Переименовать</button>
-          ${canDelete ? `<button class="btn danger" data-action="delete" data-id="${escapeHtml(entry.customId)}">Удалить</button>` : ''}
-        </div>
+        <div class="vocab-books" data-slot="${escapeHtml(key)}" style="display:${vocabState.openKey === key ? 'block' : 'none'};"></div>
       </div>
     `;
   });
   vocabListEl.innerHTML = rows.join('');
+  updateVocabBooksUI();
 }
 
 async function refreshVocabularyData({ silent = false } = {}) {
@@ -2229,6 +2302,8 @@ async function refreshVocabularyData({ silent = false } = {}) {
       genres: data.genres || [],
       tags: data.tags || [],
     };
+    vocabState.books = {};
+    vocabState.openKey = null;
     syncCustomVocabularyFromVocabState();
     if (!silent) renderVocabList();
   } catch (error) {
@@ -2242,6 +2317,9 @@ async function refreshVocabularyData({ silent = false } = {}) {
 
 function setVocabDomain(domain) {
   if (!VOCAB_DOMAIN_META[domain]) return;
+  if (vocabState.currentDomain !== domain) {
+    vocabState.openKey = null;
+  }
   vocabState.currentDomain = domain;
   if (vocabTabsContainer) {
     const buttons = vocabTabsContainer.querySelectorAll('[data-vocab-tab]');
@@ -2262,6 +2340,8 @@ function openVocabManager() {
 function closeVocabManager() {
   if (!vocabManagerModal) return;
   vocabManagerModal.style.display = 'none';
+  vocabState.openKey = null;
+  updateVocabBooksUI();
 }
 
 async function handleVocabAdd() {
@@ -2295,6 +2375,8 @@ async function handleVocabRename(value) {
       throw new Error(res?.error || 'Не удалось переименовать');
     }
     await reloadDataOnly();
+    vocabState.openKey = null;
+    vocabState.books = {};
     await refreshVocabularyData({ silent: true });
     renderVocabList();
   } catch (error) {
@@ -2310,11 +2392,55 @@ async function handleVocabDelete(id) {
     if (!res || res.ok === false) {
       throw new Error(res?.error || 'Не удалось удалить');
     }
+    vocabState.openKey = null;
+    vocabState.books = {};
     await refreshVocabularyData({ silent: true });
     renderVocabList();
   } catch (error) {
     alert(`Не удалось удалить: ${error?.message || error}`);
   }
+}
+
+async function handleVocabShowBooks(domain, value, key) {
+  if (!VOCAB_DOMAIN_META[domain]) return;
+  const sanitizedValue = String(value || '').trim();
+  if (!sanitizedValue) return;
+  const targetKey = key || getVocabKey(domain, sanitizedValue);
+  if (vocabState.openKey === targetKey) {
+    vocabState.openKey = null;
+    updateVocabBooksUI();
+    return;
+  }
+  vocabState.openKey = targetKey;
+  const entryState = getVocabBookState(targetKey);
+  entryState.status = 'loading';
+  entryState.items = [];
+  entryState.error = null;
+  updateVocabBooksUI();
+  try {
+    const res = await window.api.listVocabularyBooks({ domain, value: sanitizedValue });
+    if (!res || res.ok === false) {
+      throw new Error(res?.error || 'Не удалось получить книги');
+    }
+    entryState.status = 'loaded';
+    entryState.items = Array.isArray(res.books) ? res.books : [];
+    entryState.error = null;
+  } catch (error) {
+    entryState.status = 'error';
+    entryState.error = error?.message || String(error);
+  }
+  updateVocabBooksUI();
+}
+
+function openBookById(id) {
+  if (!id) return;
+  const book = state.books.find((b) => b.id === id);
+  if (!book) {
+    alert('Книга не найдена. Попробуйте обновить список.');
+    return;
+  }
+  closeVocabManager();
+  openDetails(book);
 }
 
 function escapeBookIdForSelector(id) {
@@ -5477,6 +5603,10 @@ if (vocabListEl) {
       handleVocabRename(btn.dataset.value);
     } else if (action === 'delete') {
       handleVocabDelete(btn.dataset.id);
+    } else if (action === 'show-books') {
+      handleVocabShowBooks(btn.dataset.domain, btn.dataset.value, btn.dataset.key);
+    } else if (action === 'open-book') {
+      openBookById(btn.dataset.bookId);
     }
   });
 }
