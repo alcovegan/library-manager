@@ -18,11 +18,14 @@
   "author": "",
   "license": "ISC",
   "type": "commonjs",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "devDependencies": {
     "@electron/rebuild": "^4.0.1",
     "electron": "^38.1.0",
     "electron-builder": "^24.13.3",
-    "vitest": "^0.18.1"
+    "vitest": "^4.0.4"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.891.0",
