@@ -5,6 +5,7 @@ export default defineConfig({
     include: ['tests/**/*.spec.{js,ts}'],
     environment: 'node',
     globals: true,
+    setupFiles: ['tests/setup/global.mjs'],
     reporters: 'default',
     clearMocks: true,
   },
