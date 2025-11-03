@@ -6723,5 +6723,10 @@ if (typeof module !== 'undefined' && module.exports) {
     parseFloatFromInput,
     renderGoodreadsResult,
     applyGoodreadsInfo,
+    rebuildSuggestStore,
+    syncCustomVocabularyFromVocabState,
+    getVocabBookState,
+    renderVocabBooksContent,
+    updateVocabBooksUI,
   };
 }

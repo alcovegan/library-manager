@@ -204,7 +204,7 @@ describe('renderer utils — pure functions', () => {
         notes: 'Test note',
         confidence: 'high',
       };
-      
+
       // Function should not throw even with mocked DOM
       expect(() => renderGoodreadsResult(info)).not.toThrow();
     });
@@ -241,16 +241,16 @@ describe('renderer utils — pure functions', () => {
         originalTitle: 'Original Title',
         originalAuthors: ['Author A', 'Author B'],
       };
-      
+
       expect(() => applyGoodreadsInfo(info)).not.toThrow();
     });
 
     it('handles markFetched option', () => {
       const info = { averageRating: 4.0 };
-      
+
       // With markFetched: true (default)
       expect(() => applyGoodreadsInfo(info, { markFetched: true })).not.toThrow();
-      
+
       // With markFetched: false
       expect(() => applyGoodreadsInfo(info, { markFetched: false })).not.toThrow();
     });
