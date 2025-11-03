@@ -1,0 +1,59 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`renderer HTML snapshots > vocabulary books rendering > matches snapshot for book with missing data 1`] = `
+"<div class="card" style="padding:12px; display:flex; align-items:center; justify-content:space-between;">
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:600;">(без названия)</div>
+            <div style="font-size:12px; color:var(--muted);">—</div>
+          </div>
+          <button class="btn secondary" data-action="open-book" data-book-id="book-incomplete" style="margin-left:12px;">Открыть</button>
+        </div>"
+`;
+
+exports[`renderer HTML snapshots > vocabulary books rendering > matches snapshot for books with HTML characters 1`] = `
+"<div class="card" style="padding:12px; display:flex; align-items:center; justify-content:space-between;">
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:600;">Book with &lt;tags&gt; &amp; &quot;quotes&quot;</div>
+            <div style="font-size:12px; color:var(--muted);">Author with &lt;special&gt; &amp; &#39;chars&#39;</div>
+          </div>
+          <button class="btn secondary" data-action="open-book" data-book-id="book-special" style="margin-left:12px;">Открыть</button>
+        </div>"
+`;
+
+exports[`renderer HTML snapshots > vocabulary books rendering > matches snapshot for empty state 1`] = `"<div class="empty" style="padding:16px;">Книг с этим значением пока нет.</div>"`;
+
+exports[`renderer HTML snapshots > vocabulary books rendering > matches snapshot for error state 1`] = `"<div class="empty" style="padding:16px; color:var(--error);">Ошибка: Failed to load books from database</div>"`;
+
+exports[`renderer HTML snapshots > vocabulary books rendering > matches snapshot for loading state 1`] = `"<div class="empty" style="padding:16px;">Загружаем список книг…</div>"`;
+
+exports[`renderer HTML snapshots > vocabulary books rendering > matches snapshot for multiple books 1`] = `
+"<div class="card" style="padding:12px; display:flex; align-items:center; justify-content:space-between;">
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:600;">The Hobbit</div>
+            <div style="font-size:12px; color:var(--muted);">J.R.R. Tolkien</div>
+          </div>
+          <button class="btn secondary" data-action="open-book" data-book-id="book-1" style="margin-left:12px;">Открыть</button>
+        </div><div class="card" style="padding:12px; display:flex; align-items:center; justify-content:space-between;">
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:600;">The Name of the Wind</div>
+            <div style="font-size:12px; color:var(--muted);">Patrick Rothfuss</div>
+          </div>
+          <button class="btn secondary" data-action="open-book" data-book-id="book-2" style="margin-left:12px;">Открыть</button>
+        </div><div class="card" style="padding:12px; display:flex; align-items:center; justify-content:space-between;">
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:600;">A Game of Thrones</div>
+            <div style="font-size:12px; color:var(--muted);">George R.R. Martin</div>
+          </div>
+          <button class="btn secondary" data-action="open-book" data-book-id="book-3" style="margin-left:12px;">Открыть</button>
+        </div>"
+`;
+
+exports[`renderer HTML snapshots > vocabulary books rendering > matches snapshot for single book 1`] = `
+"<div class="card" style="padding:12px; display:flex; align-items:center; justify-content:space-between;">
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:600;">Harry Potter and the Philosopher&#39;s Stone</div>
+            <div style="font-size:12px; color:var(--muted);">J.K. Rowling</div>
+          </div>
+          <button class="btn secondary" data-action="open-book" data-book-id="book-1" style="margin-left:12px;">Открыть</button>
+        </div>"
+`;
