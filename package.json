@@ -25,6 +25,7 @@
     "@electron/rebuild": "^4.0.1",
     "electron": "^38.1.0",
     "electron-builder": "^24.13.3",
+    "jsdom": "^27.1.0",
     "vitest": "^4.0.4"
   },
   "dependencies": {
