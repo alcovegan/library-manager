@@ -286,11 +286,11 @@ describe('Collections', () => {
       ];
 
       const state = rebuildFilterPresetsState(presets);
-      
+
       // Shallow copy means the filters object itself is different
       expect(state.list[0].filters).not.toBe(original);
       expect(state.list[0].filters).toEqual(original);
-      
+
       // But nested objects/arrays are still shared (shallow copy limitation)
       // This is expected behavior with { ...filters }
       expect(state.list[0].filters.rating).toBe(original.rating);
