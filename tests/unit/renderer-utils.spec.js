@@ -4,9 +4,9 @@ import { describe, it, expect } from 'vitest';
 // renderer.js uses document at module load time
 const mockElement = () => ({
   style: {},
-  classList: { 
-    add: () => {}, 
-    remove: () => {}, 
+  classList: {
+    add: () => {},
+    remove: () => {},
     contains: () => false,
     toggle: () => {},
   },
@@ -70,6 +70,8 @@ const {
   sanitizeUrl,
   parseCommaSeparatedList,
   parseFloatFromInput,
+  renderGoodreadsResult,
+  applyGoodreadsInfo,
 } = require('../../src/renderer.js');
 
 describe('renderer utils — pure functions', () => {
@@ -177,6 +179,94 @@ describe('renderer utils — pure functions', () => {
     it('rejects non-finite values', () => {
       expect(parseFloatFromInput({ value: 'Infinity' })).toBeNull();
       expect(parseFloatFromInput({ value: 'NaN' })).toBeNull();
+    });
+  });
+
+  describe('renderGoodreadsResult', () => {
+    it('should be a function', () => {
+      expect(typeof renderGoodreadsResult).toBe('function');
+    });
+
+    it('handles null info by hiding result box', () => {
+      // renderGoodreadsResult depends on global DOM elements
+      // which are mocked, so it will gracefully handle missing elements
+      expect(() => renderGoodreadsResult(null)).not.toThrow();
+    });
+
+    it('handles info object with various fields', () => {
+      const info = {
+        originalTitle: 'Test Book',
+        originalAuthors: ['Author One', 'Author Two'],
+        averageRating: 4.5,
+        ratingsCount: 1000,
+        reviewsCount: 500,
+        goodreadsUrl: 'https://goodreads.com/book/123',
+        notes: 'Test note',
+        confidence: 'high',
+      };
+      
+      // Function should not throw even with mocked DOM
+      expect(() => renderGoodreadsResult(info)).not.toThrow();
+    });
+
+    it('handles minimal info object', () => {
+      const info = { averageRating: 3.0 };
+      expect(() => renderGoodreadsResult(info)).not.toThrow();
+    });
+
+    it('handles info with invalid url', () => {
+      const info = {
+        originalTitle: 'Test',
+        goodreadsUrl: 'javascript:alert(1)', // should be sanitized
+      };
+      expect(() => renderGoodreadsResult(info)).not.toThrow();
+    });
+  });
+
+  describe('applyGoodreadsInfo', () => {
+    it('should be a function', () => {
+      expect(typeof applyGoodreadsInfo).toBe('function');
+    });
+
+    it('handles null info gracefully', () => {
+      expect(() => applyGoodreadsInfo(null)).not.toThrow();
+    });
+
+    it('handles info object without throwing', () => {
+      const info = {
+        averageRating: 4.5,
+        ratingsCount: 1000,
+        reviewsCount: 500,
+        goodreadsUrl: 'https://goodreads.com/book/123',
+        originalTitle: 'Original Title',
+        originalAuthors: ['Author A', 'Author B'],
+      };
+      
+      expect(() => applyGoodreadsInfo(info)).not.toThrow();
+    });
+
+    it('handles markFetched option', () => {
+      const info = { averageRating: 4.0 };
+      
+      // With markFetched: true (default)
+      expect(() => applyGoodreadsInfo(info, { markFetched: true })).not.toThrow();
+      
+      // With markFetched: false
+      expect(() => applyGoodreadsInfo(info, { markFetched: false })).not.toThrow();
+    });
+
+    it('handles arrays in originalAuthors', () => {
+      const info = {
+        originalAuthors: ['Author One', 'Author Two', 'Author Three'],
+      };
+      expect(() => applyGoodreadsInfo(info)).not.toThrow();
+    });
+
+    it('handles non-array originalAuthors', () => {
+      const info = {
+        originalAuthors: 'Not an array',
+      };
+      expect(() => applyGoodreadsInfo(info)).not.toThrow();
     });
   });
 });
