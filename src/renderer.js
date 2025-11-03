@@ -1,12 +1,26 @@
 /* global api */
 
-// Import utility functions in Node.js environment (for tests)
+// Import modules in Node.js environment (for tests)
 if (typeof module !== 'undefined' && module.exports) {
   const utils = require('./renderer/utils.js');
   global.escapeHtml = utils.escapeHtml;
   global.sanitizeUrl = utils.sanitizeUrl;
   global.parseCommaSeparatedList = utils.parseCommaSeparatedList;
   global.parseFloatFromInput = utils.parseFloatFromInput;
+  
+  const vocabManager = require('./renderer/vocab_manager.js');
+  // Create browser-like VocabManager interface for Node.js environment
+  global.VocabManager = {
+    init: vocabManager.initVocabularyManager,
+    getVocabKey: vocabManager.getVocabKey,
+    getVocabBookState: vocabManager.getVocabBookState,
+    rebuildSuggestStore: vocabManager.rebuildSuggestStore,
+    syncCustomVocabularyFromVocabState: vocabManager.syncCustomVocabularyFromVocabState,
+    renderVocabBooksContent: vocabManager.renderVocabBooksContent,
+    updateVocabBooksUI: vocabManager.updateVocabBooksUI,
+    getVocabState: vocabManager.getVocabState,
+    getVocabDomainMeta: vocabManager.getVocabDomainMeta,
+  };
 }
 
 const $ = (sel) => document.querySelector(sel);
@@ -327,27 +341,9 @@ const activityState = {
   pendingReload: false,
 };
 
-const VOCAB_DOMAIN_META = {
-  genres: { label: 'Жанры' },
-  tags: { label: 'Теги' },
-  publisher: { label: 'Издательства' },
-  series: { label: 'Серии' },
-  authors: { label: 'Авторы' },
-};
-
-const vocabState = {
-  currentDomain: 'genres',
-  data: {
-    authors: [],
-    series: [],
-    publisher: [],
-    genres: [],
-    tags: [],
-  },
-  loading: false,
-  openKey: null,
-  books: {},
-};
+// Vocabulary metadata and state managed by VocabManager
+const VOCAB_DOMAIN_META = VocabManager.getVocabDomainMeta();
+let vocabState = null; // Will be initialized after _suggest is defined
 
 function resetGoodreadsWidgets() {
   state.modal.goodreads = null;
@@ -1667,42 +1663,35 @@ function populateAuthorFilter() {
 // Suggestion store for autocompletion
 let _suggest = { authors: [], series: [], publisher: [], genres: [], tags: [] };
 
+// Initialize vocabulary manager
+vocabState = VocabManager.init(state, _suggest);
+
+// Vocabulary functions delegated to VocabManager
 function rebuildSuggestStore() {
-  try {
-    const authors = new Set();
-    const series = new Set();
-    const publisher = new Set();
-    const tags = new Set();
-    const genres = new Set();
-    const custom = state.customVocabulary || {};
-    const addCustomValues = (set, list) => {
-      (Array.isArray(list) ? list : []).forEach((value) => {
-        const normalized = String(value || '').trim();
-        if (normalized) set.add(normalized);
-      });
-    };
-    (state.books || []).forEach((b) => {
-      (Array.isArray(b.authors) ? b.authors : []).forEach((a) => { const s = String(a || '').trim(); if (s) authors.add(s); });
-      const s = String(b.series || '').trim(); if (s) series.add(s);
-      const p = String(b.publisher || '').trim(); if (p) publisher.add(p);
-      (Array.isArray(b.tags) ? b.tags : []).forEach((t) => { const s = String(t || '').trim(); if (s) tags.add(s); });
-      (Array.isArray(b.genres) ? b.genres : []).forEach((g) => { const s = String(g || '').trim(); if (s) genres.add(s); });
-    });
-    addCustomValues(authors, custom.authors);
-    addCustomValues(series, custom.series);
-    addCustomValues(publisher, custom.publisher);
-    addCustomValues(tags, custom.tags);
-    addCustomValues(genres, custom.genres);
-    const collator = new Intl.Collator('ru', { sensitivity: 'base', numeric: true });
-    _suggest = {
-      authors: Array.from(authors).sort(collator.compare),
-      series: Array.from(series).sort(collator.compare),
-      publisher: Array.from(publisher).sort(collator.compare),
-      tags: Array.from(tags).sort(collator.compare),
-      genres: Array.from(genres).sort(collator.compare),
-    };
-  } catch (e) { console.error(e); }
+  return VocabManager.rebuildSuggestStore();
 }
+
+function getVocabKey(domain, value) {
+  return VocabManager.getVocabKey(domain, value);
+}
+
+function getVocabBookState(key) {
+  return VocabManager.getVocabBookState(key);
+}
+
+function syncCustomVocabularyFromVocabState() {
+  return VocabManager.syncCustomVocabularyFromVocabState();
+}
+
+function renderVocabBooksContent(key) {
+  return VocabManager.renderVocabBooksContent(key);
+}
+
+function updateVocabBooksUI() {
+  return VocabManager.updateVocabBooksUI();
+}
+
+// Utility functions for vocabulary management moved to VocabManager
 
 function attachAutocomplete(el, domain, { multiple = false } = {}) {
   if (!el || !domain) return;
@@ -2150,82 +2139,7 @@ function getEmptyCustomVocabulary() {
   };
 }
 
-function syncCustomVocabularyFromVocabState() {
-  const custom = getEmptyCustomVocabulary();
-  Object.entries(vocabState.data || {}).forEach(([domain, entries]) => {
-    if (!Array.isArray(entries) || !custom[domain]) return;
-    entries.forEach((entry) => {
-      if (entry?.sources?.custom) {
-        const value = String(entry.value || '').trim();
-        if (value) custom[domain].push(value);
-      }
-    });
-  });
-  state.customVocabulary = custom;
-  rebuildSuggestStore();
-}
-
-function getVocabKey(domain, value) {
-  return `${domain}::${value}`;
-}
-
-function getVocabBookState(key) {
-  if (!vocabState.books) vocabState.books = {};
-  if (!vocabState.books[key]) {
-    vocabState.books[key] = { status: 'idle', items: [], error: null };
-  }
-  return vocabState.books[key];
-}
-
-function renderVocabBooksContent(key) {
-  const stateEntry = getVocabBookState(key);
-  if (stateEntry.status === 'loading') {
-    return '<div style="padding:12px; font-size:12px; color:var(--muted);">Загружаем список книг…</div>';
-  }
-  if (stateEntry.status === 'error') {
-    const err = escapeHtml(stateEntry.error || 'Не удалось загрузить книги');
-    return `<div style="padding:12px; font-size:12px; color:var(--danger);">Ошибка: ${err}</div>`;
-  }
-  if (!Array.isArray(stateEntry.items) || stateEntry.items.length === 0) {
-    return '<div style="padding:12px; font-size:12px; color:var(--muted);">Книг с этим значением пока нет.</div>';
-  }
-  const bookRows = stateEntry.items.map((book) => {
-    const title = escapeHtml(book.title || '(без названия)');
-    const authors = Array.isArray(book.authors) && book.authors.length
-      ? escapeHtml(book.authors.join(', '))
-      : '—';
-    return `
-      <div class="card" style="padding:10px; display:flex; justify-content:space-between; align-items:center; gap:12px;">
-        <div style="min-width:0;">
-          <div style="font-weight:600;" title="${title}">${title}</div>
-          <div style="font-size:12px; color:var(--muted);" title="${authors}">${authors}</div>
-        </div>
-        <button class="btn secondary" data-action="open-book" data-book-id="${escapeHtml(book.id || '')}">Открыть</button>
-      </div>
-    `;
-  });
-  return `
-    <div style="display:flex; flex-direction:column; gap:8px; padding:12px;">
-      ${bookRows.join('')}
-    </div>
-  `;
-}
-
-function updateVocabBooksUI() {
-  if (!vocabListEl) return;
-  const key = vocabState.openKey;
-  const slots = vocabListEl.querySelectorAll('.vocab-books');
-  slots.forEach((slot) => {
-    const slotKey = slot.dataset.slot || '';
-    if (slotKey === key) {
-      slot.style.display = 'block';
-      slot.innerHTML = renderVocabBooksContent(slotKey);
-    } else {
-      slot.style.display = 'none';
-      slot.innerHTML = '';
-    }
-  });
-}
+// Vocabulary functions moved to VocabManager (see delegated versions above)
 
 function renderVocabList() {
   if (!vocabListEl) return;
@@ -6694,7 +6608,7 @@ function updateGoodreadsFetchedLabel() {
 if (typeof module !== 'undefined' && module.exports) {
   // Import utils from separate module
   const utils = require('./renderer/utils.js');
-  
+
   module.exports = {
     // Re-export utility functions from utils.js
     ...utils,

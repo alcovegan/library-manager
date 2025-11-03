@@ -1,7 +1,7 @@
 /**
  * Renderer utility functions
  * Pure functions for HTML escaping, URL sanitization, parsing, etc.
- * 
+ *
  * This module works in both browser (as global functions) and Node.js (as exports)
  */
 
