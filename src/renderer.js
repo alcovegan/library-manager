@@ -6713,3 +6713,15 @@ function updateGoodreadsFetchedLabel() {
     goodreadsFetchedLabel.style.display = 'none';
   }
 }
+
+// Export functions for testing in Node.js environment
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    escapeHtml,
+    sanitizeUrl,
+    parseCommaSeparatedList,
+    parseFloatFromInput,
+    renderGoodreadsResult,
+    applyGoodreadsInfo,
+  };
+}

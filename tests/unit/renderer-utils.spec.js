@@ -1,33 +1,78 @@
 import { describe, it, expect } from 'vitest';
-import fs from 'fs/promises';
-import path from 'path';
 
-// For testing utility functions, we extract them directly from renderer.js
-// These are pure functions that don't depend on DOM state
+// Mock DOM elements BEFORE importing renderer.js
+// renderer.js uses document at module load time
+const mockElement = () => ({
+  style: {},
+  classList: { 
+    add: () => {}, 
+    remove: () => {}, 
+    contains: () => false,
+    toggle: () => {},
+  },
+  addEventListener: () => {},
+  removeEventListener: () => {},
+  appendChild: () => {},
+  remove: () => {},
+  focus: () => {},
+  click: () => {},
+  hasAttribute: () => false,
+  getAttribute: () => null,
+  setAttribute: () => {},
+  removeAttribute: () => {},
+  querySelector: () => mockElement(),
+  querySelectorAll: () => [],
+  value: '',
+  textContent: '',
+  innerHTML: '',
+  checked: false,
+  disabled: false,
+  open: false,
+  options: [],
+});
+
+global.document = {
+  getElementById: () => mockElement(),
+  querySelector: () => mockElement(),
+  querySelectorAll: () => [],
+  createElement: () => mockElement(),
+  body: mockElement(),
+  head: mockElement(),
+  addEventListener: () => {},
+};
+
+global.localStorage = {
+  getItem: () => null,
+  setItem: () => {},
+  removeItem: () => {},
+  clear: () => {},
+};
+
+global.window = {
+  api: {
+    listBooks: () => Promise.resolve([]),
+    listStorageLocations: () => Promise.resolve({ ok: true, locations: [] }),
+    listCollections: () => Promise.resolve({ ok: true, collections: [] }),
+    listFilterPresets: () => Promise.resolve({ ok: true, presets: [] }),
+    listVocabulary: () => Promise.resolve({ ok: true, vocab: {} }),
+  },
+  addEventListener: () => {},
+  matchMedia: () => ({ matches: false, addListener: () => {}, removeListener: () => {} }),
+  getComputedStyle: () => ({}),
+  requestAnimationFrame: (cb) => setTimeout(cb, 0),
+  localStorage: global.localStorage,
+};
+
+// Import utility functions directly from renderer.js
+// renderer.js now exports functions when running in Node.js environment
+const {
+  escapeHtml,
+  sanitizeUrl,
+  parseCommaSeparatedList,
+  parseFloatFromInput,
+} = require('../../src/renderer.js');
 
 describe('renderer utils — pure functions', () => {
-  let escapeHtml, sanitizeUrl, parseCommaSeparatedList, parseFloatFromInput;
-
-  // Extract pure utility functions from renderer.js using regex
-  const extractFunction = (code, functionName) => {
-    const regex = new RegExp(`function ${functionName}\\s*\\([^)]*\\)\\s*\\{[\\s\\S]*?^}`, 'm');
-    const match = code.match(regex);
-    if (!match) {
-      throw new Error(`Function ${functionName} not found in renderer.js`);
-    }
-    // Wrap in IIFE and return the function
-    return eval(`(function() { ${match[0]}; return ${functionName}; })()`);
-  };
-
-  beforeEach(async () => {
-    const rendererPath = path.resolve(process.cwd(), 'src/renderer.js');
-    const rendererCode = await fs.readFile(rendererPath, 'utf-8');
-
-    escapeHtml = extractFunction(rendererCode, 'escapeHtml');
-    sanitizeUrl = extractFunction(rendererCode, 'sanitizeUrl');
-    parseCommaSeparatedList = extractFunction(rendererCode, 'parseCommaSeparatedList');
-    parseFloatFromInput = extractFunction(rendererCode, 'parseFloatFromInput');
-  });
 
   describe('escapeHtml', () => {
     it('escapes HTML special characters', () => {
