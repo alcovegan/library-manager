@@ -1,11 +1,49 @@
-const { app, BrowserWindow, ipcMain, dialog, Notification } = require('electron');
+// Support both CJS and ESM-shaped mocks of 'electron' in tests
+const electronMod = require('electron');
+const electronNS = electronMod && electronMod.app ? electronMod : (electronMod && electronMod.default ? electronMod.default : electronMod);
+const app = electronNS?.app ?? electronMod?.app ?? electronMod?.default?.app;
+const BrowserWindow = electronNS?.BrowserWindow ?? electronMod?.BrowserWindow ?? electronMod?.default?.BrowserWindow;
+let ipcMain = electronNS?.ipcMain ?? electronMod?.ipcMain ?? electronMod?.default?.ipcMain;
+if (!ipcMain) {
+  ipcMain = {};
+  if (electronMod && typeof electronMod === 'object') electronMod.ipcMain = ipcMain;
+  if (electronMod?.default && typeof electronMod.default === 'object') electronMod.default.ipcMain = ipcMain;
+}
+
+let ipcHandlersRegistry = ipcMain.handlers instanceof Map ? ipcMain.handlers : new Map();
+Object.defineProperty(ipcMain, 'handlers', {
+  configurable: true,
+  enumerable: true,
+  get() {
+    return ipcHandlersRegistry;
+  },
+  set(value) {
+    ipcHandlersRegistry = value instanceof Map ? value : new Map();
+  },
+});
+
+const originalIpcHandle = typeof ipcMain.handle === 'function' ? ipcMain.handle.bind(ipcMain) : null;
+ipcMain.handle = (channel, handler) => {
+  ipcHandlersRegistry.set(channel, handler);
+  if (originalIpcHandle) {
+    return originalIpcHandle(channel, handler);
+  }
+  return undefined;
+};
+
+if (typeof ipcMain.on !== 'function') ipcMain.on = () => {};
+if (typeof ipcMain.removeAllListeners !== 'function') ipcMain.removeAllListeners = () => {};
+const dialog = electronNS?.dialog ?? electronMod?.dialog ?? electronMod?.default?.dialog;
+const Notification = electronNS?.Notification ?? electronMod?.Notification ?? electronMod?.default?.Notification;
 let autoUpdater = null;
 try { ({ autoUpdater } = require('electron-updater')); } catch {}
 const path = require('path');
 const fs = require('fs');
 
-// Set app name early for proper display in dock and Alt+Tab
-app.setName('Library Manager');
+// Set app name early for proper display in dock and Alt+Tab (guarded for tests)
+if (app && typeof app.setName === 'function') {
+  app.setName('Library Manager');
+}
 process.title = 'Library Manager';
 // Load keys from .env (project root)
 try { require('dotenv').config(); } catch {}
@@ -395,7 +433,6 @@ function getBookSnapshot(id) {
 }
 
 function recordActivity(event) {
-  if (!db) return null;
   try {
     return dbLayer.logActivity(db, {
       actor: event?.actor || 'local',
@@ -454,7 +491,7 @@ function createWindow() {
   }
 }
 
-app.whenReady().then(async () => {
+if (app && typeof app.whenReady === 'function') app.whenReady().then(async () => {
   // Set app name for dock and Alt+Tab display (multiple attempts for development mode)
   app.setName('Library Manager');
 
@@ -544,19 +581,32 @@ app.whenReady().then(async () => {
     }
   } catch (e) { console.error('autoUpdater setup failed', e); }
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
-  });
+  if (app && typeof app.on === 'function') {
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    });
+  }
 });
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
-});
+if (app && typeof app.on === 'function') {
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') app.quit();
+  });
+}
 
 // IPC Handlers
-ipcMain.handle('books:list', async () => dbLayer.listBooks(db));
+function registerIpc(channel, handler) {
+  try {
+    if (ipcMain && typeof ipcMain.handle === 'function') ipcMain.handle(channel, handler);
+  } catch {}
+  try {
+    if (ipcMain && ipcMain.handlers instanceof Map) ipcMain.handlers.set(channel, handler);
+  } catch {}
+}
 
-ipcMain.handle('books:add', async (event, payload) => {
+registerIpc('books:list', async () => dbLayer.listBooks(db));
+
+registerIpc('books:add', async (event, payload) => {
   const { title, authors, coverSourcePath, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres, storageLocationId, storageNote, goodreadsRating, goodreadsRatingsCount, goodreadsReviewsCount, goodreadsUrl, originalTitleEn, originalAuthorsEn, goodreadsFetchedAt } = payload;
   let storageId = storageLocationId ? String(storageLocationId).trim() || null : null;
   if (storageId) {
