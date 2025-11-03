@@ -115,7 +115,57 @@ app.whenReady().then(() => {
 - По умолчанию используется канал `latest`. Предрелизы (теги вида `v1.2.0-beta.1`) относятся к каналу `beta`, если релиз в GitHub помечен как pre-release.
 - Канал можно менять через `publish/channel` или `autoUpdater.allowPrerelease`.
 
-## 5) CI GitHub Actions
+## 5) Тестирование перед релизом
+
+Перед публикацией релиза автоматически запускаются unit-тесты.
+
+### Команды тестирования
+
+```bash
+# Unit-тесты (Vitest)
+npm run test:unit
+
+# Unit-тесты в watch режиме
+npm run test:watch
+
+# E2E тесты (Playwright + Electron)
+npm run test:e2e
+
+# E2E тесты с видимым окном
+npm run test:e2e:headed
+
+# E2E тесты в debug режиме
+npm run test:e2e:debug
+```
+
+### Покрытие тестами
+
+- **Unit-тесты**: 115+ тестов
+  - База данных (db.js): 5 тестов
+  - IPC обработчики (main.js): 8 тестов
+  - Renderer утилиты: 31 тест
+  - Vocabulary функции: 18 тестов
+  - CSV импорт: 21 тест
+  - Collections: 16 тестов
+  - Snapshots: 7 тестов
+  - Integration: 10 тестов
+
+- **E2E тесты**: 19 smoke тестов
+  - Vocabulary management workflow
+  - Book editing and Goodreads search
+
+### CI/CD интеграция
+
+Тесты запускаются автоматически:
+- При создании Pull Request
+- При push в основные ветки (main/master/develop)
+- Перед сборкой релиза
+
+Workflow файлы:
+- `.github/workflows/ci.yml` — проверка PR и push
+- `.github/workflows/release.yml` — сборка релиза (включает тесты)
+
+## 6) CI GitHub Actions
 
 Создайте `.github/workflows/release.yml`, чтобы собирать по тэгам и публиковать артефакты в GitHub Releases:
 
@@ -301,7 +351,57 @@ Renderer can subscribe to IPC (`update:available` / `update:ready`) to show UI (
 - Default channel is `latest`. Pre-releases (tags like `v1.2.0-beta.1`) map to `beta` channel when the GitHub Release is marked as pre-release.
 - Channel can be configured via `publish`/`channel` or `autoUpdater.allowPrerelease`.
 
-## 5) GitHub Actions workflow (CI)
+## 5) Testing before release
+
+Unit tests run automatically before publishing a release.
+
+### Testing commands
+
+```bash
+# Unit tests (Vitest)
+npm run test:unit
+
+# Unit tests in watch mode
+npm run test:watch
+
+# E2E tests (Playwright + Electron)
+npm run test:e2e
+
+# E2E tests with visible window
+npm run test:e2e:headed
+
+# E2E tests in debug mode
+npm run test:e2e:debug
+```
+
+### Test coverage
+
+- **Unit tests**: 115+ tests
+  - Database (db.js): 5 tests
+  - IPC handlers (main.js): 8 tests
+  - Renderer utilities: 31 tests
+  - Vocabulary functions: 18 tests
+  - CSV import: 21 tests
+  - Collections: 16 tests
+  - Snapshots: 7 tests
+  - Integration: 10 tests
+
+- **E2E tests**: 19 smoke tests
+  - Vocabulary management workflow
+  - Book editing and Goodreads search
+
+### CI/CD integration
+
+Tests run automatically:
+- On Pull Request creation
+- On push to main branches (main/master/develop)
+- Before building a release
+
+Workflow files:
+- `.github/workflows/ci.yml` — PR and push validation
+- `.github/workflows/release.yml` — release build (includes tests)
+
+## 6) GitHub Actions workflow (CI)
 
 Create `.github/workflows/release.yml` to build on tags and publish release assets:
 
