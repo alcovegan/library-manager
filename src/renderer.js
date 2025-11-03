@@ -1,5 +1,14 @@
 /* global api */
 
+// Import utility functions in Node.js environment (for tests)
+if (typeof module !== 'undefined' && module.exports) {
+  const utils = require('./renderer/utils.js');
+  global.escapeHtml = utils.escapeHtml;
+  global.sanitizeUrl = utils.sanitizeUrl;
+  global.parseCommaSeparatedList = utils.parseCommaSeparatedList;
+  global.parseFloatFromInput = utils.parseFloatFromInput;
+}
+
 const $ = (sel) => document.querySelector(sel);
 const listEl = $('#list');
 const emptyEl = $('#empty');
@@ -545,26 +554,7 @@ const HISTORY_CATEGORY_FILTERS = {
   activity: 'activity',
 };
 
-function escapeHtml(value) {
-  if (value === null || value === undefined) return '';
-  return String(value)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-function sanitizeUrl(url) {
-  if (!url) return null;
-  try {
-    const parsed = new URL(String(url));
-    if (!parsed.protocol.startsWith('http')) return null;
-    return parsed.toString();
-  } catch {
-    return null;
-  }
-}
+// Utility functions (escapeHtml, sanitizeUrl, etc.) are now loaded from renderer/utils.js
 
 const csvImportState = {
   headers: [],
@@ -2451,21 +2441,7 @@ function escapeBookIdForSelector(id) {
   return str.replace(/"/g, '\\"');
 }
 
-function parseCommaSeparatedList(value) {
-  if (!value) return [];
-  return String(value)
-    .split(/[;,]/)
-    .map((part) => part.trim())
-    .filter(Boolean);
-}
-
-function parseFloatFromInput(el) {
-  if (!el) return null;
-  const raw = String(el.value || '').replace(/\s+/g, '').replace(',', '.');
-  if (!raw) return null;
-  const num = Number(raw);
-  return Number.isFinite(num) ? num : null;
-}
+// parseCommaSeparatedList and parseFloatFromInput are loaded from renderer/utils.js
 
 function parseIntFromInput(el) {
   const num = parseFloatFromInput(el);
@@ -6716,11 +6692,13 @@ function updateGoodreadsFetchedLabel() {
 
 // Export functions for testing in Node.js environment
 if (typeof module !== 'undefined' && module.exports) {
+  // Import utils from separate module
+  const utils = require('./renderer/utils.js');
+  
   module.exports = {
-    escapeHtml,
-    sanitizeUrl,
-    parseCommaSeparatedList,
-    parseFloatFromInput,
+    // Re-export utility functions from utils.js
+    ...utils,
+    // Export renderer-specific functions
     renderGoodreadsResult,
     applyGoodreadsInfo,
     rebuildSuggestStore,

@@ -79,7 +79,7 @@ describe('renderer vocabulary integration', () => {
     state.status = 'loading';
 
     const html = renderVocabBooksContent(key);
-    
+
     expect(html).toContain('Загружаем список книг');
   });
 
@@ -90,7 +90,7 @@ describe('renderer vocabulary integration', () => {
     state.error = 'Failed to load books';
 
     const html = renderVocabBooksContent(key);
-    
+
     expect(html).toContain('Ошибка');
     expect(html).toContain('Failed to load books');
   });
@@ -104,7 +104,7 @@ describe('renderer vocabulary integration', () => {
     ];
 
     const html = renderVocabBooksContent(key);
-    
+
     expect(html).toContain('Integration Test Book');
     expect(html).toContain('Author X');
     expect(html).toContain('data-book-id="book-1"');
@@ -122,20 +122,20 @@ describe('renderer vocabulary integration', () => {
     const state = getVocabBookState(key);
     state.status = 'loaded';
     state.items = [
-      { 
-        id: 'book-1', 
+      {
+        id: 'book-1',
         title: 'Structured Book',
         authors: ['Main Author', 'Co-Author'],
       },
     ];
 
     const html = renderVocabBooksContent(key);
-    
+
     // Check for card structure
     expect(html).toContain('class="card"');
     expect(html).toContain('class="btn secondary"');
     expect(html).toContain('data-action="open-book"');
-    
+
     // Check content
     expect(html).toContain('Structured Book');
     expect(html).toContain('Main Author, Co-Author');
@@ -152,7 +152,7 @@ describe('renderer vocabulary integration', () => {
     ];
 
     const html = renderVocabBooksContent(key);
-    
+
     // Should handle gracefully
     expect(html).toContain('(без названия)');
     expect(html).toContain('Only Title');
@@ -164,7 +164,7 @@ describe('renderer vocabulary integration', () => {
     const state = getVocabBookState(key);
     state.status = 'loaded';
     state.items = [
-      { 
+      {
         id: '<script>alert("xss")</script>',
         title: '<img src=x onerror=alert(1)>',
         authors: ['<svg onload=alert(2)>'],
@@ -172,7 +172,7 @@ describe('renderer vocabulary integration', () => {
     ];
 
     const html = renderVocabBooksContent(key);
-    
+
     // Dangerous HTML tags should be escaped (not executable)
     expect(html).not.toContain('<script>alert');
     expect(html).not.toContain('<img src=x onerror');
@@ -185,20 +185,20 @@ describe('renderer vocabulary integration', () => {
 
   it('maintains state consistency across renders', () => {
     const key = 'consistency-test';
-    
+
     // First render - empty
     const state1 = getVocabBookState(key);
     const html1 = renderVocabBooksContent(key);
     expect(html1).toContain('пока нет');
-    
+
     // Add items
     state1.status = 'loaded';
     state1.items = [{ id: 'b1', title: 'Book 1', authors: [] }];
-    
+
     // Second render - should show new items
     const html2 = renderVocabBooksContent(key);
     expect(html2).toContain('Book 1');
-    
+
     // State should be same object
     const state2 = getVocabBookState(key);
     expect(state1).toBe(state2);
