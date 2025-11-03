@@ -9,4 +9,13 @@ export default defineConfig({
     reporters: 'default',
     clearMocks: true,
   },
+  server: {
+    deps: {
+      inline: [
+        'electron',
+        'electron-updater',
+        /\/src\/main\//,  // All main process modules
+      ],
+    },
+  },
 });

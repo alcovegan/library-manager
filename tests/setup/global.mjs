@@ -37,13 +37,17 @@ class Notification {
 
 const dialog = {};
 
-vi.mock('electron', () => ({
-  app,
-  BrowserWindow,
-  ipcMain,
-  dialog,
-  Notification,
-}));
+vi.mock('electron', () => {
+  const electron = {
+    app,
+    BrowserWindow,
+    ipcMain,
+    dialog,
+    Notification,
+  };
+  electron.default = electron;
+  return electron;
+}, { virtual: true });
 
 // electron-updater is referenced in main.js; provide a safe stub
 vi.mock('electron-updater', () => ({
@@ -56,4 +60,3 @@ vi.mock('electron-updater', () => ({
 }));
 
 // Export nothing; this file is loaded via setupFiles to register mocks early
-
