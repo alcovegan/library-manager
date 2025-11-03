@@ -3,9 +3,9 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 // Mock DOM elements BEFORE importing renderer.js
 const mockElement = () => ({
   style: {},
-  classList: { 
-    add: () => {}, 
-    remove: () => {}, 
+  classList: {
+    add: () => {},
+    remove: () => {},
     contains: () => false,
     toggle: () => {},
   },
@@ -73,7 +73,7 @@ const {
 } = require('../../src/renderer.js');
 
 describe('renderer vocabulary functions', () => {
-  
+
   describe('rebuildSuggestStore', () => {
     it('should be a function', () => {
       expect(typeof rebuildSuggestStore).toBe('function');
@@ -103,7 +103,7 @@ describe('renderer vocabulary functions', () => {
     it('returns state object for a key', () => {
       const key = 'authors::Test Author';
       const state = getVocabBookState(key);
-      
+
       expect(state).toBeDefined();
       expect(state).toHaveProperty('status');
       expect(state).toHaveProperty('items');
@@ -113,7 +113,7 @@ describe('renderer vocabulary functions', () => {
     it('initializes with idle status', () => {
       const key = 'tags::new-tag-' + Date.now();
       const state = getVocabBookState(key);
-      
+
       expect(state.status).toBe('idle');
       expect(Array.isArray(state.items)).toBe(true);
       expect(state.error).toBeNull();
@@ -123,17 +123,17 @@ describe('renderer vocabulary functions', () => {
       const key = 'series::Test Series';
       const state1 = getVocabBookState(key);
       const state2 = getVocabBookState(key);
-      
+
       expect(state1).toBe(state2);
     });
 
     it('handles different keys separately', () => {
       const key1 = 'authors::Author One';
       const key2 = 'authors::Author Two';
-      
+
       const state1 = getVocabBookState(key1);
       const state2 = getVocabBookState(key2);
-      
+
       expect(state1).not.toBe(state2);
     });
   });
@@ -147,9 +147,9 @@ describe('renderer vocabulary functions', () => {
       const key = 'loading-test-' + Date.now();
       const state = getVocabBookState(key);
       state.status = 'loading';
-      
+
       const html = renderVocabBooksContent(key);
-      
+
       expect(typeof html).toBe('string');
       expect(html).toContain('Загружаем');
     });
@@ -159,9 +159,9 @@ describe('renderer vocabulary functions', () => {
       const state = getVocabBookState(key);
       state.status = 'error';
       state.error = 'Test error message';
-      
+
       const html = renderVocabBooksContent(key);
-      
+
       expect(html).toContain('Ошибка');
       expect(html).toContain('Test error message');
     });
@@ -171,9 +171,9 @@ describe('renderer vocabulary functions', () => {
       const state = getVocabBookState(key);
       state.status = 'loaded';
       state.items = [];
-      
+
       const html = renderVocabBooksContent(key);
-      
+
       expect(html).toContain('Книг с этим значением пока нет');
     });
 
@@ -185,9 +185,9 @@ describe('renderer vocabulary functions', () => {
         { id: 'book-1', title: 'Book One', authors: ['Author A'] },
         { id: 'book-2', title: 'Book Two', authors: ['Author B', 'Author C'] },
       ];
-      
+
       const html = renderVocabBooksContent(key);
-      
+
       expect(html).toContain('Book One');
       expect(html).toContain('Book Two');
       expect(html).toContain('Author A');
@@ -203,9 +203,9 @@ describe('renderer vocabulary functions', () => {
       state.items = [
         { id: 'book-1', title: 'Book Without Authors', authors: [] },
       ];
-      
+
       const html = renderVocabBooksContent(key);
-      
+
       expect(html).toContain('Book Without Authors');
       expect(html).toContain('—'); // em-dash for empty authors
     });
@@ -215,15 +215,15 @@ describe('renderer vocabulary functions', () => {
       const state = getVocabBookState(key);
       state.status = 'loaded';
       state.items = [
-        { 
-          id: 'book-1', 
-          title: '<script>alert("xss")</script>', 
+        {
+          id: 'book-1',
+          title: '<script>alert("xss")</script>',
           authors: ['<img src=x onerror=alert(1)>'],
         },
       ];
-      
+
       const html = renderVocabBooksContent(key);
-      
+
       // Should escape HTML
       expect(html).not.toContain('<script>');
       expect(html).toContain('&lt;script&gt;');
