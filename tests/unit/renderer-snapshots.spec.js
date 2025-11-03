@@ -81,7 +81,7 @@ describe('renderer HTML snapshots', () => {
       const key = 'authors::Test Author';
       const state = getVocabBookState(key);
       state.status = 'loading';
-      
+
       const html = renderVocabBooksContent(key);
       expect(html).toMatchSnapshot();
     });
@@ -91,7 +91,7 @@ describe('renderer HTML snapshots', () => {
       const state = getVocabBookState(key);
       state.status = 'error';
       state.error = 'Failed to load books from database';
-      
+
       const html = renderVocabBooksContent(key);
       expect(html).toMatchSnapshot();
     });
@@ -101,7 +101,7 @@ describe('renderer HTML snapshots', () => {
       const state = getVocabBookState(key);
       state.status = 'loaded';
       state.items = [];
-      
+
       const html = renderVocabBooksContent(key);
       expect(html).toMatchSnapshot();
     });
@@ -119,7 +119,7 @@ describe('renderer HTML snapshots', () => {
           publisher: 'Bloomsbury',
         },
       ];
-      
+
       const html = renderVocabBooksContent(key);
       expect(html).toMatchSnapshot();
     });
@@ -148,7 +148,7 @@ describe('renderer HTML snapshots', () => {
           series: 'A Song of Ice and Fire',
         },
       ];
-      
+
       const html = renderVocabBooksContent(key);
       expect(html).toMatchSnapshot();
     });
@@ -164,7 +164,7 @@ describe('renderer HTML snapshots', () => {
           authors: [],
         },
       ];
-      
+
       const html = renderVocabBooksContent(key);
       expect(html).toMatchSnapshot();
     });
@@ -180,7 +180,7 @@ describe('renderer HTML snapshots', () => {
           authors: ['Author with <special> & \'chars\''],
         },
       ];
-      
+
       const html = renderVocabBooksContent(key);
       expect(html).toMatchSnapshot();
     });

@@ -91,7 +91,7 @@ Book 2;Author 2;2021`;
     it('should handle empty CSV', () => {
       const csv = '';
       const lines = csv.split(/\r?\n/).filter(l => l.trim().length > 0);
-      
+
       expect(lines).toHaveLength(0);
     });
 
@@ -106,7 +106,7 @@ Book 2;Author 2;2021`;
     });
 
     it('should trim whitespace from headers and values', () => {
-      const csv = `  Title  ,  Author  ,  Year  
+      const csv = `  Title  ,  Author  ,  Year
   Book 1  ,  Author 1  ,  2020  `;
 
       const lines = csv.split(/\r?\n/).filter(l => l.trim().length > 0);
