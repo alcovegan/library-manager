@@ -29,7 +29,7 @@
   function initVocabularyManager(mainState, suggestStore) {
     state = mainState;
     _suggest = suggestStore;
-    
+
     vocabState = {
       currentDomain: 'genres',
       data: {
@@ -43,7 +43,7 @@
       openKey: null,
       books: {},
     };
-    
+
     return vocabState;
   }
 
@@ -75,7 +75,7 @@
    */
   function rebuildSuggestStore() {
     if (!state || !_suggest) return;
-    
+
     try {
       const authors = new Set();
       const series = new Set();
@@ -116,7 +116,7 @@
    */
   function syncCustomVocabularyFromVocabState() {
     if (!state || !vocabState) return;
-    
+
     const custom = { authors: [], series: [], publisher: [], genres: [], tags: [] };
     Object.entries(vocabState.data || {}).forEach(([domain, entries]) => {
       (Array.isArray(entries) ? entries : []).forEach((entry) => {
@@ -135,7 +135,7 @@
    */
   function renderVocabBooksContent(key) {
     if (!vocabState) return '';
-    
+
     const entryState = getVocabBookState(key);
     if (entryState.status === 'loading') {
       return '<div class="empty" style="padding:16px;">Загружаем список книг…</div>';
@@ -146,7 +146,7 @@
     if (!Array.isArray(entryState.items) || entryState.items.length === 0) {
       return '<div class="empty" style="padding:16px;">Книг с этим значением пока нет.</div>';
     }
-    
+
     const items = entryState.items
       .map((book) => {
         const title = book.title || '(без названия)';
@@ -160,7 +160,7 @@
         </div>`;
       })
       .join('');
-    
+
     return items;
   }
 
@@ -169,7 +169,7 @@
    */
   function updateVocabBooksUI() {
     if (!vocabState) return;
-    
+
     const slots = document.querySelectorAll('[data-vocab-books-slot]');
     slots.forEach((slot) => {
       const key = slot.dataset.vocabBooksSlot;
