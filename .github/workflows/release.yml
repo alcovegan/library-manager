@@ -45,6 +45,11 @@ jobs:
           # Rebuild native modules for Electron
           npx electron-rebuild
 
+      - name: Run unit tests
+        run: npm run test:unit
+        env:
+          CI: true
+
       - name: Build and Publish with electron-builder
         run: npm run publish
         env:

@@ -27,10 +27,10 @@ export async function launchElectronApp() {
 
   // Wait for the first window to open
   const window = await app.firstWindow();
-  
+
   // Wait for the app to be ready
   await window.waitForLoadState('domcontentloaded');
-  
+
   return { app, window };
 }
 
