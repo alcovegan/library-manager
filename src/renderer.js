@@ -4182,9 +4182,9 @@ async function loadStats() {
       console.error('Failed to load reading stats:', res?.error);
       return;
     }
-    
+
     const stats = res.stats;
-    
+
     // Render stats by status
     const statsByStatusEl = document.getElementById('statsByStatus');
     if (statsByStatusEl && stats.byStatus) {
@@ -4196,7 +4196,7 @@ async function loadStats() {
         abandoned: { emoji: '❌', label: 'Брошено', color: '#ef4444' },
         on_hold: { emoji: '⏸️', label: 'Отложено', color: '#6b7280' },
       };
-      
+
       statsByStatusEl.innerHTML = Object.entries(stats.byStatus)
         .sort((a, b) => b[1] - a[1])
         .map(([status, count]) => {
@@ -4209,17 +4209,17 @@ async function loadStats() {
           `;
         }).join('');
     }
-    
+
     // Render stats by year
     const statsByYearEl = document.getElementById('statsByYear');
     if (statsByYearEl && stats.byYear) {
       const years = Object.entries(stats.byYear).sort((a, b) => b[0] - a[0]);
-      
+
       if (years.length === 0) {
         statsByYearEl.innerHTML = '<div style="color:var(--muted); font-size:13px;">Нет данных о прочитанных книгах.</div>';
       } else {
         const maxCount = Math.max(...years.map(([_, count]) => count));
-        
+
         statsByYearEl.innerHTML = years.map(([year, count]) => {
           const percent = maxCount > 0 ? (count / maxCount) * 100 : 0;
           return `
