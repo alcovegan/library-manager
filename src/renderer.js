@@ -506,10 +506,12 @@ function markActivityDirty() {
   }
 }
 
+const statsView = document.getElementById('statsView');
 const MAIN_VIEWS = {
   library: libraryView,
   enrich: enrichView,
   history: historyView,
+  stats: statsView,
 };
 
 let currentMainView = 'library';
@@ -4168,6 +4170,73 @@ function setActiveMainView(view) {
     if (historySearchInput) historySearchInput.value = activityState.filters.search || '';
     ensureActivityLoaded({ force: !activityState.initialized || activityState.needsRefresh });
   }
+  if (view === 'stats') {
+    loadStats();
+  }
+}
+
+async function loadStats() {
+  try {
+    const res = await window.api.getReadingStats();
+    if (!res || !res.ok) {
+      console.error('Failed to load reading stats:', res?.error);
+      return;
+    }
+    
+    const stats = res.stats;
+    
+    // Render stats by status
+    const statsByStatusEl = document.getElementById('statsByStatus');
+    if (statsByStatusEl && stats.byStatus) {
+      const statusLabels = {
+        want_to_read: { emoji: '🔖', label: 'Хочу прочитать', color: '#8b5cf6' },
+        reading: { emoji: '📖', label: 'Читаю', color: '#3b82f6' },
+        finished: { emoji: '✅', label: 'Прочитано', color: '#10b981' },
+        re_reading: { emoji: '🔁', label: 'Перечитываю', color: '#f59e0b' },
+        abandoned: { emoji: '❌', label: 'Брошено', color: '#ef4444' },
+        on_hold: { emoji: '⏸️', label: 'Отложено', color: '#6b7280' },
+      };
+      
+      statsByStatusEl.innerHTML = Object.entries(stats.byStatus)
+        .sort((a, b) => b[1] - a[1])
+        .map(([status, count]) => {
+          const config = statusLabels[status] || { emoji: '📚', label: status, color: '#9ca3af' };
+          return `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; border-radius:8px; background:${config.color}10; border:1px solid ${config.color}30;">
+              <span style="font-size:14px;">${config.emoji} ${config.label}</span>
+              <span style="font-weight:600; font-size:16px; color:${config.color};">${count}</span>
+            </div>
+          `;
+        }).join('');
+    }
+    
+    // Render stats by year
+    const statsByYearEl = document.getElementById('statsByYear');
+    if (statsByYearEl && stats.byYear) {
+      const years = Object.entries(stats.byYear).sort((a, b) => b[0] - a[0]);
+      
+      if (years.length === 0) {
+        statsByYearEl.innerHTML = '<div style="color:var(--muted); font-size:13px;">Нет данных о прочитанных книгах.</div>';
+      } else {
+        const maxCount = Math.max(...years.map(([_, count]) => count));
+        
+        statsByYearEl.innerHTML = years.map(([year, count]) => {
+          const percent = maxCount > 0 ? (count / maxCount) * 100 : 0;
+          return `
+            <div style="display:flex; align-items:center; gap:12px;">
+              <span style="font-weight:600; font-size:14px; min-width:50px;">${year}</span>
+              <div style="flex:1; height:28px; background:var(--muted-surface); border-radius:6px; position:relative; overflow:hidden;">
+                <div style="height:100%; width:${percent}%; background:linear-gradient(90deg, #10b981, #3b82f6); border-radius:6px; transition:width 0.3s ease;"></div>
+                <span style="position:absolute; right:8px; top:50%; transform:translateY(-50%); font-weight:600; font-size:13px; color:var(--text);">${count}</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+  } catch (e) {
+    console.error('Failed to load reading stats:', e);
+  }
 }
 
 function updateViewToggleButtons() {
@@ -4184,6 +4253,12 @@ function updateViewToggleButtons() {
     openHistoryBtn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
     openHistoryBtn.title = isActive ? 'К библиотеке' : 'История изменений';
     openHistoryBtn.innerHTML = isActive ? ICON_HOME : ICON_HISTORY;
+  }
+  if (openStatsBtn) {
+    const isActive = currentMainView === 'stats';
+    openStatsBtn.classList.toggle('active', isActive);
+    openStatsBtn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    openStatsBtn.title = isActive ? 'К библиотеке' : 'Статистика чтения';
   }
 }
 
@@ -5619,6 +5694,13 @@ if (openEnrichBtn) {
 if (openHistoryBtn) {
   openHistoryBtn.addEventListener('click', () => {
     const target = currentMainView === 'history' ? 'library' : 'history';
+    setActiveMainView(target);
+  });
+}
+const openStatsBtn = document.getElementById('openStatsBtn');
+if (openStatsBtn) {
+  openStatsBtn.addEventListener('click', () => {
+    const target = currentMainView === 'stats' ? 'library' : 'stats';
     setActiveMainView(target);
   });
 }

@@ -273,6 +273,9 @@
           <button id="openHistoryBtn" class="icon-btn" title="История изменений">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 11h-4a1 1 0 0 1-1-1V7h2v4h3z"/></svg>
           </button>
+          <button id="openStatsBtn" class="icon-btn" title="Статистика чтения">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 3v18h18v-2H5V3H3zm4 12h2v4H7v-4zm4-4h2v8h-2v-8zm4-4h2v12h-2V7zm4-4h2v16h-2V3z"/></svg>
+          </button>
           <button id="openEnrichBtn" class="icon-btn" title="Обогащение">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3 7h7l-5.5 4 2.5 7-7-4.5L5 20l2.5-7L2 9h7z"/></svg>
           </button>
@@ -473,6 +476,23 @@
             <div class="history-loadmore">
               <button id="historyLoadMoreBtn" class="btn secondary" type="button" style="display:none;">Загрузить ещё</button>
             </div>
+          </div>
+        </div>
+      </section>
+      <section id="statsView" class="card" style="display:none; grid-column: 1 / -1;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <h3 style="margin:0;">📊 Статистика чтения</h3>
+        </div>
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:16px;">
+          <!-- Stats by Status -->
+          <div style="border:1px solid var(--border); border-radius:12px; padding:16px; background:var(--surface);">
+            <h4 style="margin:0 0 12px 0; font-size:15px; font-weight:600;">По статусам</h4>
+            <div id="statsByStatus" style="display:flex; flex-direction:column; gap:8px;"></div>
+          </div>
+          <!-- Stats by Year -->
+          <div style="border:1px solid var(--border); border-radius:12px; padding:16px; background:var(--surface);">
+            <h4 style="margin:0 0 12px 0; font-size:15px; font-weight:600;">Прочитано по годам</h4>
+            <div id="statsByYear" style="display:flex; flex-direction:column; gap:8px;"></div>
           </div>
         </div>
       </section>
