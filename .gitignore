@@ -25,3 +25,8 @@ pnpm-debug.log*
 .cursorindexingignore
 .cursorrules
 .specstory/
+
+# testing
+playwright-report/
+test-results/
+tests/e2e/screenshots/*.png
