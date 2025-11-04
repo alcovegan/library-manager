@@ -1877,7 +1877,7 @@ ipcMain.handle('reading:setStatus', async (_event, { bookId, status, startedAt =
       finishedAt,
       notes,
     });
-    
+
     // Record activity
     const statusLabels = {
       want_to_read: 'Хочу прочитать',
@@ -1887,7 +1887,7 @@ ipcMain.handle('reading:setStatus', async (_event, { bookId, status, startedAt =
       abandoned: 'Брошено',
       on_hold: 'Отложено',
     };
-    
+
     recordActivity({
       action: 'reading.status.set',
       entityType: 'book',
@@ -1895,7 +1895,7 @@ ipcMain.handle('reading:setStatus', async (_event, { bookId, status, startedAt =
       summary: `Изменён статус чтения: ${statusLabels[status] || status}`,
       payload: { status, startedAt, finishedAt },
     });
-    
+
     return { ok: true, session };
   } catch (error) {
     return { ok: false, error: String(error?.message || error) };
@@ -1905,14 +1905,14 @@ ipcMain.handle('reading:setStatus', async (_event, { bookId, status, startedAt =
 ipcMain.handle('reading:clearStatus', async (_event, { bookId }) => {
   try {
     dbLayer.clearReadingStatus(db, bookId);
-    
+
     recordActivity({
       action: 'reading.status.clear',
       entityType: 'book',
       entityId: bookId,
       summary: 'Очищен статус чтения',
     });
-    
+
     return { ok: true };
   } catch (error) {
     return { ok: false, error: String(error?.message || error) };

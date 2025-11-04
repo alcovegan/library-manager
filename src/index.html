@@ -671,6 +671,39 @@
             <label>Заметки</label>
             <textarea id="modalNotes" rows="3" style="resize:vertical;"></textarea>
 
+            <!-- Reading Status Section -->
+            <details id="readingStatusPanel" style="border:1px solid var(--border); border-radius:12px; padding:8px 12px 12px; background:var(--surface); margin-top:12px;">
+              <summary style="font-weight:600; cursor:pointer; outline:none; user-select:none;">📚 Статус чтения</summary>
+              <div style="margin-top:12px; display:flex; flex-direction:column; gap:12px;">
+                <div>
+                  <label>Статус</label>
+                  <select id="modalReadingStatus" class="input" style="height:36px;">
+                    <option value="">— Не указан —</option>
+                    <option value="want_to_read">🔖 Хочу прочитать</option>
+                    <option value="reading">📖 Читаю</option>
+                    <option value="finished">✅ Прочитано</option>
+                    <option value="re_reading">🔁 Перечитываю</option>
+                    <option value="abandoned">❌ Брошено</option>
+                    <option value="on_hold">⏸️ Отложено</option>
+                  </select>
+                </div>
+                <div class="row" style="gap:10px;">
+                  <div style="flex:1;">
+                    <label>Дата начала</label>
+                    <input id="modalReadingStartedAt" type="date" class="input" />
+                  </div>
+                  <div style="flex:1;">
+                    <label>Дата окончания</label>
+                    <input id="modalReadingFinishedAt" type="date" class="input" />
+                  </div>
+                </div>
+                <div id="readingHistorySection" style="display:none; border-top:1px solid var(--border); padding-top:12px;">
+                  <div style="font-size:12px; font-weight:600; color:var(--muted); margin-bottom:8px;">История чтения</div>
+                  <div id="readingHistoryList" style="display:flex; flex-direction:column; gap:6px;"></div>
+                </div>
+              </div>
+            </details>
+
             <div id="isbnResults" class="card" style="margin-top:12px; display:none;">
               <div style="font-size:12px; color:var(--muted); margin-bottom:6px;">Результаты</div>
               <div id="isbnResultsList" style="display:flex; flex-direction:column; gap:8px;"></div>

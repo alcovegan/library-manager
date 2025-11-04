@@ -3391,6 +3391,53 @@ function render() {
       meta.appendChild(badgeWrapper);
     }
 
+    // Add reading status badge
+    if (b.readingStatus) {
+      const statusBadge = document.createElement('div');
+      statusBadge.className = 'reading-status-badge';
+      statusBadge.dataset.status = b.readingStatus;
+      
+      const statusConfig = {
+        want_to_read: { emoji: '🔖', label: 'Хочу прочитать', color: '#8b5cf6' },
+        reading: { emoji: '📖', label: 'Читаю', color: '#3b82f6' },
+        finished: { emoji: '✅', label: 'Прочитано', color: '#10b981' },
+        re_reading: { emoji: '🔁', label: 'Перечитываю', color: '#f59e0b' },
+        abandoned: { emoji: '❌', label: 'Брошено', color: '#ef4444' },
+        on_hold: { emoji: '⏸️', label: 'Отложено', color: '#6b7280' },
+      };
+      
+      const config = statusConfig[b.readingStatus] || { emoji: '📚', label: b.readingStatus, color: '#9ca3af' };
+      
+      statusBadge.style.cssText = `
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 8px;
+        font-size: 11px;
+        font-weight: 600;
+        border-radius: 6px;
+        margin-top: 4px;
+        background: ${config.color}15;
+        color: ${config.color};
+        border: 1px solid ${config.color}40;
+      `;
+      
+      statusBadge.textContent = `${config.emoji} ${config.label}`;
+      
+      if (b.readingStartedAt) {
+        const startedDate = new Date(b.readingStartedAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' });
+        statusBadge.title = `Начато: ${startedDate}`;
+      }
+      if (b.readingFinishedAt) {
+        const finishedDate = new Date(b.readingFinishedAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' });
+        statusBadge.title = b.readingStartedAt 
+          ? `${statusBadge.title}\nЗавершено: ${finishedDate}`
+          : `Завершено: ${finishedDate}`;
+      }
+      
+      meta.appendChild(statusBadge);
+    }
+
     // Add collection badges
     const bookCollections = getBookCollections(b.id);
     if (bookCollections.length > 0) {
@@ -3597,7 +3644,69 @@ function openDetails(b) {
   attachAutocomplete(modalGenres, 'genres', { multiple: true });
   attachAutocomplete(modalTags, 'tags', { multiple: true });
   updateModalLoanStatus(b);
+  loadReadingStatusFields(b);
   updateGoodreadsRefreshState();
+}
+
+async function loadReadingStatusFields(book) {
+  const modalReadingStatus = document.getElementById('modalReadingStatus');
+  const modalReadingStartedAt = document.getElementById('modalReadingStartedAt');
+  const modalReadingFinishedAt = document.getElementById('modalReadingFinishedAt');
+  const readingHistorySection = document.getElementById('readingHistorySection');
+  const readingHistoryList = document.getElementById('readingHistoryList');
+
+  if (!modalReadingStatus) return;
+
+  // Load current status
+  modalReadingStatus.value = book?.readingStatus || '';
+  modalReadingStartedAt.value = book?.readingStartedAt ? book.readingStartedAt.slice(0, 10) : '';
+  modalReadingFinishedAt.value = book?.readingFinishedAt ? book.readingFinishedAt.slice(0, 10) : '';
+
+  // Load reading history if book exists
+  if (book?.id && readingHistorySection && readingHistoryList) {
+    try {
+      const res = await window.api.getReadingSessions(book.id);
+      if (res.ok && res.sessions && res.sessions.length > 0) {
+        readingHistorySection.style.display = 'block';
+        
+        const statusLabels = {
+          want_to_read: '🔖 Хочу прочитать',
+          reading: '📖 Читаю',
+          finished: '✅ Прочитано',
+          re_reading: '🔁 Перечитываю',
+          abandoned: '❌ Брошено',
+          on_hold: '⏸️ Отложено',
+        };
+        
+        readingHistoryList.innerHTML = res.sessions.map(session => {
+          const label = statusLabels[session.status] || session.status;
+          const started = session.startedAt ? new Date(session.startedAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+          const finished = session.finishedAt ? new Date(session.finishedAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+          
+          let dateRange = '';
+          if (started && finished) {
+            dateRange = `${started} – ${finished}`;
+          } else if (started) {
+            dateRange = `с ${started}`;
+          }
+          
+          return `
+            <div style="font-size:12px; padding:6px 8px; background:var(--muted-surface); border-radius:6px; display:flex; justify-content:space-between; align-items:center;">
+              <span>${label}</span>
+              ${dateRange ? `<span style="color:var(--muted);">${dateRange}</span>` : ''}
+            </div>
+          `;
+        }).join('');
+      } else {
+        readingHistorySection.style.display = 'none';
+      }
+    } catch (e) {
+      console.error('Failed to load reading history:', e);
+      readingHistorySection.style.display = 'none';
+    }
+  } else if (readingHistorySection) {
+    readingHistorySection.style.display = 'none';
+  }
 }
 
 function updateModalLoanStatus(book) {
@@ -4969,11 +5078,43 @@ if (modalSaveBtn) {
       goodreadsUrl: modalGoodreadsUrlInput ? (modalGoodreadsUrlInput.value.trim() || null) : null,
     };
       if (!payload.title) { alert('Введите название'); return; }
+      
+      let bookId = payload.id;
       if (payload.id) {
         await window.api.updateBook(payload);
       } else {
-        await window.api.addBook(payload);
+        const res = await window.api.addBook(payload);
+        if (res?.book?.id) bookId = res.book.id;
       }
+      
+      // Save reading status if book has ID and status is set
+      const modalReadingStatus = document.getElementById('modalReadingStatus');
+      const modalReadingStartedAt = document.getElementById('modalReadingStartedAt');
+      const modalReadingFinishedAt = document.getElementById('modalReadingFinishedAt');
+      
+      if (bookId && modalReadingStatus && modalReadingStatus.value) {
+        try {
+          await window.api.setReadingStatus(
+            bookId,
+            modalReadingStatus.value,
+            {
+              startedAt: modalReadingStartedAt?.value || null,
+              finishedAt: modalReadingFinishedAt?.value || null,
+            }
+          );
+        } catch (e) {
+          console.error('Failed to save reading status:', e);
+          // Don't block the save if reading status fails
+        }
+      } else if (bookId && modalReadingStatus && !modalReadingStatus.value) {
+        // Clear status if empty
+        try {
+          await window.api.clearReadingStatus(bookId);
+        } catch (e) {
+          console.error('Failed to clear reading status:', e);
+        }
+      }
+      
       closeDetails();
       await load();
     } catch (e) {
