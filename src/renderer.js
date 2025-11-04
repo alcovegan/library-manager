@@ -506,10 +506,12 @@ function markActivityDirty() {
   }
 }
 
+const statsView = document.getElementById('statsView');
 const MAIN_VIEWS = {
   library: libraryView,
   enrich: enrichView,
   history: historyView,
+  stats: statsView,
 };
 
 let currentMainView = 'library';
@@ -1465,9 +1467,11 @@ function getFilters() {
   const gr2 = filterGoodreadsTo ? String(filterGoodreadsTo.value || '').trim() : '';
   const g1 = gr1 === '' ? NaN : Number(gr1);
   const g2 = gr2 === '' ? NaN : Number(gr2);
+  const filterReadingStatus = document.getElementById('filterReadingStatus');
   return {
     author: filterAuthor ? filterAuthor.value : '',
     format: filterFormat ? filterFormat.value : '',
+    readingStatus: filterReadingStatus ? filterReadingStatus.value : '',
     y1: Number.isFinite(y1) ? y1 : NaN,
     y2: Number.isFinite(y2) ? y2 : NaN,
     genres: filterGenres ? filterGenres.value.split(',').map(s=>s.trim()).filter(Boolean) : [],
@@ -1499,6 +1503,13 @@ function applyFilters(arr) {
   return arr.filter(b => {
     if (f.author && !(Array.isArray(b.authors) && b.authors.includes(f.author))) return false;
     if (f.format && (String(b.format || '') !== f.format)) return false;
+    if (f.readingStatus) {
+      if (f.readingStatus === 'no_status') {
+        if (b.readingStatus) return false;
+      } else if (String(b.readingStatus || '') !== f.readingStatus) {
+        return false;
+      }
+    }
     if (!Number.isNaN(f.y1) && Number(b.year || 0) < f.y1) return false;
     if (!Number.isNaN(f.y2) && Number(b.year || 0) > f.y2) return false;
     if (f.genres.length) {
@@ -1524,6 +1535,7 @@ function hasAnyFilterSet() {
   return !!(
     f.author ||
     f.format ||
+    f.readingStatus ||
     (!Number.isNaN(f.y1)) ||
     (!Number.isNaN(f.y2)) ||
     typeof f.goodreadsMin === 'number' ||
@@ -3084,6 +3096,8 @@ function setFiltersFromPreset(filters, { skipRender = false } = {}) {
   const f = filters && typeof filters === 'object' ? filters : {};
   if (filterAuthor) filterAuthor.value = f.author || '';
   if (filterFormat) filterFormat.value = f.format || '';
+  const filterReadingStatus = document.getElementById('filterReadingStatus');
+  if (filterReadingStatus) filterReadingStatus.value = f.readingStatus || '';
   if (filterYearFrom) filterYearFrom.value = f.y1 != null ? f.y1 : '';
   if (filterYearTo) filterYearTo.value = f.y2 != null ? f.y2 : '';
   if (filterGoodreadsFrom) filterGoodreadsFrom.value = f.goodreadsMin != null ? f.goodreadsMin : '';
@@ -3130,6 +3144,8 @@ function applyCollection(name) {
     const f = collection.filters || collection; // Support old format
     if (filterAuthor) filterAuthor.value = f.author || '';
     if (filterFormat) filterFormat.value = f.format || '';
+    const filterReadingStatus = document.getElementById('filterReadingStatus');
+    if (filterReadingStatus) filterReadingStatus.value = f.readingStatus || '';
     if (filterYearFrom) filterYearFrom.value = f.y1 || '';
     if (filterYearTo) filterYearTo.value = f.y2 || '';
     if (filterGoodreadsFrom) filterGoodreadsFrom.value = f.goodreadsMin != null ? f.goodreadsMin : '';
@@ -3154,7 +3170,8 @@ function attachFilterEvents() {
     saveFiltersState();
   };
 
-  [filterAuthor, filterFormat, filterYearFrom, filterYearTo, filterGoodreadsFrom, filterGoodreadsTo, filterGenres, filterTags].forEach(el => {
+  const filterReadingStatus = document.getElementById('filterReadingStatus');
+  [filterAuthor, filterFormat, filterReadingStatus, filterYearFrom, filterYearTo, filterGoodreadsFrom, filterGoodreadsTo, filterGenres, filterTags].forEach(el => {
     if (el) {
       el.addEventListener('input', onChange);
       el.addEventListener('input', onFilterChange);
@@ -3391,6 +3408,53 @@ function render() {
       meta.appendChild(badgeWrapper);
     }
 
+    // Add reading status badge
+    if (b.readingStatus) {
+      const statusBadge = document.createElement('div');
+      statusBadge.className = 'reading-status-badge';
+      statusBadge.dataset.status = b.readingStatus;
+
+      const statusConfig = {
+        want_to_read: { emoji: '🔖', label: 'Хочу прочитать', color: '#8b5cf6' },
+        reading: { emoji: '📖', label: 'Читаю', color: '#3b82f6' },
+        finished: { emoji: '✅', label: 'Прочитано', color: '#10b981' },
+        re_reading: { emoji: '🔁', label: 'Перечитываю', color: '#f59e0b' },
+        abandoned: { emoji: '❌', label: 'Брошено', color: '#ef4444' },
+        on_hold: { emoji: '⏸️', label: 'Отложено', color: '#6b7280' },
+      };
+
+      const config = statusConfig[b.readingStatus] || { emoji: '📚', label: b.readingStatus, color: '#9ca3af' };
+
+      statusBadge.style.cssText = `
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 8px;
+        font-size: 11px;
+        font-weight: 600;
+        border-radius: 6px;
+        margin-top: 4px;
+        background: ${config.color}15;
+        color: ${config.color};
+        border: 1px solid ${config.color}40;
+      `;
+
+      statusBadge.textContent = `${config.emoji} ${config.label}`;
+
+      if (b.readingStartedAt) {
+        const startedDate = new Date(b.readingStartedAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' });
+        statusBadge.title = `Начато: ${startedDate}`;
+      }
+      if (b.readingFinishedAt) {
+        const finishedDate = new Date(b.readingFinishedAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' });
+        statusBadge.title = b.readingStartedAt
+          ? `${statusBadge.title}\nЗавершено: ${finishedDate}`
+          : `Завершено: ${finishedDate}`;
+      }
+
+      meta.appendChild(statusBadge);
+    }
+
     // Add collection badges
     const bookCollections = getBookCollections(b.id);
     if (bookCollections.length > 0) {
@@ -3597,7 +3661,69 @@ function openDetails(b) {
   attachAutocomplete(modalGenres, 'genres', { multiple: true });
   attachAutocomplete(modalTags, 'tags', { multiple: true });
   updateModalLoanStatus(b);
+  loadReadingStatusFields(b);
   updateGoodreadsRefreshState();
+}
+
+async function loadReadingStatusFields(book) {
+  const modalReadingStatus = document.getElementById('modalReadingStatus');
+  const modalReadingStartedAt = document.getElementById('modalReadingStartedAt');
+  const modalReadingFinishedAt = document.getElementById('modalReadingFinishedAt');
+  const readingHistorySection = document.getElementById('readingHistorySection');
+  const readingHistoryList = document.getElementById('readingHistoryList');
+
+  if (!modalReadingStatus) return;
+
+  // Load current status
+  modalReadingStatus.value = book?.readingStatus || '';
+  modalReadingStartedAt.value = book?.readingStartedAt ? book.readingStartedAt.slice(0, 10) : '';
+  modalReadingFinishedAt.value = book?.readingFinishedAt ? book.readingFinishedAt.slice(0, 10) : '';
+
+  // Load reading history if book exists
+  if (book?.id && readingHistorySection && readingHistoryList) {
+    try {
+      const res = await window.api.getReadingSessions(book.id);
+      if (res.ok && res.sessions && res.sessions.length > 0) {
+        readingHistorySection.style.display = 'block';
+
+        const statusLabels = {
+          want_to_read: '🔖 Хочу прочитать',
+          reading: '📖 Читаю',
+          finished: '✅ Прочитано',
+          re_reading: '🔁 Перечитываю',
+          abandoned: '❌ Брошено',
+          on_hold: '⏸️ Отложено',
+        };
+
+        readingHistoryList.innerHTML = res.sessions.map(session => {
+          const label = statusLabels[session.status] || session.status;
+          const started = session.startedAt ? new Date(session.startedAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+          const finished = session.finishedAt ? new Date(session.finishedAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+
+          let dateRange = '';
+          if (started && finished) {
+            dateRange = `${started} – ${finished}`;
+          } else if (started) {
+            dateRange = `с ${started}`;
+          }
+
+          return `
+            <div style="font-size:12px; padding:6px 8px; background:var(--muted-surface); border-radius:6px; display:flex; justify-content:space-between; align-items:center;">
+              <span>${label}</span>
+              ${dateRange ? `<span style="color:var(--muted);">${dateRange}</span>` : ''}
+            </div>
+          `;
+        }).join('');
+      } else {
+        readingHistorySection.style.display = 'none';
+      }
+    } catch (e) {
+      console.error('Failed to load reading history:', e);
+      readingHistorySection.style.display = 'none';
+    }
+  } else if (readingHistorySection) {
+    readingHistorySection.style.display = 'none';
+  }
 }
 
 function updateModalLoanStatus(book) {
@@ -4044,6 +4170,73 @@ function setActiveMainView(view) {
     if (historySearchInput) historySearchInput.value = activityState.filters.search || '';
     ensureActivityLoaded({ force: !activityState.initialized || activityState.needsRefresh });
   }
+  if (view === 'stats') {
+    loadStats();
+  }
+}
+
+async function loadStats() {
+  try {
+    const res = await window.api.getReadingStats();
+    if (!res || !res.ok) {
+      console.error('Failed to load reading stats:', res?.error);
+      return;
+    }
+
+    const stats = res.stats;
+
+    // Render stats by status
+    const statsByStatusEl = document.getElementById('statsByStatus');
+    if (statsByStatusEl && stats.byStatus) {
+      const statusLabels = {
+        want_to_read: { emoji: '🔖', label: 'Хочу прочитать', color: '#8b5cf6' },
+        reading: { emoji: '📖', label: 'Читаю', color: '#3b82f6' },
+        finished: { emoji: '✅', label: 'Прочитано', color: '#10b981' },
+        re_reading: { emoji: '🔁', label: 'Перечитываю', color: '#f59e0b' },
+        abandoned: { emoji: '❌', label: 'Брошено', color: '#ef4444' },
+        on_hold: { emoji: '⏸️', label: 'Отложено', color: '#6b7280' },
+      };
+
+      statsByStatusEl.innerHTML = Object.entries(stats.byStatus)
+        .sort((a, b) => b[1] - a[1])
+        .map(([status, count]) => {
+          const config = statusLabels[status] || { emoji: '📚', label: status, color: '#9ca3af' };
+          return `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; border-radius:8px; background:${config.color}10; border:1px solid ${config.color}30;">
+              <span style="font-size:14px;">${config.emoji} ${config.label}</span>
+              <span style="font-weight:600; font-size:16px; color:${config.color};">${count}</span>
+            </div>
+          `;
+        }).join('');
+    }
+
+    // Render stats by year
+    const statsByYearEl = document.getElementById('statsByYear');
+    if (statsByYearEl && stats.byYear) {
+      const years = Object.entries(stats.byYear).sort((a, b) => b[0] - a[0]);
+
+      if (years.length === 0) {
+        statsByYearEl.innerHTML = '<div style="color:var(--muted); font-size:13px;">Нет данных о прочитанных книгах.</div>';
+      } else {
+        const maxCount = Math.max(...years.map(([_, count]) => count));
+
+        statsByYearEl.innerHTML = years.map(([year, count]) => {
+          const percent = maxCount > 0 ? (count / maxCount) * 100 : 0;
+          return `
+            <div style="display:flex; align-items:center; gap:12px;">
+              <span style="font-weight:600; font-size:14px; min-width:50px;">${year}</span>
+              <div style="flex:1; height:28px; background:var(--muted-surface); border-radius:6px; position:relative; overflow:hidden;">
+                <div style="height:100%; width:${percent}%; background:linear-gradient(90deg, #10b981, #3b82f6); border-radius:6px; transition:width 0.3s ease;"></div>
+                <span style="position:absolute; right:8px; top:50%; transform:translateY(-50%); font-weight:600; font-size:13px; color:var(--text);">${count}</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+  } catch (e) {
+    console.error('Failed to load reading stats:', e);
+  }
 }
 
 function updateViewToggleButtons() {
@@ -4060,6 +4253,12 @@ function updateViewToggleButtons() {
     openHistoryBtn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
     openHistoryBtn.title = isActive ? 'К библиотеке' : 'История изменений';
     openHistoryBtn.innerHTML = isActive ? ICON_HOME : ICON_HISTORY;
+  }
+  if (openStatsBtn) {
+    const isActive = currentMainView === 'stats';
+    openStatsBtn.classList.toggle('active', isActive);
+    openStatsBtn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    openStatsBtn.title = isActive ? 'К библиотеке' : 'Статистика чтения';
   }
 }
 
@@ -4969,11 +5168,43 @@ if (modalSaveBtn) {
       goodreadsUrl: modalGoodreadsUrlInput ? (modalGoodreadsUrlInput.value.trim() || null) : null,
     };
       if (!payload.title) { alert('Введите название'); return; }
+
+      let bookId = payload.id;
       if (payload.id) {
         await window.api.updateBook(payload);
       } else {
-        await window.api.addBook(payload);
+        const res = await window.api.addBook(payload);
+        if (res?.book?.id) bookId = res.book.id;
       }
+
+      // Save reading status if book has ID and status is set
+      const modalReadingStatus = document.getElementById('modalReadingStatus');
+      const modalReadingStartedAt = document.getElementById('modalReadingStartedAt');
+      const modalReadingFinishedAt = document.getElementById('modalReadingFinishedAt');
+
+      if (bookId && modalReadingStatus && modalReadingStatus.value) {
+        try {
+          await window.api.setReadingStatus(
+            bookId,
+            modalReadingStatus.value,
+            {
+              startedAt: modalReadingStartedAt?.value || null,
+              finishedAt: modalReadingFinishedAt?.value || null,
+            }
+          );
+        } catch (e) {
+          console.error('Failed to save reading status:', e);
+          // Don't block the save if reading status fails
+        }
+      } else if (bookId && modalReadingStatus && !modalReadingStatus.value) {
+        // Clear status if empty
+        try {
+          await window.api.clearReadingStatus(bookId);
+        } catch (e) {
+          console.error('Failed to clear reading status:', e);
+        }
+      }
+
       closeDetails();
       await load();
     } catch (e) {
@@ -5463,6 +5694,13 @@ if (openEnrichBtn) {
 if (openHistoryBtn) {
   openHistoryBtn.addEventListener('click', () => {
     const target = currentMainView === 'history' ? 'library' : 'history';
+    setActiveMainView(target);
+  });
+}
+const openStatsBtn = document.getElementById('openStatsBtn');
+if (openStatsBtn) {
+  openStatsBtn.addEventListener('click', () => {
+    const target = currentMainView === 'stats' ? 'library' : 'stats';
     setActiveMainView(target);
   });
 }

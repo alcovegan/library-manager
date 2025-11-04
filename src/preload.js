@@ -165,6 +165,13 @@ contextBridge.exposeInMainWorld('api', {
   syncUp: () => ipcRenderer.invoke('sync:up'),
   syncDown: () => ipcRenderer.invoke('sync:down'),
   cleanupCovers: () => ipcRenderer.invoke('sync:cleanup'),
+  // Reading Sessions
+  getCurrentReadingSession: (bookId) => ipcRenderer.invoke('reading:getCurrentSession', { bookId }),
+  getReadingSessions: (bookId) => ipcRenderer.invoke('reading:getSessions', { bookId }),
+  setReadingStatus: (bookId, status, options = {}) => ipcRenderer.invoke('reading:setStatus', { bookId, status, ...options }),
+  clearReadingStatus: (bookId) => ipcRenderer.invoke('reading:clearStatus', { bookId }),
+  getReadingStats: () => ipcRenderer.invoke('reading:getStats'),
+  getReadingConstants: () => ipcRenderer.invoke('reading:getConstants'),
 });
 
 contextBridge.exposeInMainWorld('search', {

@@ -1850,3 +1850,102 @@ ipcMain.handle('activity:export', async (_event, options) => {
     return { ok: false, error: String(error?.message || error) };
   }
 });
+
+// Reading Sessions IPC handlers
+ipcMain.handle('reading:getCurrentSession', async (_event, { bookId }) => {
+  try {
+    const session = dbLayer.getCurrentReadingSession(db, bookId);
+    return { ok: true, session };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
+});
+
+ipcMain.handle('reading:getSessions', async (_event, { bookId }) => {
+  try {
+    const sessions = dbLayer.getReadingSessions(db, bookId);
+    return { ok: true, sessions };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
+});
+
+ipcMain.handle('reading:setStatus', async (_event, { bookId, status, startedAt = null, finishedAt = null, notes = null }) => {
+  try {
+    const session = dbLayer.setReadingStatus(db, bookId, status, {
+      startedAt,
+      finishedAt,
+      notes,
+    });
+
+    // Record activity
+    const statusLabels = {
+      want_to_read: 'Хочу прочитать',
+      reading: 'Читаю',
+      finished: 'Прочитано',
+      re_reading: 'Перечитываю',
+      abandoned: 'Брошено',
+      on_hold: 'Отложено',
+    };
+
+    recordActivity({
+      action: 'reading.status.set',
+      entityType: 'book',
+      entityId: bookId,
+      summary: `Изменён статус чтения: ${statusLabels[status] || status}`,
+      payload: { status, startedAt, finishedAt },
+    });
+
+    return { ok: true, session };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
+});
+
+ipcMain.handle('reading:clearStatus', async (_event, { bookId }) => {
+  try {
+    dbLayer.clearReadingStatus(db, bookId);
+
+    recordActivity({
+      action: 'reading.status.clear',
+      entityType: 'book',
+      entityId: bookId,
+      summary: 'Очищен статус чтения',
+    });
+
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
+});
+
+ipcMain.handle('reading:getStats', async () => {
+  try {
+    const stats = dbLayer.getReadingStats(db);
+    return { ok: true, stats };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
+});
+
+// Export reading status constants
+ipcMain.handle('reading:getConstants', async () => {
+  try {
+    return {
+      ok: true,
+      constants: {
+        READING_STATUS: dbLayer.READING_STATUS,
+        STATUS_LABELS: {
+          [dbLayer.READING_STATUS.WANT_TO_READ]: '🔖 Хочу прочитать',
+          [dbLayer.READING_STATUS.READING]: '📖 Читаю',
+          [dbLayer.READING_STATUS.FINISHED]: '✅ Прочитано',
+          [dbLayer.READING_STATUS.RE_READING]: '🔁 Перечитываю',
+          [dbLayer.READING_STATUS.ABANDONED]: '❌ Брошено',
+          [dbLayer.READING_STATUS.ON_HOLD]: '⏸️ Отложено',
+        },
+      },
+    };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
+});

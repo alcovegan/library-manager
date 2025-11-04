@@ -363,6 +363,31 @@ async function migrate(ctx) {
     setSchemaVersion(ctx, 14);
     persist(ctx);
   }
+  // v15: reading sessions for tracking reading status and history
+  if (getSchemaVersion(ctx) === 14) {
+    ctx.db.exec(`
+      CREATE TABLE IF NOT EXISTS reading_sessions (
+        id TEXT PRIMARY KEY,
+        bookId TEXT NOT NULL,
+        status TEXT NOT NULL,
+        startedAt TEXT,
+        finishedAt TEXT,
+        notes TEXT,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        FOREIGN KEY(bookId) REFERENCES books(id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_reading_sessions_book ON reading_sessions(bookId);
+      CREATE INDEX IF NOT EXISTS idx_reading_sessions_status ON reading_sessions(status);
+      CREATE INDEX IF NOT EXISTS idx_reading_sessions_started ON reading_sessions(startedAt);
+      CREATE INDEX IF NOT EXISTS idx_reading_sessions_finished ON reading_sessions(finishedAt);
+
+      ALTER TABLE books ADD COLUMN currentReadingSessionId TEXT;
+      CREATE INDEX IF NOT EXISTS idx_books_reading_session ON books(currentReadingSessionId);
+    `);
+    setSchemaVersion(ctx, 15);
+    persist(ctx);
+  }
 }
 
 function ensureAuthor(ctx, name) {
@@ -806,12 +831,16 @@ function listBooks(ctx) {
         WHERE h.bookId = b.id
         ORDER BY h.created_at DESC
         LIMIT 1
-      ) AS latestCreatedAt
+      ) AS latestCreatedAt,
+      rs.status AS readingStatus,
+      rs.startedAt AS readingStartedAt,
+      rs.finishedAt AS readingFinishedAt
     FROM books b
+    LEFT JOIN reading_sessions rs ON rs.id = b.currentReadingSessionId
     ORDER BY b.title COLLATE NOCASE
   `);
   const rows = res[0] ? res[0].values : [];
-  return rows.map(([id, title, coverPath, createdAt, updatedAt, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres, storageLocationId, goodreadsRating, goodreadsRatingsCount, goodreadsReviewsCount, goodreadsUrl, originalTitleEn, originalAuthorsEn, goodreadsFetchedAt, latestAction, latestPerson, latestNote, latestCreatedAt]) => {
+  return rows.map(([id, title, coverPath, createdAt, updatedAt, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres, storageLocationId, goodreadsRating, goodreadsRatingsCount, goodreadsReviewsCount, goodreadsUrl, originalTitleEn, originalAuthorsEn, goodreadsFetchedAt, latestAction, latestPerson, latestNote, latestCreatedAt, readingStatus, readingStartedAt, readingFinishedAt]) => {
     const latestActionNorm = normStr(latestAction);
     return {
       id,
@@ -846,6 +875,9 @@ function listBooks(ctx) {
       storageLatestAt: normStr(latestCreatedAt),
       isLoaned: latestActionNorm === 'lend',
       authors: authorsForBook(ctx, id),
+      readingStatus: normStr(readingStatus),
+      readingStartedAt: normStr(readingStartedAt),
+      readingFinishedAt: normStr(readingFinishedAt),
     };
   });
 }
@@ -1806,6 +1838,194 @@ function resolveCoverPath(ctx, storedPath) {
   return fromStoredCoverPath(ctx, storedPath);
 }
 
+// Reading Sessions constants
+const READING_STATUS = {
+  WANT_TO_READ: 'want_to_read',
+  READING: 'reading',
+  FINISHED: 'finished',
+  RE_READING: 're_reading',
+  ABANDONED: 'abandoned',
+  ON_HOLD: 'on_hold',
+};
+
+const VALID_READING_STATUSES = Object.values(READING_STATUS);
+
+// Get current reading session for a book
+function getCurrentReadingSession(ctx, bookId) {
+  const res = ctx.db.exec(`
+    SELECT rs.id, rs.bookId, rs.status, rs.startedAt, rs.finishedAt, rs.notes, rs.createdAt, rs.updatedAt
+    FROM reading_sessions rs
+    JOIN books b ON b.currentReadingSessionId = rs.id
+    WHERE b.id = '${bookId.replace(/'/g, "''")}'
+  `);
+  if (!res[0] || !res[0].values[0]) return null;
+  const [id, bookId2, status, startedAt, finishedAt, notes, createdAt, updatedAt] = res[0].values[0];
+  return { id, bookId: bookId2, status, startedAt, finishedAt, notes, createdAt, updatedAt };
+}
+
+// Get all reading sessions for a book (history)
+function getReadingSessions(ctx, bookId) {
+  const res = ctx.db.exec(`
+    SELECT id, bookId, status, startedAt, finishedAt, notes, createdAt, updatedAt
+    FROM reading_sessions
+    WHERE bookId = '${bookId.replace(/'/g, "''")}'
+    ORDER BY createdAt DESC
+  `);
+  if (!res[0]) return [];
+  return res[0].values.map(([id, bookId2, status, startedAt, finishedAt, notes, createdAt, updatedAt]) => ({
+    id, bookId: bookId2, status, startedAt, finishedAt, notes, createdAt, updatedAt
+  }));
+}
+
+// Create or update reading session
+function setReadingStatus(ctx, bookId, status, { startedAt = null, finishedAt = null, notes = null } = {}) {
+  if (!VALID_READING_STATUSES.includes(status)) {
+    throw new Error(`Invalid reading status: ${status}`);
+  }
+
+  const now = new Date().toISOString();
+  const currentSession = getCurrentReadingSession(ctx, bookId);
+
+  // Auto-set dates based on status
+  let effectiveStartedAt = startedAt;
+  let effectiveFinishedAt = finishedAt;
+
+  if (status === READING_STATUS.READING || status === READING_STATUS.RE_READING) {
+    if (!effectiveStartedAt && !currentSession) {
+      effectiveStartedAt = now;
+    }
+  }
+
+  if (status === READING_STATUS.FINISHED || status === READING_STATUS.ABANDONED) {
+    if (!effectiveFinishedAt) {
+      effectiveFinishedAt = now;
+    }
+  }
+
+  // If current session exists and status is the same, update it
+  if (currentSession && currentSession.status === status) {
+    const stmt = ctx.db.prepare('UPDATE reading_sessions SET startedAt = ?, finishedAt = ?, notes = ?, updatedAt = ? WHERE id = ?');
+    stmt.bind([
+      normStr(effectiveStartedAt || currentSession.startedAt),
+      normStr(effectiveFinishedAt || currentSession.finishedAt),
+      normStr(notes !== null ? notes : currentSession.notes),
+      now,
+      currentSession.id
+    ]);
+    stmt.step();
+    stmt.free();
+    persist(ctx);
+    return getCurrentReadingSession(ctx, bookId);
+  }
+
+  // If current session exists and status changed, archive it and create new
+  if (currentSession) {
+    // Archive current session by removing link from books table
+    const unlinkStmt = ctx.db.prepare('UPDATE books SET currentReadingSessionId = NULL WHERE id = ?');
+    unlinkStmt.bind([bookId]);
+    unlinkStmt.step();
+    unlinkStmt.free();
+
+    // Set finishedAt for old session if it was active
+    if ([READING_STATUS.READING, READING_STATUS.RE_READING].includes(currentSession.status)) {
+      const archiveStmt = ctx.db.prepare('UPDATE reading_sessions SET finishedAt = ?, updatedAt = ? WHERE id = ?');
+      archiveStmt.bind([now, now, currentSession.id]);
+      archiveStmt.step();
+      archiveStmt.free();
+    }
+  }
+
+  // Create new session
+  const sessionId = randomUUID();
+  const insSession = ctx.db.prepare('INSERT INTO reading_sessions(id, bookId, status, startedAt, finishedAt, notes, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+  insSession.bind([
+    sessionId,
+    bookId,
+    status,
+    normStr(effectiveStartedAt),
+    normStr(effectiveFinishedAt),
+    normStr(notes),
+    now,
+    now
+  ]);
+  insSession.step();
+  insSession.free();
+
+  // Link new session to book
+  const linkStmt = ctx.db.prepare('UPDATE books SET currentReadingSessionId = ?, updatedAt = ? WHERE id = ?');
+  linkStmt.bind([sessionId, now, bookId]);
+  linkStmt.step();
+  linkStmt.free();
+
+  persist(ctx);
+  return getCurrentReadingSession(ctx, bookId);
+}
+
+// Clear reading status (remove current session link, keep history)
+function clearReadingStatus(ctx, bookId) {
+  const currentSession = getCurrentReadingSession(ctx, bookId);
+  if (!currentSession) return;
+
+  const now = new Date().toISOString();
+
+  // Unlink current session
+  const unlinkStmt = ctx.db.prepare('UPDATE books SET currentReadingSessionId = NULL, updatedAt = ? WHERE id = ?');
+  unlinkStmt.bind([now, bookId]);
+  unlinkStmt.step();
+  unlinkStmt.free();
+
+  // Set finishedAt if it was active reading
+  if ([READING_STATUS.READING, READING_STATUS.RE_READING].includes(currentSession.status)) {
+    const archiveStmt = ctx.db.prepare('UPDATE reading_sessions SET finishedAt = ?, updatedAt = ? WHERE id = ?');
+    archiveStmt.bind([now, now, currentSession.id]);
+    archiveStmt.step();
+    archiveStmt.free();
+  }
+
+  persist(ctx);
+}
+
+// Get reading statistics
+function getReadingStats(ctx) {
+  const statusCounts = {};
+  VALID_READING_STATUSES.forEach(status => statusCounts[status] = 0);
+
+  const res = ctx.db.exec(`
+    SELECT rs.status, COUNT(*) as count
+    FROM books b
+    JOIN reading_sessions rs ON rs.id = b.currentReadingSessionId
+    GROUP BY rs.status
+  `);
+
+  if (res[0]) {
+    res[0].values.forEach(([status, count]) => {
+      statusCounts[status] = count;
+    });
+  }
+
+  // Get yearly stats for finished books
+  const yearlyRes = ctx.db.exec(`
+    SELECT strftime('%Y', rs.finishedAt) as year, COUNT(*) as count
+    FROM reading_sessions rs
+    WHERE rs.status = 'finished' AND rs.finishedAt IS NOT NULL
+    GROUP BY year
+    ORDER BY year DESC
+  `);
+
+  const yearlyStats = {};
+  if (yearlyRes[0]) {
+    yearlyRes[0].values.forEach(([year, count]) => {
+      if (year) yearlyStats[year] = count;
+    });
+  }
+
+  return {
+    byStatus: statusCounts,
+    byYear: yearlyStats,
+    total: Object.values(statusCounts).reduce((sum, count) => sum + count, 0)
+  };
+}
+
 module.exports = {
   openDb,
   migrate,
@@ -1855,4 +2075,11 @@ module.exports = {
   getBookStorageId,
   getBookById,
   getSchemaVersion,
+  // Reading sessions
+  READING_STATUS,
+  getCurrentReadingSession,
+  getReadingSessions,
+  setReadingStatus,
+  clearReadingStatus,
+  getReadingStats,
 };
