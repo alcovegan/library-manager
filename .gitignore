@@ -30,3 +30,7 @@ pnpm-debug.log*
 playwright-report/
 test-results/
 tests/e2e/screenshots/*.png
+
+# ai chat logs
+docs/cursor/
+docs/codex/
