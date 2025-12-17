@@ -294,8 +294,14 @@
         <input id="authorsInput" type="text" placeholder="Автор1, Автор2" class="input w-full" />
         <label>Обложка</label>
         <div class="row" style="gap:8px; align-items:center;">
-          <button id="chooseCoverBtn" class="btn" style="flex:1;">Выбрать файл…</button>
-          <button id="coverSearchBtn" class="btn secondary" type="button" style="flex:1;">Найти онлайн…</button>
+          <button id="chooseCoverBtn" class="btn" style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="0.51" y="0.5" width="13" height="13" rx="1"/><circle cx="9.25" cy="4.75" r="1.75"/><path d="M9.4 13.4999C9.07801 11.7849 8.15715 10.2401 6.80173 9.14113C5.44632 8.04214 3.74452 7.46048 2 7.49993C1.49668 7.49858 0.994381 7.54546 0.5 7.63993"/><path d="M13.5 9.91002C12.6946 9.63803 11.8501 9.49954 11 9.50002C9.92394 9.49768 8.85877 9.71548 7.87 10.14"/></svg>
+            <span>Выбрать файл…</span>
+          </button>
+          <button id="coverSearchBtn" class="btn secondary" type="button" style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="6.5"/><path d="M0.5 7H13.5"/><path d="M9.5 7C9.3772 9.37699 8.50168 11.6533 7 13.5C5.49832 11.6533 4.6228 9.37699 4.5 7C4.6228 4.62301 5.49832 2.34665 7 0.5C8.50168 2.34665 9.3772 4.62301 9.5 7V7Z"/></svg>
+            <span>Найти онлайн…</span>
+          </button>
           <span id="coverFileLabel" class="text-xs text-slate-500" style="margin-left:auto;">Не выбрано</span>
         </div>
         <div class="row" style="margin-top:8px; gap:8px;">
@@ -308,11 +314,20 @@
           <select id="storageSelect" class="input" style="flex:1; min-width:0;">
             <option value="">—</option>
           </select>
-          <button id="storageQuickAddBtn" type="button" class="btn secondary" style="white-space:nowrap;">Добавить…</button>
+          <button id="storageQuickAddBtn" type="button" class="btn secondary" style="white-space:nowrap; display:flex; align-items:center; gap:4px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M7 0.540039V13.54"/><path d="M0.5 7H13.5"/></svg>
+            <span>Добавить…</span>
+          </button>
         </div>
         <div class="row" style="margin-top:12px; gap:12px;">
-          <button id="saveBtn" class="btn primary" style="flex:1;">Сохранить</button>
-          <button id="resetBtn" class="btn" style="flex:1;">Сбросить</button>
+          <button id="saveBtn" class="btn primary" style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8L6.05 9.64C6.10506 9.68534 6.16952 9.71784 6.23872 9.73514C6.30791 9.75244 6.38009 9.7541 6.45 9.74C6.52058 9.72676 6.58749 9.69847 6.64616 9.65706C6.70483 9.61564 6.75389 9.56207 6.79 9.5L10 4"/><circle cx="7" cy="7" r="6.5"/></svg>
+            <span>Сохранить</span>
+          </button>
+          <button id="resetBtn" class="btn" style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 0.5L0.5 13.5"/><path d="M0.5 0.5L13.5 13.5"/></svg>
+            <span>Сбросить</span>
+          </button>
         </div>
         <div style="margin-top:8px;">
           <button id="openCreateModalBtn" class="btn secondary" style="width:100%; display:flex; align-items:center; justify-content:center; gap:6px;">
@@ -378,15 +393,32 @@
             <select id="filterPresetSelect" class="input" style="width:auto; min-width:14rem;">
               <option value="">Сохранённые поиски…</option>
             </select>
-            <button id="savePresetBtn" type="button" class="btn secondary" title="Сохранить текущий поиск">Сохранить поиск</button>
-            <button id="deletePresetBtn" type="button" class="btn" title="Удалить выбранный поиск">Удалить поиск</button>
+            <button id="savePresetBtn" type="button" class="btn secondary" title="Сохранить текущий поиск" style="display:flex; align-items:center; gap:4px;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 12.5C13.5 12.7652 13.3946 13.0196 13.2071 13.2071C13.0196 13.3946 12.7652 13.5 12.5 13.5H1.5C1.23478 13.5 0.98043 13.3946 0.792893 13.2071C0.605357 13.0196 0.5 12.7652 0.5 12.5V3.5L3.5 0.5H12.5C12.7652 0.5 13.0196 0.605357 13.2071 0.792893C13.3946 0.98043 13.5 1.23478 13.5 1.5V12.5Z"/><rect x="3.5" y="8.5" width="7" height="5"/><rect x="4.5" y="0.5" width="6" height="4"/></svg>
+              <span>Сохранить поиск</span>
+            </button>
+            <button id="deletePresetBtn" type="button" class="btn" title="Удалить выбранный поиск" style="display:flex; align-items:center; gap:4px;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M1 3.5H13"/><path d="M2.5 3.5H11.5V12.5C11.5 12.7652 11.3946 13.0196 11.2071 13.2071C11.0196 13.3946 10.7652 13.5 10.5 13.5H3.5C3.23478 13.5 2.98043 13.3946 2.79289 13.2071C2.60536 13.0196 2.5 12.7652 2.5 12.5V3.5Z"/><path d="M4.5 3.5V3C4.5 2.33696 4.76339 1.70107 5.23223 1.23223C5.70107 0.763392 6.33696 0.5 7 0.5C7.66304 0.5 8.29893 0.763392 8.76777 1.23223C9.23661 1.70107 9.5 2.33696 9.5 3V3.5"/><path d="M5.5 5.5V11"/><path d="M8.5 5.5V11"/></svg>
+              <span>Удалить поиск</span>
+            </button>
             <select id="collectionSelect" class="input" style="width:auto; min-width:12rem;">
               <option value="">Коллекции…</option>
             </select>
-            <button id="createCollectionBtn" type="button" class="btn secondary" title="Создать новую коллекцию">➕</button>
-            <button id="saveCollectionBtn" type="button" class="btn">Сохранить как…</button>
-            <button id="deleteCollectionBtn" type="button" class="btn">Удалить</button>
-            <button id="btnClearFilters" class="btn" type="button">Сбросить</button>
+            <button id="createCollectionBtn" type="button" class="btn secondary" title="Создать новую коллекцию" style="display:flex; align-items:center; justify-content:center; padding:0 10px;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M7 0.540039V13.54"/><path d="M0.5 7H13.5"/></svg>
+            </button>
+            <button id="saveCollectionBtn" type="button" class="btn" style="display:flex; align-items:center; gap:4px;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 12.5C13.5 12.7652 13.3946 13.0196 13.2071 13.2071C13.0196 13.3946 12.7652 13.5 12.5 13.5H1.5C1.23478 13.5 0.98043 13.3946 0.792893 13.2071C0.605357 13.0196 0.5 12.7652 0.5 12.5V3.5L3.5 0.5H12.5C12.7652 0.5 13.0196 0.605357 13.2071 0.792893C13.3946 0.98043 13.5 1.23478 13.5 1.5V12.5Z"/><rect x="3.5" y="8.5" width="7" height="5"/><rect x="4.5" y="0.5" width="6" height="4"/></svg>
+              <span>Сохранить как…</span>
+            </button>
+            <button id="deleteCollectionBtn" type="button" class="btn" style="display:flex; align-items:center; gap:4px;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M1 3.5H13"/><path d="M2.5 3.5H11.5V12.5C11.5 12.7652 11.3946 13.0196 11.2071 13.2071C11.0196 13.3946 10.7652 13.5 10.5 13.5H3.5C3.23478 13.5 2.98043 13.3946 2.79289 13.2071C2.60536 13.0196 2.5 12.7652 2.5 12.5V3.5Z"/><path d="M4.5 3.5V3C4.5 2.33696 4.76339 1.70107 5.23223 1.23223C5.70107 0.763392 6.33696 0.5 7 0.5C7.66304 0.5 8.29893 0.763392 8.76777 1.23223C9.23661 1.70107 9.5 2.33696 9.5 3V3.5"/><path d="M5.5 5.5V11"/><path d="M8.5 5.5V11"/></svg>
+              <span>Удалить</span>
+            </button>
+            <button id="btnClearFilters" class="btn" type="button" style="display:flex; align-items:center; gap:4px;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 0.5L0.5 13.5"/><path d="M0.5 0.5L13.5 13.5"/></svg>
+              <span>Сбросить</span>
+            </button>
             <button id="bulkEditToggle" class="btn secondary" type="button">Массовое редактирование</button>
           </div>
           <!-- Inline save input (appears when saving) -->
@@ -399,13 +431,34 @@
         <div id="bulkToolbar" class="bulk-toolbar">
           <span id="bulkSelectedCounter" class="bulk-summary">Выбрано: 0</span>
           <div class="bulk-actions">
-            <button id="bulkAddTagsBtn" type="button" class="btn secondary">Добавить теги</button>
-            <button id="bulkRemoveTagsBtn" type="button" class="btn">Удалить теги</button>
-            <button id="bulkAddToCollectionsBtn" type="button" class="btn secondary">Добавить в коллекции…</button>
-            <button id="bulkRemoveFromCollectionsBtn" type="button" class="btn">Убрать из коллекций…</button>
-            <button id="bulkSetStorageBtn" type="button" class="btn secondary">Назначить место…</button>
-            <button id="bulkClearSelectionBtn" type="button" class="btn">Очистить выбор</button>
-            <button id="bulkExitBtn" type="button" class="btn">Выйти</button>
+            <button id="bulkAddTagsBtn" type="button" class="btn secondary" style="display:flex; align-items:center; gap:4px;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M13.25 9.35994L9.36 13.2499C9.21937 13.3904 9.02875 13.4693 8.83 13.4693C8.63125 13.4693 8.44062 13.3904 8.3 13.2499L1.79 6.73994C1.75121 6.70286 1.7212 6.65757 1.70217 6.6074C1.68313 6.55722 1.67556 6.50343 1.68 6.44994L2.27 2.60994C2.27688 2.52206 2.31491 2.43952 2.37724 2.37719C2.43957 2.31485 2.52211 2.27682 2.61 2.26994L6.45 1.67994C6.50348 1.67551 6.55728 1.68308 6.60745 1.70211C6.65763 1.72114 6.70291 1.75115 6.74 1.78994L13.25 8.29994C13.3904 8.44057 13.4693 8.63119 13.4693 8.82994C13.4693 9.0287 13.3904 9.21932 13.25 9.35994V9.35994Z"/><path d="M4.03 4.03003L0.529999 0.530029"/></svg>
+              <span>Добавить теги</span>
+            </button>
+            <button id="bulkRemoveTagsBtn" type="button" class="btn" style="display:flex; align-items:center; gap:4px;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M13.25 9.35994L9.36 13.2499C9.21937 13.3904 9.02875 13.4693 8.83 13.4693C8.63125 13.4693 8.44062 13.3904 8.3 13.2499L1.79 6.73994C1.75121 6.70286 1.7212 6.65757 1.70217 6.6074C1.68313 6.55722 1.67556 6.50343 1.68 6.44994L2.27 2.60994C2.27688 2.52206 2.31491 2.43952 2.37724 2.37719C2.43957 2.31485 2.52211 2.27682 2.61 2.26994L6.45 1.67994C6.50348 1.67551 6.55728 1.68308 6.60745 1.70211C6.65763 1.72114 6.70291 1.75115 6.74 1.78994L13.25 8.29994C13.3904 8.44057 13.4693 8.63119 13.4693 8.82994C13.4693 9.0287 13.3904 9.21932 13.25 9.35994V9.35994Z"/><path d="M4.03 4.03003L0.529999 0.530029"/></svg>
+              <span>Удалить теги</span>
+            </button>
+            <button id="bulkAddToCollectionsBtn" type="button" class="btn secondary" style="display:flex; align-items:center; gap:4px;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M11 13.5L7 9.5L3 13.5V1.5C3 1.23478 3.10536 0.98043 3.29289 0.792893C3.48043 0.605357 3.73478 0.5 4 0.5H10C10.2652 0.5 10.5196 0.605357 10.7071 0.792893C10.8946 0.98043 11 1.23478 11 1.5V13.5Z"/></svg>
+              <span>Добавить в коллекции…</span>
+            </button>
+            <button id="bulkRemoveFromCollectionsBtn" type="button" class="btn" style="display:flex; align-items:center; gap:4px;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M11 13.5L7 9.5L3 13.5V1.5C3 1.23478 3.10536 0.98043 3.29289 0.792893C3.48043 0.605357 3.73478 0.5 4 0.5H10C10.2652 0.5 10.5196 0.605357 10.7071 0.792893C10.8946 0.98043 11 1.23478 11 1.5V13.5Z"/></svg>
+              <span>Убрать из коллекций…</span>
+            </button>
+            <button id="bulkSetStorageBtn" type="button" class="btn secondary" style="display:flex; align-items:center; gap:4px;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="0.55" y="0.5" width="3" height="13" rx="0.5"/><rect x="4.05" y="2.5" width="3" height="11" rx="0.5"/><path d="M10.3965 2.22633L8.45636 2.71187C8.18847 2.77891 8.02566 3.05041 8.0927 3.31829L10.5204 13.0191C10.5874 13.287 10.8589 13.4498 11.1268 13.3828L13.067 12.8973C13.3349 12.8302 13.4977 12.5587 13.4306 12.2908L11.003 2.58999C10.9359 2.32211 10.6644 2.15929 10.3965 2.22633Z"/><path d="M0.55 10H4.05"/><path d="M4.05 9H7.55"/><path d="M10.05 11L12.93 10.28"/></svg>
+              <span>Назначить место…</span>
+            </button>
+            <button id="bulkClearSelectionBtn" type="button" class="btn" style="display:flex; align-items:center; gap:4px;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 0.5L0.5 13.5"/><path d="M0.5 0.5L13.5 13.5"/></svg>
+              <span>Очистить выбор</span>
+            </button>
+            <button id="bulkExitBtn" type="button" class="btn" style="display:flex; align-items:center; gap:4px;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 0.5L0.5 13.5"/><path d="M0.5 0.5L13.5 13.5"/></svg>
+              <span>Выйти</span>
+            </button>
           </div>
         </div>
         <div id="listViewport" style="flex:1; min-height:0; overflow-y: auto; padding-right: 8px;">
@@ -568,8 +621,14 @@
           <div>
             <img id="modalCoverPreview" class="cover-preview dropzone" alt="обложка" style="display:block; width:100%; height: auto; max-height: 280px;" />
             <div class="row" style="margin-top:8px; gap:8px; align-items:center;">
-              <button id="modalChooseCoverBtn" class="btn" style="flex:1; font-size:12px;">Выбрать обложку…</button>
-              <button id="modalCoverSearchBtn" type="button" class="btn secondary" style="flex:1; font-size:12px;">Найти онлайн…</button>
+              <button id="modalChooseCoverBtn" class="btn" style="flex:1; font-size:12px; display:flex; align-items:center; justify-content:center; gap:4px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="0.51" y="0.5" width="13" height="13" rx="1"/><circle cx="9.25" cy="4.75" r="1.75"/><path d="M9.4 13.4999C9.07801 11.7849 8.15715 10.2401 6.80173 9.14113C5.44632 8.04214 3.74452 7.46048 2 7.49993C1.49668 7.49858 0.994381 7.54546 0.5 7.63993"/><path d="M13.5 9.91002C12.6946 9.63803 11.8501 9.49954 11 9.50002C9.92394 9.49768 8.85877 9.71548 7.87 10.14"/></svg>
+                <span>Обложка…</span>
+              </button>
+              <button id="modalCoverSearchBtn" type="button" class="btn secondary" style="flex:1; font-size:12px; display:flex; align-items:center; justify-content:center; gap:4px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="6.5"/><path d="M0.5 7H13.5"/><path d="M9.5 7C9.3772 9.37699 8.50168 11.6533 7 13.5C5.49832 11.6533 4.6228 9.37699 4.5 7C4.6228 4.62301 5.49832 2.34665 7 0.5C8.50168 2.34665 9.3772 4.62301 9.5 7V7Z"/></svg>
+                <span>Найти…</span>
+              </button>
             </div>
             <div style="margin-top:6px; font-size:12px; color:var(--muted);" id="modalCoverLabel"></div>
             <div style="margin-top:8px;">
@@ -581,12 +640,23 @@
               <select id="modalStorageSelect" class="input" style="flex:1; min-width:0;">
                 <option value="">—</option>
               </select>
-              <button id="modalStorageQuickAddBtn" type="button" class="btn secondary" style="font-size:12px; white-space:nowrap;">Добавить…</button>
+              <button id="modalStorageQuickAddBtn" type="button" class="btn secondary" style="font-size:12px; white-space:nowrap; display:flex; align-items:center; gap:4px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M7 0.540039V13.54"/><path d="M0.5 7H13.5"/></svg>
+              </button>
             </div>
             <div class="row" style="margin-top:6px; display:flex; flex-wrap:wrap; gap:8px;">
-              <button id="modalStorageHistoryBtn" type="button" class="btn secondary" style="flex:1 1 30%; min-width:110px; font-size:12px;">История…</button>
-              <button id="modalLendBtn" type="button" class="btn" style="flex:1 1 30%; min-width:110px; font-size:12px;">Отдать…</button>
-              <button id="modalReturnBtn" type="button" class="btn" style="flex:1 1 30%; min-width:110px; font-size:12px;">Вернуть…</button>
+              <button id="modalStorageHistoryBtn" type="button" class="btn secondary" style="flex:1 1 30%; min-width:110px; font-size:12px; display:flex; align-items:center; justify-content:center; gap:4px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12.5 13.54H3C2.60218 13.54 2.22064 13.382 1.93934 13.1007C1.65804 12.8194 1.5 12.4379 1.5 12.04C1.5 11.6422 1.65804 11.2607 1.93934 10.9794C2.22064 10.6981 2.60218 10.54 3 10.54H11.5C11.7652 10.54 12.0196 10.4347 12.2071 10.2471C12.3946 10.0596 12.5 9.80526 12.5 9.54004V1.54004C12.5 1.27482 12.3946 1.02047 12.2071 0.832932C12.0196 0.645396 11.7652 0.540039 11.5 0.540039H3C2.60901 0.5399 2.23342 0.692433 1.95324 0.965144C1.67305 1.23785 1.51043 1.60919 1.5 2.00004V12"/><path d="M11.5 10.54V13.54"/></svg>
+                <span>История…</span>
+              </button>
+              <button id="modalLendBtn" type="button" class="btn" style="flex:1 1 30%; min-width:110px; font-size:12px; display:flex; align-items:center; justify-content:center; gap:4px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 10.5V12.5C13.5 12.7652 13.3946 13.0196 13.2071 13.2071C13.0196 13.3946 12.7652 13.5 12.5 13.5H10.5"/><path d="M10.5 0.5H12.5C12.7652 0.5 13.0196 0.605357 13.2071 0.792893C13.3946 0.98043 13.5 1.23478 13.5 1.5V3.5"/><path d="M0.5 3.5V1.5C0.5 1.23478 0.605357 0.98043 0.792893 0.792893C0.98043 0.605357 1.23478 0.5 1.5 0.5H3.5"/><path d="M3.5 13.5H1.5C1.23478 13.5 0.98043 13.3946 0.792893 13.2071C0.605357 13.0196 0.5 12.7652 0.5 12.5V10.5"/><circle cx="7" cy="4.5" r="2"/><path d="M10.16 10.5001C9.87562 9.90292 9.42786 9.39855 8.86858 9.04543C8.30931 8.6923 7.66142 8.50488 7 8.50488C6.33857 8.50488 5.69068 8.6923 5.13141 9.04543C4.57214 9.39855 4.12437 9.90292 3.84 10.5001"/></svg>
+                <span>Отдать…</span>
+              </button>
+              <button id="modalReturnBtn" type="button" class="btn" style="flex:1 1 30%; min-width:110px; font-size:12px; display:flex; align-items:center; justify-content:center; gap:4px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8L6.05 9.64C6.10506 9.68534 6.16952 9.71784 6.23872 9.73514C6.30791 9.75244 6.38009 9.7541 6.45 9.74C6.52058 9.72676 6.58749 9.69847 6.64616 9.65706C6.70483 9.61564 6.75389 9.56207 6.79 9.5L10 4"/><circle cx="7" cy="7" r="6.5"/></svg>
+                <span>Вернуть…</span>
+              </button>
             </div>
             <div id="modalLoanStatus" class="loan-status" style="display:none;">
               <span class="loan-badge">Отдана</span>
@@ -656,9 +726,18 @@
               <label>ISBN</label>
               <div class="row" style="gap:8px;">
                 <input id="modalIsbn" type="text" style="flex:1;" />
-                <button id="aiIsbnSearchBtn" title="Найти ISBN через AI по названию и автору">🤖 Найти ISBN</button>
-                <button id="isbnSearchBtn">Найти по ISBN</button>
-                <button id="isbnRefreshBtn" title="Игнорировать кеш и обновить">Обновить</button>
+                <button id="aiIsbnSearchBtn" title="Найти ISBN через AI по названию и автору" style="display:flex; align-items:center; gap:4px;">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12.64 1.8699L11.8 4.3499C11.771 4.40726 11.7559 4.47063 11.7559 4.5349C11.7559 4.59917 11.771 4.66255 11.8 4.7199L13.37 6.8199C13.4151 6.88001 13.4424 6.95161 13.4487 7.0265C13.455 7.1014 13.4401 7.17655 13.4056 7.24335C13.3712 7.31015 13.3186 7.36589 13.254 7.40419C13.1893 7.44249 13.1152 7.4618 13.04 7.4599H10.42C10.3558 7.46179 10.2928 7.47804 10.2357 7.50746C10.1786 7.53688 10.1288 7.57872 10.09 7.6299L8.63003 9.7299C8.5872 9.79129 8.52802 9.83943 8.4592 9.86885C8.39038 9.89827 8.31468 9.90779 8.24072 9.89633C8.16676 9.88488 8.09749 9.85289 8.0408 9.80403C7.98411 9.75516 7.94226 9.69137 7.92003 9.6199L7.14002 7.1199C7.12223 7.05811 7.08904 7.00184 7.04357 6.95636C6.99809 6.91089 6.94182 6.8777 6.88003 6.8599L4.38003 6.0799C4.30856 6.05766 4.24477 6.01582 4.1959 5.95913C4.14703 5.90244 4.11505 5.83317 4.10359 5.75921C4.09213 5.68525 4.10166 5.60955 4.13108 5.54073C4.1605 5.47191 4.20864 5.41272 4.27003 5.3699L6.41002 3.8599C6.46121 3.82109 6.50305 3.7713 6.53247 3.71419C6.56189 3.65709 6.57814 3.59411 6.58002 3.5299V0.909903C6.58282 0.841088 6.60333 0.77416 6.63958 0.715598C6.67583 0.657037 6.72658 0.608827 6.78693 0.575637C6.84728 0.542446 6.91517 0.525399 6.98404 0.526147C7.0529 0.526894 7.12041 0.54541 7.18002 0.579903L9.28003 2.1499C9.33334 2.18693 9.39468 2.21077 9.459 2.21946C9.52333 2.22816 9.5888 2.22145 9.65002 2.1999L12.13 1.3599C12.2011 1.33491 12.2779 1.33052 12.3514 1.34724C12.4249 1.36397 12.4922 1.40113 12.5455 1.45443C12.5988 1.50774 12.636 1.57503 12.6527 1.64853C12.6694 1.72204 12.665 1.79878 12.64 1.8699V1.8699Z"/><path d="M7.04 6.95996L0.5 13.5"/></svg>
+                  <span>Найти ISBN</span>
+                </button>
+                <button id="isbnSearchBtn" style="display:flex; align-items:center; gap:4px;">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.92" cy="5.92" r="5.42"/><path d="M13.5 13.5L9.75 9.75"/></svg>
+                  <span>По ISBN</span>
+                </button>
+                <button id="isbnRefreshBtn" title="Игнорировать кеш и обновить" style="display:flex; align-items:center; gap:4px;">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M11 9L13 8.5L13.5 10.5"/><path d="M13 8.5C12.5558 9.75861 11.749 10.8576 10.6813 11.6584C9.61353 12.4592 8.33262 12.926 6.99999 13C5.7681 13.0002 4.566 12.6213 3.55697 11.9146C2.54794 11.2079 1.78088 10.2078 1.35999 9.05"/><path d="M3 5L1 5.5L0.5 3.5"/><path d="M1 5.5C1.84 3.2 4.42 1 7 1C8.23789 1.00348 9.4444 1.38976 10.4541 2.10588C11.4639 2.822 12.2274 3.8329 12.64 5"/></svg>
+                  <span>Обновить</span>
+                </button>
               </div>
             </div>
             <div class="row" style="gap:10px; flex-wrap:wrap;">
@@ -689,8 +768,14 @@
               </div>
             </div>
             <div class="row" style="margin-top:8px; gap:8px; align-items:center;">
-              <button id="goodreadsLookupBtn" type="button" class="btn secondary">🤖 Найти книгу на Goodreads</button>
-              <button id="goodreadsRefreshBtn" type="button" class="btn" disabled>🔄 Обновить данные</button>
+              <button id="goodreadsLookupBtn" type="button" class="btn secondary" style="display:flex; align-items:center; gap:4px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12.64 1.8699L11.8 4.3499C11.771 4.40726 11.7559 4.47063 11.7559 4.5349C11.7559 4.59917 11.771 4.66255 11.8 4.7199L13.37 6.8199C13.4151 6.88001 13.4424 6.95161 13.4487 7.0265C13.455 7.1014 13.4401 7.17655 13.4056 7.24335C13.3712 7.31015 13.3186 7.36589 13.254 7.40419C13.1893 7.44249 13.1152 7.4618 13.04 7.4599H10.42C10.3558 7.46179 10.2928 7.47804 10.2357 7.50746C10.1786 7.53688 10.1288 7.57872 10.09 7.6299L8.63003 9.7299C8.5872 9.79129 8.52802 9.83943 8.4592 9.86885C8.39038 9.89827 8.31468 9.90779 8.24072 9.89633C8.16676 9.88488 8.09749 9.85289 8.0408 9.80403C7.98411 9.75516 7.94226 9.69137 7.92003 9.6199L7.14002 7.1199C7.12223 7.05811 7.08904 7.00184 7.04357 6.95636C6.99809 6.91089 6.94182 6.8777 6.88003 6.8599L4.38003 6.0799C4.30856 6.05766 4.24477 6.01582 4.1959 5.95913C4.14703 5.90244 4.11505 5.83317 4.10359 5.75921C4.09213 5.68525 4.10166 5.60955 4.13108 5.54073C4.1605 5.47191 4.20864 5.41272 4.27003 5.3699L6.41002 3.8599C6.46121 3.82109 6.50305 3.7713 6.53247 3.71419C6.56189 3.65709 6.57814 3.59411 6.58002 3.5299V0.909903C6.58282 0.841088 6.60333 0.77416 6.63958 0.715598C6.67583 0.657037 6.72658 0.608827 6.78693 0.575637C6.84728 0.542446 6.91517 0.525399 6.98404 0.526147C7.0529 0.526894 7.12041 0.54541 7.18002 0.579903L9.28003 2.1499C9.33334 2.18693 9.39468 2.21077 9.459 2.21946C9.52333 2.22816 9.5888 2.22145 9.65002 2.1999L12.13 1.3599C12.2011 1.33491 12.2779 1.33052 12.3514 1.34724C12.4249 1.36397 12.4922 1.40113 12.5455 1.45443C12.5988 1.50774 12.636 1.57503 12.6527 1.64853C12.6694 1.72204 12.665 1.79878 12.64 1.8699V1.8699Z"/><path d="M7.04 6.95996L0.5 13.5"/></svg>
+                <span>Найти на Goodreads</span>
+              </button>
+              <button id="goodreadsRefreshBtn" type="button" class="btn" disabled style="display:flex; align-items:center; gap:4px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M11 9L13 8.5L13.5 10.5"/><path d="M13 8.5C12.5558 9.75861 11.749 10.8576 10.6813 11.6584C9.61353 12.4592 8.33262 12.926 6.99999 13C5.7681 13.0002 4.566 12.6213 3.55697 11.9146C2.54794 11.2079 1.78088 10.2078 1.35999 9.05"/><path d="M3 5L1 5.5L0.5 3.5"/><path d="M1 5.5C1.84 3.2 4.42 1 7 1C8.23789 1.00348 9.4444 1.38976 10.4541 2.10588C11.4639 2.822 12.2274 3.8329 12.64 5"/></svg>
+                <span>Обновить данные</span>
+              </button>
               <span id="goodreadsStatus" style="font-size:12px; color:var(--muted); display:none;"></span>
             </div>
             <details id="goodreadsPanel" class="goodreads-panel">
@@ -735,8 +820,14 @@
               <div id="isbnResultsList" style="display:flex; flex-direction:column; gap:8px;"></div>
             </div>
             <div class="row" style="margin-top:12px; gap:8px;">
-              <button id="modalSaveBtn" class="primary">Сохранить</button>
-              <button id="modalCollectionsBtn" class="btn secondary">📚 Коллекции</button>
+              <button id="modalSaveBtn" class="primary" style="display:flex; align-items:center; gap:6px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8L6.05 9.64C6.10506 9.68534 6.16952 9.71784 6.23872 9.73514C6.30791 9.75244 6.38009 9.7541 6.45 9.74C6.52058 9.72676 6.58749 9.69847 6.64616 9.65706C6.70483 9.61564 6.75389 9.56207 6.79 9.5L10 4"/><circle cx="7" cy="7" r="6.5"/></svg>
+                <span>Сохранить</span>
+              </button>
+              <button id="modalCollectionsBtn" class="btn secondary" style="display:flex; align-items:center; gap:6px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M11 13.5L7 9.5L3 13.5V1.5C3 1.23478 3.10536 0.98043 3.29289 0.792893C3.48043 0.605357 3.73478 0.5 4 0.5H10C10.2652 0.5 10.5196 0.605357 10.7071 0.792893C10.8946 0.98043 11 1.23478 11 1.5V13.5Z"/></svg>
+                <span>Коллекции</span>
+              </button>
             </div>
           </div>
 
