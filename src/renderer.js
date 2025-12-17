@@ -128,9 +128,9 @@ const historySearchInput = document.querySelector('#historySearchInput');
 const historyReloadBtn = $('#historyReloadBtn');
 const historyExportBtn = $('#historyExportBtn');
 
-const ICON_HOME = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>';
-const ICON_ENRICH = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="M12 18v4"/><path d="M4.93 4.93l2.83 2.83"/><path d="M16.24 16.24l2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="M4.93 19.07l2.83-2.83"/><path d="M16.24 7.76l2.83-2.83"/></svg>';
-const ICON_HISTORY = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 6 12 12 8 14"/></svg>';
+const ICON_HOME = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M0.5 7L7 0.5L13.5 7"/><path d="M2.5 8.5V13.5H11.5V8.5"/></svg>';
+const ICON_ENRICH = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12.64 1.8699L11.8 4.3499C11.771 4.40726 11.7559 4.47063 11.7559 4.5349C11.7559 4.59917 11.771 4.66255 11.8 4.7199L13.37 6.8199C13.4151 6.88001 13.4424 6.95161 13.4487 7.0265C13.455 7.1014 13.4401 7.17655 13.4056 7.24335C13.3712 7.31015 13.3186 7.36589 13.254 7.40419C13.1893 7.44249 13.1152 7.4618 13.04 7.4599H10.42C10.3558 7.46179 10.2928 7.47804 10.2357 7.50746C10.1786 7.53688 10.1288 7.57872 10.09 7.6299L8.63003 9.7299C8.5872 9.79129 8.52802 9.83943 8.4592 9.86885C8.39038 9.89827 8.31468 9.90779 8.24072 9.89633C8.16676 9.88488 8.09749 9.85289 8.0408 9.80403C7.98411 9.75516 7.94226 9.69137 7.92003 9.6199L7.14002 7.1199C7.12223 7.05811 7.08904 7.00184 7.04357 6.95636C6.99809 6.91089 6.94182 6.8777 6.88003 6.8599L4.38003 6.0799C4.30856 6.05766 4.24477 6.01582 4.1959 5.95913C4.14703 5.90244 4.11505 5.83317 4.10359 5.75921C4.09213 5.68525 4.10166 5.60955 4.13108 5.54073C4.1605 5.47191 4.20864 5.41272 4.27003 5.3699L6.41002 3.8599C6.46121 3.82109 6.50305 3.7713 6.53247 3.71419C6.56189 3.65709 6.57814 3.59411 6.58002 3.5299V0.909903C6.58282 0.841088 6.60333 0.77416 6.63958 0.715598C6.67583 0.657037 6.72658 0.608827 6.78693 0.575637C6.84728 0.542446 6.91517 0.525399 6.98404 0.526147C7.0529 0.526894 7.12041 0.54541 7.18002 0.579903L9.28003 2.1499C9.33334 2.18693 9.39468 2.21077 9.459 2.21946C9.52333 2.22816 9.5888 2.22145 9.65002 2.1999L12.13 1.3599C12.2011 1.33491 12.2779 1.33052 12.3514 1.34724C12.4249 1.36397 12.4922 1.40113 12.5455 1.45443C12.5988 1.50774 12.636 1.57503 12.6527 1.64853C12.6694 1.72204 12.665 1.79878 12.64 1.8699V1.8699Z"/><path d="M7.04 6.95996L0.5 13.5"/></svg>';
+const ICON_HISTORY = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M0.5 7C0.5 8.28558 0.881218 9.54229 1.59545 10.6112C2.30968 11.6801 3.32484 12.5133 4.51256 13.0052C5.70028 13.4972 7.00721 13.6259 8.26809 13.3751C9.52896 13.1243 10.6872 12.5052 11.5962 11.5962C12.5052 10.6872 13.1243 9.52897 13.3751 8.26809C13.6259 7.00722 13.4972 5.70028 13.0052 4.51256C12.5132 3.32484 11.6801 2.30968 10.6112 1.59545C9.54229 0.881223 8.28558 0.500004 7 0.500004C5.13797 0.497944 3.34694 1.21436 2 2.5"/><path d="M2.5 0.5L2 2.5L4 3"/><path d="M7.00002 3.5V7.5L4.40002 8.8"/></svg>';
 // CSV import modal elements
 const csvImportModal = $('#csvImportModal');
 const csvImportCloseBtn = $('#csvImportCloseBtn');
@@ -3491,12 +3491,12 @@ function render() {
     const editBtn = document.createElement('button');
     editBtn.className = 'icon-btn';
     editBtn.title = 'Редактировать';
-    editBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+    editBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 8.99994L4.5 9.53994L5 6.49994L10.73 0.789939C10.823 0.696211 10.9336 0.621816 11.0554 0.571048C11.1773 0.520279 11.308 0.494141 11.44 0.494141C11.572 0.494141 11.7027 0.520279 11.8246 0.571048C11.9464 0.621816 12.057 0.696211 12.15 0.789939L13.21 1.84994C13.3037 1.9429 13.3781 2.0535 13.4289 2.17536C13.4797 2.29722 13.5058 2.42793 13.5058 2.55994C13.5058 2.69195 13.4797 2.82266 13.4289 2.94452C13.3781 3.06637 13.3037 3.17698 13.21 3.26994L7.5 8.99994Z"/><path d="M12 9.5V12.5C12 12.7652 11.8946 13.0196 11.7071 13.2071C11.5196 13.3946 11.2652 13.5 11 13.5H1.5C1.23478 13.5 0.98043 13.3946 0.792893 13.2071C0.605357 13.0196 0.5 12.7652 0.5 12.5V3C0.5 2.73478 0.605357 2.48043 0.792893 2.29289C0.98043 2.10536 1.23478 2 1.5 2H4.5"/></svg>';
     editBtn.onclick = (ev) => { ev.stopPropagation(); openDetails(b); };
     const delBtn = document.createElement('button');
     delBtn.className = 'icon-btn';
     delBtn.title = 'Удалить';
-    delBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>';
+    delBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M1 3.5H13"/><path d="M2.5 3.5H11.5V12.5C11.5 12.7652 11.3946 13.0196 11.2071 13.2071C11.0196 13.3946 10.7652 13.5 10.5 13.5H3.5C3.23478 13.5 2.98043 13.3946 2.79289 13.2071C2.60536 13.0196 2.5 12.7652 2.5 12.5V3.5Z"/><path d="M4.5 3.5V3C4.5 2.33696 4.76339 1.70107 5.23223 1.23223C5.70107 0.763392 6.33696 0.5 7 0.5C7.66304 0.5 8.29893 0.763392 8.76777 1.23223C9.23661 1.70107 9.5 2.33696 9.5 3V3.5"/><path d="M5.5 5.5V11"/><path d="M8.5 5.5V11"/></svg>';
     delBtn.onclick = async (ev) => {
       ev.stopPropagation();
       if (!confirm('Удалить книгу?')) return;
@@ -3506,7 +3506,7 @@ function render() {
     const collectionsBtn = document.createElement('button');
     collectionsBtn.className = 'icon-btn';
     collectionsBtn.title = 'Добавить в коллекцию';
-    collectionsBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>';
+    collectionsBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M11 13.5L7 9.5L3 13.5V1.5C3 1.23478 3.10536 0.98043 3.29289 0.792893C3.48043 0.605357 3.73478 0.5 4 0.5H10C10.2652 0.5 10.5196 0.605357 10.7071 0.792893C10.8946 0.98043 11 1.23478 11 1.5V13.5Z"/></svg>';
     collectionsBtn.onclick = (ev) => { ev.stopPropagation(); showAddToCollectionDialog(b.id); };
 
     actions.appendChild(editBtn);
@@ -6577,7 +6577,7 @@ async function syncUp() {
   try {
     if (syncBtn) {
       syncBtn.disabled = true;
-      syncBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="16" x2="12" y2="12"/><circle cx="12" cy="8" r="1" fill="currentColor" stroke="none"/></svg>';
+      syncBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="6.5"/><path d="M7 7V10.5"/><circle cx="7" cy="4.5" r="0.5" fill="currentColor"/></svg>';
     }
 
     console.log('📤 Starting upload sync...');
@@ -6606,7 +6606,7 @@ async function syncUp() {
     markActivityDirty();
     if (syncBtn) {
       syncBtn.disabled = false;
-      syncBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>';
+      syncBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 0.5L11.5 3L9 5.5"/><path d="M0.5 6V4C0.5 3.73478 0.605357 3.48043 0.792893 3.29289C0.98043 3.10536 1.23478 3 1.5 3H11.5"/><path d="M5 13.5L2.5 11L5 8.5"/><path d="M13.5 8V10C13.5 10.2652 13.3946 10.5196 13.2071 10.7071C13.0196 10.8946 12.7652 11 12.5 11H2.5"/></svg>';
     }
   }
 }
@@ -6615,7 +6615,7 @@ async function syncDown() {
   try {
     if (syncBtn) {
       syncBtn.disabled = true;
-      syncBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="16" x2="12" y2="12"/><circle cx="12" cy="8" r="1" fill="currentColor" stroke="none"/></svg>';
+      syncBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="6.5"/><path d="M7 7V10.5"/><circle cx="7" cy="4.5" r="0.5" fill="currentColor"/></svg>';
     }
 
     console.log('📥 Starting download sync...');
@@ -6649,7 +6649,7 @@ async function syncDown() {
     markActivityDirty();
     if (syncBtn) {
       syncBtn.disabled = false;
-      syncBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>';
+      syncBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 0.5L11.5 3L9 5.5"/><path d="M0.5 6V4C0.5 3.73478 0.605357 3.48043 0.792893 3.29289C0.98043 3.10536 1.23478 3 1.5 3H11.5"/><path d="M5 13.5L2.5 11L5 8.5"/><path d="M13.5 8V10C13.5 10.2652 13.3946 10.5196 13.2071 10.7071C13.0196 10.8946 12.7652 11 12.5 11H2.5"/></svg>';
     }
   }
 }
