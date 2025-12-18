@@ -4180,10 +4180,19 @@ const historyTimeFormatter = new Intl.DateTimeFormat('ru-RU', { hour: '2-digit',
 function setActiveMainView(view) {
   if (!MAIN_VIEWS[view]) view = 'library';
   currentMainView = view;
+  
+  // Show/hide the special full-width views
   Object.entries(MAIN_VIEWS).forEach(([key, el]) => {
     if (!el) return;
     el.style.display = key === view ? 'block' : 'none';
   });
+  
+  // Show/hide the library form and book list sections when switching to other views
+  const listSection = document.getElementById('listSection');
+  const isLibraryView = view === 'library';
+  if (libraryView) libraryView.style.display = isLibraryView ? 'block' : 'none';
+  if (listSection) listSection.style.display = isLibraryView ? 'flex' : 'none';
+  
   updateViewToggleButtons();
   if (view === 'history') {
     if (historyActionFilter) historyActionFilter.value = activityState.filters.category || 'all';
@@ -5912,9 +5921,46 @@ if (saveSettingsBtn) {
   });
 }
 
-// Close details modal on Escape (with confirmation if dirty)
+// Close modals on Escape (with confirmation if dirty)
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
+    // Storage loan modal (highest priority - most likely in focus)
+    if (storageLoanModal && storageLoanModal.style.display === 'flex') {
+      e.preventDefault();
+      closeStorageLoanModal();
+      return;
+    }
+    // Storage history modal
+    if (storageHistoryModal && storageHistoryModal.style.display === 'flex') {
+      e.preventDefault();
+      closeStorageHistoryModal();
+      return;
+    }
+    // Storage manager modal
+    if (storageManagerModal && storageManagerModal.style.display === 'flex') {
+      e.preventDefault();
+      closeStorageManager();
+      return;
+    }
+    // CSV import modal
+    if (csvImportModal && csvImportModal.style.display === 'flex') {
+      e.preventDefault();
+      closeCsvImportModal();
+      return;
+    }
+    // Vocab manager modal
+    if (vocabManagerModal && vocabManagerModal.style.display === 'flex') {
+      e.preventDefault();
+      closeVocabManager();
+      return;
+    }
+    // Cover search modal (has its own handler too, but add here for consistency)
+    if (coverSearchModal && coverSearchModal.style.display === 'flex') {
+      e.preventDefault();
+      closeCoverSearchModal();
+      return;
+    }
+    // Search help modal
     if (searchHelpModal && searchHelpModal.style.display === 'flex') {
       e.preventDefault();
       closeSearchHelpModal();
