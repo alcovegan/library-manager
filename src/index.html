@@ -594,50 +594,50 @@
         </div>
         <div class="search-help-content" style="margin-top:12px; font-size:13px;">
           <div class="search-help-section">
-            <strong>Быстрый поиск</strong>
+            <strong data-i18n="searchHelp.quickSearch">Быстрый поиск</strong>
             <ul class="search-help-list">
-              <li>По умолчанию запрос ищет совпадения в названии, авторах, тегах, жанрах, заметках, издателе, серии, формате и языке.</li>
-              <li>Регистры не важны. Чтобы искать точную фразу, используйте кавычки: <code>"война и мир"</code>.</li>
+              <li data-i18n="searchHelp.quickSearchDesc">По умолчанию запрос ищет совпадения в названии, авторах, тегах, жанрах, заметках, издателе, серии, формате и языке.</li>
+              <li><span data-i18n="searchHelp.caseNote">Регистры не важны. Чтобы искать точную фразу, используйте кавычки:</span> <code>"война и мир"</code>.</li>
             </ul>
           </div>
           <div class="search-help-section">
-            <strong>Логические операторы</strong>
+            <strong data-i18n="searchHelp.logicalOps">Логические операторы</strong>
             <ul class="search-help-list">
-              <li><code>слово1 слово2</code> — сначала ищет фразу, а если точного совпадения нет, оба слова должны встретиться (неявный <code>AND</code>).</li>
-              <li><code>term1 AND term2</code> — найти записи, где есть оба условия.</li>
-              <li><code>term1 OR term2</code> — достаточно совпадения хотя бы с одним условием.</li>
-              <li><code>NOT term</code> — исключить книги, где встречается термин.</li>
-              <li>Скобки управляют приоритетом: <code>(фантастика OR космос) AND NOT tag:прочитано</code>.</li>
+              <li><code>слово1 слово2</code> <span data-i18n="searchHelp.logicalAnd">— сначала ищет фразу, а если точного совпадения нет, оба слова должны встретиться (неявный AND).</span></li>
+              <li><code>term1 AND term2</code> <span data-i18n="searchHelp.logicalAndExplicit">— найти записи, где есть оба условия.</span></li>
+              <li><code>term1 OR term2</code> <span data-i18n="searchHelp.logicalOr">— достаточно совпадения хотя бы с одним условием.</span></li>
+              <li><code>NOT term</code> <span data-i18n="searchHelp.logicalNot">— исключить книги, где встречается термин.</span></li>
+              <li><span data-i18n="searchHelp.logicalBrackets">Скобки управляют приоритетом:</span> <code>(фантастика OR космос) AND NOT tag:прочитано</code>.</li>
             </ul>
           </div>
           <div class="search-help-section">
-            <strong>Фильтры по полям</strong>
+            <strong data-i18n="searchHelp.fieldFilters">Фильтры по полям</strong>
             <div class="search-help-fields">
-              <div><code>title:</code> название</div>
-              <div><code>author:</code>, <code>authors:</code> авторы</div>
-              <div><code>tag:</code>, <code>tags:</code> теги</div>
-              <div><code>genre:</code>, <code>genres:</code> жанры</div>
-              <div><code>series:</code> серия</div>
-              <div><code>publisher:</code> издатель</div>
-              <div><code>notes:</code> заметки</div>
-              <div><code>format:</code> формат</div>
-              <div><code>language:</code> язык</div>
-              <div><code>year:</code> год издания</div>
-              <div><code>rating:</code> оценка</div>
-              <div><code>original:</code> оригинальное название (EN)</div>
-              <div><code>originalauthors:</code> авторы на английском</div>
-              <div><code>goodreads:</code>, <code>gr:</code> рейтинг Goodreads</div>
+              <div><code>title:</code> <span data-i18n="searchHelp.fieldTitle">название</span></div>
+              <div><code>author:</code>, <code>authors:</code> <span data-i18n="searchHelp.fieldAuthor">авторы</span></div>
+              <div><code>tag:</code>, <code>tags:</code> <span data-i18n="searchHelp.fieldTag">теги</span></div>
+              <div><code>genre:</code>, <code>genres:</code> <span data-i18n="searchHelp.fieldGenre">жанры</span></div>
+              <div><code>series:</code> <span data-i18n="searchHelp.fieldSeries">серия</span></div>
+              <div><code>publisher:</code> <span data-i18n="searchHelp.fieldPublisher">издатель</span></div>
+              <div><code>notes:</code> <span data-i18n="searchHelp.fieldNotes">заметки</span></div>
+              <div><code>format:</code> <span data-i18n="searchHelp.fieldFormat">формат</span></div>
+              <div><code>language:</code> <span data-i18n="searchHelp.fieldLanguage">язык</span></div>
+              <div><code>year:</code> <span data-i18n="searchHelp.fieldYear">год издания</span></div>
+              <div><code>rating:</code> <span data-i18n="searchHelp.fieldRating">оценка</span></div>
+              <div><code>original:</code> <span data-i18n="searchHelp.fieldOriginal">оригинальное название (EN)</span></div>
+              <div><code>originalauthors:</code> <span data-i18n="searchHelp.fieldOriginalAuthors">авторы на английском</span></div>
+              <div><code>goodreads:</code>, <code>gr:</code> <span data-i18n="searchHelp.fieldGoodreads">рейтинг Goodreads</span></div>
             </div>
-            <div class="search-help-note">Для числовых полей доступны сравнения: <code>year:&gt;=2000</code>, <code>rating:&lt;4.5</code>, <code>goodreads:&gt;=4</code>. Пробелы после двоеточия не требуются.</div>
+            <div class="search-help-note"><span data-i18n="searchHelp.numericNote">Для числовых полей доступны сравнения:</span> <code>year:&gt;=2000</code>, <code>rating:&lt;4.5</code>, <code>goodreads:&gt;=4</code>.</div>
           </div>
           <div class="search-help-section">
-            <strong>Примеры</strong>
+            <strong data-i18n="searchHelp.examples">Примеры</strong>
             <ul class="search-help-list">
-              <li><code>author:лем AND NOT tag:прочитано</code> — книги Лема, которые ещё не отмечены как прочитанные.</li>
-              <li><code>(genre:фантастика OR tag:космос) AND year:&gt;=2000</code> — фантастика или книги о космосе, изданные после 2000 года.</li>
-              <li><code>"гарри поттер" OR series:"hogwarts"</code> — точное совпадение фразы или книги из серии «hogwarts».</li>
-              <li><code>goodreads:&gt;=4.2</code> — книги с рейтингом Goodreads 4.2 и выше.</li>
-              <li><code>original:"anna: the biography"</code> — поиск по оригинальному названию на английском.</li>
+              <li><code>author:лем AND NOT tag:прочитано</code> <span data-i18n="searchHelp.example1">— книги Лема, которые ещё не отмечены как прочитанные.</span></li>
+              <li><code>(genre:фантастика OR tag:космос) AND year:&gt;=2000</code> <span data-i18n="searchHelp.example2">— фантастика или книги о космосе, изданные после 2000 года.</span></li>
+              <li><code>"гарри поттер" OR series:"hogwarts"</code> <span data-i18n="searchHelp.example3">— точное совпадение фразы или книги из серии «hogwarts».</span></li>
+              <li><code>goodreads:&gt;=4.2</code> <span data-i18n="searchHelp.example4">— книги с рейтингом Goodreads 4.2 и выше.</span></li>
+              <li><code>original:"anna: the biography"</code> <span data-i18n="searchHelp.example5">— поиск по оригинальному названию на английском.</span></li>
             </ul>
           </div>
         </div>
@@ -875,52 +875,52 @@
       <div class="modal-backdrop" style="position:absolute; inset:0; background:rgba(0,0,0,0.35);"></div>
       <div class="modal-card" style="position:relative; width:min(860px, 96vw); max-height:100%; overflow:auto; background:var(--surface); border:1px solid var(--border); border-radius:14px; box-shadow:var(--shadow); padding:18px; display:flex; flex-direction:column; gap:12px;">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
-          <h3 style="margin:0;">Импорт книг из CSV / TSV</h3>
-          <button id="csvImportCloseBtn" class="icon-btn" title="Закрыть" style="width:32px; height:32px;">
+          <h3 style="margin:0;" data-i18n="csvImport.title">Импорт книг из CSV / TSV</h3>
+          <button id="csvImportCloseBtn" class="icon-btn" title="Закрыть" data-i18n="modal.close" data-i18n-attr="title" style="width:32px; height:32px;">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 0.5L0.5 13.5"/><path d="M0.5 0.5L13.5 13.5"/></svg>
           </button>
         </div>
-        <div style="font-size:13px; color:var(--muted);">
+        <div style="font-size:13px; color:var(--muted);" data-i18n="csvImport.description">
           Загрузите CSV/TSV файл, сопоставьте колонки с полями книги и импортируйте записи. Авторы, теги и жанры разделяйте запятыми или точкой с запятой.
         </div>
         <div class="row" style="gap:12px; align-items:flex-end; flex-wrap:wrap;">
           <div>
-            <label>Файл CSV/TSV</label>
+            <label data-i18n="csvImport.file">Файл CSV/TSV</label>
             <input id="csvImportFile" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values" />
           </div>
           <div class="row" style="gap:6px; align-items:center;">
             <input id="csvImportHeaderless" type="checkbox" />
-            <label for="csvImportHeaderless" style="margin:0;">Нет заголовков (первая строка — данные)</label>
+            <label for="csvImportHeaderless" style="margin:0;" data-i18n="csvImport.noHeader">Нет заголовков (первая строка — данные)</label>
           </div>
-          <button id="csvImportParseBtn" class="btn">Загрузить</button>
+          <button id="csvImportParseBtn" class="btn" data-i18n="csvImport.load">Загрузить</button>
         </div>
         <div id="csvImportMapping" style="display:none; border:1px solid var(--border); border-radius:12px; padding:12px; background:var(--muted-surface);">
-          <div style="font-size:12px; color:var(--muted); margin-bottom:8px;">Сопоставьте колонки файла с полями книги</div>
+          <div style="font-size:12px; color:var(--muted); margin-bottom:8px;" data-i18n="csvImport.mapColumns">Сопоставьте колонки файла с полями книги</div>
           <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:10px;">
-            <div><label>Название</label><select id="csvMapTitle" class="input"></select></div>
-            <div><label>Авторы</label><select id="csvMapAuthors" class="input"></select></div>
-            <div><label>ISBN</label><select id="csvMapIsbn" class="input"></select></div>
-            <div><label>Издательство</label><select id="csvMapPublisher" class="input"></select></div>
-            <div><label>Год</label><select id="csvMapYear" class="input"></select></div>
-            <div><label>Язык</label><select id="csvMapLanguage" class="input"></select></div>
-            <div><label>Серия</label><select id="csvMapSeries" class="input"></select></div>
-            <div><label>№ в серии</label><select id="csvMapSeriesIndex" class="input"></select></div>
-            <div><label>Формат</label><select id="csvMapFormat" class="input"></select></div>
-            <div><label>Жанры</label><select id="csvMapGenres" class="input"></select></div>
-            <div><label>Теги</label><select id="csvMapTags" class="input"></select></div>
-            <div><label>Рейтинг</label><select id="csvMapRating" class="input"></select></div>
-            <div><label>Заметки</label><select id="csvMapNotes" class="input"></select></div>
-            <div><label>Обложка (URL)</label><select id="csvMapCover" class="input"></select></div>
+            <div><label data-i18n="csvImport.mapTitle">Название</label><select id="csvMapTitle" class="input"></select></div>
+            <div><label data-i18n="csvImport.mapAuthors">Авторы</label><select id="csvMapAuthors" class="input"></select></div>
+            <div><label data-i18n="csvImport.mapIsbn">ISBN</label><select id="csvMapIsbn" class="input"></select></div>
+            <div><label data-i18n="csvImport.mapPublisher">Издательство</label><select id="csvMapPublisher" class="input"></select></div>
+            <div><label data-i18n="csvImport.mapYear">Год</label><select id="csvMapYear" class="input"></select></div>
+            <div><label data-i18n="csvImport.mapLanguage">Язык</label><select id="csvMapLanguage" class="input"></select></div>
+            <div><label data-i18n="csvImport.mapSeries">Серия</label><select id="csvMapSeries" class="input"></select></div>
+            <div><label data-i18n="csvImport.mapSeriesIndex">№ в серии</label><select id="csvMapSeriesIndex" class="input"></select></div>
+            <div><label data-i18n="csvImport.mapFormat">Формат</label><select id="csvMapFormat" class="input"></select></div>
+            <div><label data-i18n="csvImport.mapGenres">Жанры</label><select id="csvMapGenres" class="input"></select></div>
+            <div><label data-i18n="csvImport.mapTags">Теги</label><select id="csvMapTags" class="input"></select></div>
+            <div><label data-i18n="csvImport.mapRating">Рейтинг</label><select id="csvMapRating" class="input"></select></div>
+            <div><label data-i18n="csvImport.mapNotes">Заметки</label><select id="csvMapNotes" class="input"></select></div>
+            <div><label data-i18n="csvImport.mapCover">Обложка (URL)</label><select id="csvMapCover" class="input"></select></div>
           </div>
         </div>
         <div id="csvImportPreview" style="display:none;">
-          <div style="font-weight:600; margin-bottom:6px;">Предпросмотр (первые 5 записей)</div>
+          <div style="font-weight:600; margin-bottom:6px;" data-i18n="csvImport.preview">Предпросмотр (первые 5 записей)</div>
           <div id="csvImportPreviewList" style="display:flex; flex-direction:column; gap:8px;"></div>
         </div>
         <div id="csvImportSummary" style="font-size:12px; color:var(--muted); display:none;"></div>
         <div class="row" style="justify-content:flex-end; gap:8px;">
-          <button id="csvImportCancelBtn" class="btn">Отмена</button>
-          <button id="csvImportConfirmBtn" class="btn primary" disabled>Импортировать</button>
+          <button id="csvImportCancelBtn" class="btn" data-i18n="actions.cancel">Отмена</button>
+          <button id="csvImportConfirmBtn" class="btn primary" disabled data-i18n="csvImport.import">Импортировать</button>
         </div>
       </div>
     </div>
@@ -1001,12 +1001,12 @@
           </select>
         </div>
         <div style="display:flex; flex-direction:column; gap:6px;">
-          <label>Примечание</label>
+          <label data-i18n="storage.note">Примечание</label>
           <textarea id="storageLoanNote" rows="2" class="input" style="resize:vertical;"></textarea>
         </div>
         <div class="row" style="justify-content:flex-end; gap:8px;">
-          <button id="storageLoanCancel" class="btn">Отмена</button>
-          <button id="storageLoanSave" class="btn primary">Сохранить</button>
+          <button id="storageLoanCancel" class="btn" data-i18n="actions.cancel">Отмена</button>
+          <button id="storageLoanSave" class="btn primary" data-i18n="form.save">Сохранить</button>
         </div>
       </div>
     </div>
@@ -1015,14 +1015,14 @@
       <div class="modal-backdrop" style="position:absolute; inset:0; background:rgba(0,0,0,0.35);"></div>
       <div class="modal-card" style="position:relative; width:min(900px,96vw); max-height:100%; overflow:auto; background:var(--surface); border:1px solid var(--border); border-radius:14px; box-shadow:var(--shadow); padding:18px; display:flex; flex-direction:column; gap:12px;">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
-          <h3 style="margin:0;">Поиск обложки онлайн</h3>
-          <button id="coverSearchCloseBtn" class="icon-btn" title="Закрыть" style="width:32px; height:32px;">
+          <h3 style="margin:0;" data-i18n="coverSearch.title">Поиск обложки онлайн</h3>
+          <button id="coverSearchCloseBtn" class="icon-btn" title="Закрыть" data-i18n="modal.close" data-i18n-attr="title" style="width:32px; height:32px;">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 0.5L0.5 13.5"/><path d="M0.5 0.5L13.5 13.5"/></svg>
           </button>
         </div>
         <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-          <input id="coverSearchQuery" type="text" class="input" placeholder="Например, Философия панка обложка" style="flex:1; min-width:240px;" />
-          <button id="coverSearchSubmit" class="btn primary" type="button">Найти</button>
+          <input id="coverSearchQuery" type="text" class="input" placeholder="Например, Философия панка обложка" data-i18n="coverSearch.placeholder" data-i18n-attr="placeholder" style="flex:1; min-width:240px;" />
+          <button id="coverSearchSubmit" class="btn primary" type="button" data-i18n="coverSearch.find">Найти</button>
           <span id="coverSearchInfo" style="font-size:12px; color:var(--muted);"></span>
         </div>
         <div id="coverSearchStatus" style="font-size:13px; color:var(--muted);"></div>
@@ -1035,8 +1035,8 @@
       <div class="modal-backdrop" style="position:absolute; inset:0; background:rgba(0,0,0,0.35);"></div>
       <div class="modal-card" style="position:relative; width: min(820px, 96vw); max-height: 100%; overflow:auto; background: var(--surface); border:1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); padding: 16px;">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
-          <h3 style="margin:0;">Информация о книге</h3>
-          <button id="closeInfoBtn">Закрыть</button>
+          <h3 style="margin:0;" data-i18n="infoModal.title">Информация о книге</h3>
+          <button id="closeInfoBtn" data-i18n="modal.close">Закрыть</button>
         </div>
         <div style="display:grid; grid-template-columns: 220px 1fr; gap: 14px; margin-top: 12px;">
           <div>
@@ -1069,54 +1069,54 @@
             <div style="font-size:12px; color:var(--muted);" data-i18n="settings.storedLocally">Хранится локально в userData/settings.json</div>
           </div>
           <div>
-            <label>Google Books API Key (опционально)</label>
+            <label data-i18n="settings.googleBooksKey">Google Books API Key (опционально)</label>
             <input id="settingsGoogleKey" type="text" placeholder="AIza..." />
           </div>
           <div>
             <label data-i18n="settings.aiProvider">AI провайдер для поиска ISBN</label>
             <select id="settingsAiProvider" class="input">
-              <option value="openai">OpenAI (GPT-5, o1-preview)</option>
-              <option value="perplexity">Perplexity (дешевле, с поиском) 💰</option>
+              <option value="openai" data-i18n="settings.openaiProvider">OpenAI (GPT-5, o1-preview)</option>
+              <option value="perplexity" data-i18n="settings.perplexityProvider">Perplexity (дешевле, с поиском) 💰</option>
             </select>
           </div>
           <div id="openaiSettings">
-            <label>OpenAI API Key</label>
+            <label data-i18n="settings.openaiKey">OpenAI API Key</label>
             <input id="settingsOpenAIKey" type="text" placeholder="sk-..." />
           </div>
           <div id="perplexitySettings" style="display:none;">
-            <label>Perplexity API Key</label>
+            <label data-i18n="settings.perplexityKey">Perplexity API Key</label>
             <input id="settingsPerplexityKey" type="text" placeholder="pplx-..." />
           </div>
           <div id="openaiExtraSettings">
             <div>
-              <label>OpenAI API Base URL (опционально)</label>
+              <label data-i18n="settings.openaiBaseUrl">OpenAI API Base URL (опционально)</label>
               <input id="settingsOpenAIBase" type="text" placeholder="https://api.openai.com/v1" />
             </div>
             <div>
-              <label>OpenAI Model (опционально)</label>
+              <label data-i18n="settings.openaiModel">OpenAI Model (опционально)</label>
               <select id="settingsOpenAIModel" class="input">
-                <option value="gpt-5">GPT-5 (новейшая) 🚀</option>
-                <option value="o1-preview">o1-preview (reasoning) 🧠</option>
-                <option value="gpt-4o">gpt-4o (стабильная)</option>
-                <option value="o1-mini">o1-mini (reasoning, быстрая) ⚡</option>
-                <option value="gpt-4o-mini">gpt-4o-mini (быстрая, дешевая) 💰</option>
-                <option value="gpt-4-turbo">gpt-4-turbo</option>
-                <option value="gpt-4">gpt-4 (классическая)</option>
+                <option value="gpt-5" data-i18n="settings.modelGpt5">GPT-5 (новейшая) 🚀</option>
+                <option value="o1-preview" data-i18n="settings.modelO1Preview">o1-preview (reasoning) 🧠</option>
+                <option value="gpt-4o" data-i18n="settings.modelGpt4o">gpt-4o (стабильная)</option>
+                <option value="o1-mini" data-i18n="settings.modelO1Mini">o1-mini (reasoning, быстрая) ⚡</option>
+                <option value="gpt-4o-mini" data-i18n="settings.modelGpt4oMini">gpt-4o-mini (быстрая, дешевая) 💰</option>
+                <option value="gpt-4-turbo" data-i18n="settings.modelGpt4Turbo">gpt-4-turbo</option>
+                <option value="gpt-4" data-i18n="settings.modelGpt4">gpt-4 (классическая)</option>
               </select>
             </div>
           </div>
           <div id="perplexityExtraSettings" style="display:none;">
             <div>
-              <label>Perplexity Model</label>
+              <label data-i18n="settings.perplexityModel">Perplexity Model</label>
               <select id="settingsPerplexityModel" class="input">
-                <option value="sonar">Sonar ($1/$1) - дешево, быстро 💰</option>
-                <option value="sonar-reasoning">Sonar Reasoning ($1/$5) - с логикой</option>
-                <option value="sonar-reasoning-pro">Sonar Reasoning Pro ($2/$8) - умное рассуждение</option>
-                <option value="sonar-pro">Sonar Pro ($3/$15) - продвинутый поиск</option>
+                <option value="sonar" data-i18n="settings.perplexitySonar">Sonar ($1/$1) - дешево, быстро 💰</option>
+                <option value="sonar-reasoning" data-i18n="settings.perplexitySonarReasoning">Sonar Reasoning ($1/$5) - с логикой</option>
+                <option value="sonar-reasoning-pro" data-i18n="settings.perplexitySonarReasoningPro">Sonar Reasoning Pro ($2/$8) - умное рассуждение</option>
+                <option value="sonar-pro" data-i18n="settings.perplexitySonarPro">Sonar Pro ($3/$15) - продвинутый поиск</option>
               </select>
             </div>
             <div style="margin-top:8px;">
-              <button id="checkPerplexityBalance" type="button" class="secondary">
+              <button id="checkPerplexityBalance" type="button" class="secondary" data-i18n="settings.openPerplexityBilling">
                 💰 Открыть биллинг Perplexity
               </button>
             </div>
@@ -1163,21 +1163,21 @@
               </div>
               <label style="display:flex;align-items:center;gap:8px;cursor:pointer; margin-top:8px;">
                 <input id="settingsAutoSync" type="checkbox" />
-                <span>Автоматическая синхронизация при запуске</span>
+                <span data-i18n="settings.autoSync">Автоматическая синхронизация при запуске</span>
               </label>
-              <div style="font-size:11px; color:var(--muted); margin-left:24px;">
+              <div style="font-size:11px; color:var(--muted); margin-left:24px;" data-i18n="settings.autoSyncHint">
                 💡 При включении будет автоматически скачивать обновления с сервера
               </div>
               <div style="margin-top:8px;">
-                <button id="testSyncBtn" type="button" class="btn">
+                <button id="testSyncBtn" type="button" class="btn" data-i18n="settings.testS3">
                   🔗 Проверить подключение к S3
                 </button>
               </div>
               <div style="margin-top:8px;">
-                <button id="cleanupCoversBtn" type="button" class="btn secondary">
+                <button id="cleanupCoversBtn" type="button" class="btn secondary" data-i18n="settings.cleanupCovers">
                   🧹 Очистить неиспользуемые обложки
                 </button>
-                <div style="font-size:11px; color:var(--muted); margin-top:4px;">
+                <div style="font-size:11px; color:var(--muted); margin-top:4px;" data-i18n="settings.cleanupCoversHint">
                   💡 Удаляет с сервера обложки удалённых книг
                 </div>
               </div>
@@ -1185,25 +1185,25 @@
           </div>
 
           <div style="margin-top:16px; padding:12px; background:var(--muted-surface); border-radius:8px;">
-            <h4 style="margin:0 0 8px 0; font-size:14px; font-weight:600;">⌨️ Горячие клавиши</h4>
+            <h4 style="margin:0 0 8px 0; font-size:14px; font-weight:600;" data-i18n="settings.hotkeys">⌨️ Горячие клавиши</h4>
             <div style="font-size:12px; color:var(--muted); line-height:1.4;">
               <div style="display:grid; grid-template-columns:auto 1fr; gap:8px 12px; align-items:baseline;">
                 <code style="background:var(--surface); padding:2px 6px; border-radius:4px; font-size:11px;">Escape</code>
-                <span>Закрыть модальные окна</span>
+                <span data-i18n="settings.hotkeyEscape">Закрыть модальные окна</span>
 
                 <code style="background:var(--surface); padding:2px 6px; border-radius:4px; font-size:11px;">/</code>
-                <span>Фокус на поиск</span>
+                <span data-i18n="settings.hotkeySearch">Фокус на поиск</span>
 
                 <code style="background:var(--surface); padding:2px 6px; border-radius:4px; font-size:11px;">N</code>
-                <span>Новая книга</span>
+                <span data-i18n="settings.hotkeyNewBook">Новая книга</span>
 
                 <code style="background:var(--surface); padding:2px 6px; border-radius:4px; font-size:11px;">Enter</code>
-                <span>Сохранить форму</span>
+                <span data-i18n="settings.hotkeySave">Сохранить форму</span>
 
                 <code style="background:var(--surface); padding:2px 6px; border-radius:4px; font-size:11px;">Delete</code>
-                <span>Удалить выбранную книгу</span>
+                <span data-i18n="settings.hotkeyDelete">Удалить выбранную книгу</span>
               </div>
-              <div style="margin-top:8px; font-size:11px; opacity:0.7;">
+              <div style="margin-top:8px; font-size:11px; opacity:0.7;" data-i18n="settings.hotkeysNote">
                 💡 Горячие клавиши не работают при вводе в поля
               </div>
             </div>

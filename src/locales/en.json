@@ -190,11 +190,6 @@
     "empty": "No log entries yet.",
     "loadMore": "Load more"
   },
-  "stats": {
-    "title": "📊 Reading Statistics",
-    "byStatus": "By status",
-    "byYear": "Read by year"
-  },
   "enrich": {
     "title": "ISBN Enrichment (CSV → OpenAI → verification)",
     "csvFile": "CSV file",
@@ -210,15 +205,6 @@
     "ignoreCache": "Ignore cache (OpenAI)",
     "clearCache": "Clear cache",
     "exportCsv": "Export CSV"
-  },
-  "searchHelp": {
-    "title": "Search Tips",
-    "quickSearch": "Quick search",
-    "quickSearchDesc": "By default, the query searches in title, authors, tags, genres, notes, publisher, series, format, and language.",
-    "caseNote": "Case insensitive. Use quotes for exact phrase:",
-    "logicalOps": "Logical operators",
-    "fieldFilters": "Field filters",
-    "examples": "Examples"
   },
   "vocab": {
     "title": "Autocomplete Dictionaries",
@@ -237,6 +223,11 @@
     "publishers": "Publishers",
     "series": "Series",
     "authors": "Authors",
+    "usageCount": "Uses: {{count}}",
+    "notUsed": "Not used yet",
+    "source": "Source",
+    "sourceBooks": "books",
+    "sourceCustom": "custom",
     "labels": {
       "authors": "authors",
       "series": "series",
@@ -256,7 +247,9 @@
     "removedFromAll": "Book removed from all collections",
     "addedToCount": "Book added to {{count}} collection",
     "addedToCountFew": "Book added to {{count}} collections",
-    "addedToCountMany": "Book added to {{count}} collections"
+    "addedToCountMany": "Book added to {{count}} collections",
+    "filterCollections": "Filter collections",
+    "staticCollections": "Static collections"
   },
   "actions": {
     "ok": "OK",
@@ -296,10 +289,121 @@
   "settings": {
     "language": "Language",
     "storedLocally": "Stored locally in userData/settings.json",
+    "googleBooksKey": "Google Books API Key (optional)",
     "aiProvider": "AI provider for ISBN search",
+    "openaiProvider": "OpenAI (GPT-5, o1-preview)",
+    "perplexityProvider": "Perplexity (cheaper, with search) 💰",
+    "openaiKey": "OpenAI API Key",
+    "perplexityKey": "Perplexity API Key",
+    "openaiBaseUrl": "OpenAI API Base URL (optional)",
+    "openaiModel": "OpenAI Model (optional)",
+    "perplexityModel": "Perplexity Model",
+    "modelGpt5": "GPT-5 (newest) 🚀",
+    "modelO1Preview": "o1-preview (reasoning) 🧠",
+    "modelGpt4o": "gpt-4o (stable)",
+    "modelO1Mini": "o1-mini (reasoning, fast) ⚡",
+    "modelGpt4oMini": "gpt-4o-mini (fast, cheap) 💰",
+    "modelGpt4Turbo": "gpt-4-turbo",
+    "modelGpt4": "gpt-4 (classic)",
+    "perplexitySonar": "Sonar ($1/$1) - cheap, fast 💰",
+    "perplexitySonarReasoning": "Sonar Reasoning ($1/$5) - with logic",
+    "perplexitySonarReasoningPro": "Sonar Reasoning Pro ($2/$8) - smart reasoning",
+    "perplexitySonarPro": "Sonar Pro ($3/$15) - advanced search",
+    "openPerplexityBilling": "💰 Open Perplexity Billing",
     "disableAiCache": "Disable AI request caching (for testing)",
     "aiStrictMode": "🎯 Strict AI search mode (fewer results, but more accurate)",
-    "sync": "🔄 Sync"
+    "sync": "🔄 Sync",
+    "autoSync": "Auto sync on startup",
+    "autoSyncHint": "💡 When enabled, will automatically download updates from server",
+    "testS3": "🔗 Test S3 Connection",
+    "cleanupCovers": "🧹 Clean up unused covers",
+    "cleanupCoversHint": "💡 Removes covers of deleted books from server",
+    "hotkeys": "⌨️ Hotkeys",
+    "hotkeyEscape": "Close modal windows",
+    "hotkeySearch": "Focus on search",
+    "hotkeyNewBook": "New book",
+    "hotkeySave": "Save form",
+    "hotkeyDelete": "Delete selected book",
+    "hotkeysNote": "💡 Hotkeys don't work while typing in fields"
+  },
+  "csvImport": {
+    "title": "Import books from CSV / TSV",
+    "description": "Upload a CSV/TSV file, map columns to book fields and import records. Separate authors, tags and genres with commas or semicolons.",
+    "file": "CSV/TSV file",
+    "noHeader": "No headers (first row is data)",
+    "load": "Load",
+    "mapColumns": "Map file columns to book fields",
+    "mapTitle": "Title",
+    "mapAuthors": "Authors",
+    "mapIsbn": "ISBN",
+    "mapPublisher": "Publisher",
+    "mapYear": "Year",
+    "mapLanguage": "Language",
+    "mapSeries": "Series",
+    "mapSeriesIndex": "# in series",
+    "mapFormat": "Format",
+    "mapGenres": "Genres",
+    "mapTags": "Tags",
+    "mapRating": "Rating",
+    "mapNotes": "Notes",
+    "mapCover": "Cover (URL)",
+    "preview": "Preview (first 5 records)",
+    "import": "Import"
+  },
+  "searchHelp": {
+    "title": "Search Tips",
+    "quickSearch": "Quick search",
+    "quickSearchDesc": "By default, the query searches in title, authors, tags, genres, notes, publisher, series, format, and language.",
+    "caseNote": "Case insensitive. Use quotes for exact phrase:",
+    "logicalOps": "Logical operators",
+    "logicalAnd": "— first searches for phrase, if no exact match, both words must appear (implicit AND).",
+    "logicalAndExplicit": "— find records where both conditions exist.",
+    "logicalOr": "— matching at least one condition is enough.",
+    "logicalNot": "— exclude books where the term appears.",
+    "logicalBrackets": "Brackets control priority:",
+    "fieldFilters": "Field filters",
+    "fieldTitle": "title",
+    "fieldAuthor": "authors",
+    "fieldTag": "tags",
+    "fieldGenre": "genres",
+    "fieldSeries": "series",
+    "fieldPublisher": "publisher",
+    "fieldNotes": "notes",
+    "fieldFormat": "format",
+    "fieldLanguage": "language",
+    "fieldYear": "publication year",
+    "fieldRating": "rating",
+    "fieldOriginal": "original title (EN)",
+    "fieldOriginalAuthors": "original authors",
+    "fieldGoodreads": "Goodreads rating",
+    "numericNote": "For numeric fields, comparisons are available:",
+    "examples": "Examples",
+    "example1": "— Lem's books that are not yet marked as read.",
+    "example2": "— science fiction or space books published after 2000.",
+    "example3": "— exact phrase match or books from «hogwarts» series.",
+    "example4": "— books with Goodreads rating 4.2 and above.",
+    "example5": "— search by original English title."
+  },
+  "storageAction": {
+    "move": "Move",
+    "lend": "Lent",
+    "return": "Return",
+    "assign": "Assigned"
+  },
+  "coverSearch": {
+    "title": "Search cover online",
+    "placeholder": "e.g., Philosophy of punk cover",
+    "find": "Find",
+    "apply": "Apply"
+  },
+  "infoModal": {
+    "title": "Book information"
+  },
+  "stats": {
+    "title": "📊 Reading Statistics",
+    "byStatus": "By status",
+    "byYear": "Read by year",
+    "noBooksRead": "No data on books read."
   }
 }
 

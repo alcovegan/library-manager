@@ -612,8 +612,8 @@ function renderStorageList() {
         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
           <div style="font-weight:600;">${loc.code}</div>
           <div>
-            <button class="btn secondary storage-edit" data-id="${loc.id}" style="font-size:11px; padding:4px 8px;">Изм.</button>
-            <button class="btn storage-archive" data-id="${loc.id}" style="font-size:11px; padding:4px 8px;">Арх.</button>
+            <button class="btn secondary storage-edit" data-id="${loc.id}" style="font-size:11px; padding:4px 8px;">${t('storage.edit')}</button>
+            <button class="btn storage-archive" data-id="${loc.id}" style="font-size:11px; padding:4px 8px;">${t('storage.archive')}</button>
           </div>
         </div>
         ${loc.title ? `<div style="font-size:13px;">${loc.title}</div>` : ''}
@@ -673,10 +673,10 @@ function renderStorageHistory(history) {
   }
   storageHistoryList.innerHTML = history.map((h) => {
     const actionLabels = {
-      move: 'Перемещение',
-      lend: 'Выдано',
-      return: 'Возврат',
-      assign: 'Назначено',
+      move: t('storageAction.move'),
+      lend: t('storageAction.lend'),
+      return: t('storageAction.return'),
+      assign: t('storageAction.assign'),
     };
     const parts = [];
     if (h.fromCode || h.toCode) {
@@ -1643,7 +1643,7 @@ function populateAuthorFilter() {
   if (!filterAuthor) return;
   const current = filterAuthor.value;
   const options = uniqueAuthors(state.books).map(a => `<option value="${a}">${a}</option>`).join('');
-  filterAuthor.innerHTML = '<option value="">Автор…</option>' + options;
+  filterAuthor.innerHTML = `<option value="">${t('filters.author')}</option>` + options;
   if (current) filterAuthor.value = current;
 }
 
@@ -2139,15 +2139,15 @@ function renderVocabList() {
     return;
   }
   const rows = entries.map((entry) => {
-    const countLabel = entry.count ? `Использований: ${entry.count}` : 'Пока не используется';
+    const countLabel = entry.count ? t('vocab.usageCount', { count: entry.count }) : t('vocab.notUsed');
     const sourceParts = [];
-    if (entry.sources?.books) sourceParts.push('книги');
-    if (entry.sources?.custom) sourceParts.push('ручное');
-    const sourceLabel = sourceParts.length ? `Источник: ${sourceParts.join(' + ')}` : '';
+    if (entry.sources?.books) sourceParts.push(t('vocab.sourceBooks'));
+    if (entry.sources?.custom) sourceParts.push(t('vocab.sourceCustom'));
+    const sourceLabel = sourceParts.length ? `${t('vocab.source')}: ${sourceParts.join(' + ')}` : '';
     const canDelete = entry.sources?.custom && !entry.sources?.books && entry.count === 0 && entry.customId;
     const key = getVocabKey(domain, entry.value || '');
     const showBooksButton = entry.count
-      ? `<button class="btn secondary" data-action="show-books" data-domain="${domain}" data-value="${escapeHtml(entry.value)}" data-key="${escapeHtml(key)}">Показать книги (${entry.count})</button>`
+      ? `<button class="btn secondary" data-action="show-books" data-domain="${domain}" data-value="${escapeHtml(entry.value)}" data-key="${escapeHtml(key)}">${t('vocab.showBooks')} (${entry.count})</button>`
       : '';
     return `
       <div class="card" style="padding:12px; display:flex; flex-direction:column; gap:10px;">
@@ -2161,8 +2161,8 @@ function renderVocabList() {
           </div>
           <div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
             ${showBooksButton}
-            <button class="btn secondary" data-action="rename" data-value="${escapeHtml(entry.value)}">Переименовать</button>
-            ${canDelete ? `<button class="btn danger" data-action="delete" data-id="${escapeHtml(entry.customId)}">Удалить</button>` : ''}
+            <button class="btn secondary" data-action="rename" data-value="${escapeHtml(entry.value)}">${t('vocab.rename')}</button>
+            ${canDelete ? `<button class="btn danger" data-action="delete" data-id="${escapeHtml(entry.customId)}">${t('vocab.deleteCustom')}</button>` : ''}
           </div>
         </div>
         <div class="vocab-books" data-slot="${escapeHtml(key)}" style="display:${vocabState.openKey === key ? 'block' : 'none'};"></div>
@@ -3074,16 +3074,16 @@ function syncCollectionsUI() {
   const staticCollections = sorted.filter((c) => c.type === 'static');
 
   // Group collections by type
-  let html = '<option value="">Коллекции…</option>';
+  let html = `<option value="">${t('filters.collections')}</option>`;
 
   if (filterCollections.length > 0) {
-    html += '<optgroup label="🔍 Фильтр-коллекции">';
+    html += `<optgroup label="🔍 ${t('collections.filterCollections')}">`;
     html += filterCollections.map((collection) => `<option value="${collection.name}">${collection.name}</option>`).join('');
     html += '</optgroup>';
   }
 
   if (staticCollections.length > 0) {
-    html += '<optgroup label="📚 Статические коллекции">';
+    html += `<optgroup label="📚 ${t('collections.staticCollections')}">`;
     html += staticCollections.map((collection) => `<option value="${collection.name}">${collection.name} (${collection.books.length})</option>`).join('');
     html += '</optgroup>';
   }
@@ -3099,7 +3099,7 @@ function syncCollectionsUI() {
 function syncFilterPresetsUI() {
   if (!filterPresetSelect) return;
   const prev = filterPresetSelect.value;
-  let html = '<option value="">Сохранённые поиски…</option>';
+  let html = `<option value="">${t('filters.savedSearches')}</option>`;
   filterPresetsState.list.forEach((preset) => {
     html += `<option value="${preset.id}">${preset.name}</option>`;
   });
@@ -4236,7 +4236,7 @@ async function loadStats() {
       const years = Object.entries(stats.byYear).sort((a, b) => b[0] - a[0]);
 
       if (years.length === 0) {
-        statsByYearEl.innerHTML = '<div style="color:var(--muted); font-size:13px;">Нет данных о прочитанных книгах.</div>';
+        statsByYearEl.innerHTML = `<div style="color:var(--muted); font-size:13px;">${t('stats.noBooksRead')}</div>`;
       } else {
         const maxCount = Math.max(...years.map(([_, count]) => count));
 
