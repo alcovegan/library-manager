@@ -115,14 +115,16 @@ function updateUI() {
     const key = el.dataset.i18n;
     const translated = t(key);
     
-    // Handle different element types
-    if (el.tagName === 'INPUT' && el.placeholder !== undefined && el.dataset.i18nAttr === 'placeholder') {
+    // Handle different element types based on data-i18n-attr
+    const attr = el.dataset.i18nAttr;
+    if (attr === 'placeholder') {
       el.placeholder = translated;
-    } else if (el.dataset.i18nAttr === 'title') {
+    } else if (attr === 'title') {
       el.title = translated;
-    } else if (el.dataset.i18nAttr === 'alt') {
+    } else if (attr === 'alt') {
       el.alt = translated;
     } else {
+      // Default: set textContent (works for span, label, button, option, etc.)
       el.textContent = translated;
     }
   });
