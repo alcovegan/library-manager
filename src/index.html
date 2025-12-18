@@ -1221,22 +1221,22 @@
       <div class="modal-card" style="position:relative; width:min(720px,96vw); max-height:100%; overflow:hidden; background:var(--surface); border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow); display:flex; flex-direction:column;">
         <div style="display:flex; align-items:center; justify-content:space-between; padding:16px; border-bottom:1px solid var(--border);">
           <div>
-            <h3 style="margin:0;">Справочники автодополнения</h3>
-            <div style="font-size:12px; color:var(--muted); margin-top:4px;">Управляйте жанрами, тегами, издательствами, авторами и сериями</div>
+            <h3 style="margin:0;" data-i18n="vocab.title">Справочники автодополнения</h3>
+            <div style="font-size:12px; color:var(--muted); margin-top:4px;" data-i18n="vocab.description">Управляйте жанрами, тегами, издательствами, авторами и сериями</div>
           </div>
-          <button id="vocabManagerCloseBtn" class="btn">Закрыть</button>
+          <button id="vocabManagerCloseBtn" class="btn" data-i18n="modal.close">Закрыть</button>
         </div>
         <div style="padding:16px; display:flex; flex-direction:column; gap:12px; overflow:auto;">
           <div style="display:flex; flex-wrap:wrap; gap:8px;" id="vocabTabs">
-            <button type="button" class="btn secondary active" data-vocab-tab="genres">Жанры</button>
-            <button type="button" class="btn secondary" data-vocab-tab="tags">Теги</button>
-            <button type="button" class="btn secondary" data-vocab-tab="publisher">Издательства</button>
-            <button type="button" class="btn secondary" data-vocab-tab="series">Серии</button>
-            <button type="button" class="btn secondary" data-vocab-tab="authors">Авторы</button>
+            <button type="button" class="btn secondary active" data-vocab-tab="genres" data-i18n="vocab.genres">Жанры</button>
+            <button type="button" class="btn secondary" data-vocab-tab="tags" data-i18n="vocab.tags">Теги</button>
+            <button type="button" class="btn secondary" data-vocab-tab="publisher" data-i18n="vocab.publishers">Издательства</button>
+            <button type="button" class="btn secondary" data-vocab-tab="series" data-i18n="vocab.series">Серии</button>
+            <button type="button" class="btn secondary" data-vocab-tab="authors" data-i18n="vocab.authors">Авторы</button>
           </div>
           <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-            <button id="vocabAddBtn" type="button" class="btn primary">Добавить значение</button>
-            <span style="font-size:12px; color:var(--muted);">Добавьте новый вариант или переименуйте существующие значения, чтобы исправить опечатки.</span>
+            <button id="vocabAddBtn" type="button" class="btn primary" data-i18n="vocab.addValue">Добавить значение</button>
+            <span style="font-size:12px; color:var(--muted);" data-i18n="vocab.addHint">Добавьте новый вариант или переименуйте существующие значения, чтобы исправить опечатки.</span>
           </div>
           <div id="vocabList" style="display:flex; flex-direction:column; gap:8px; max-height:55vh; overflow:auto;"></div>
         </div>

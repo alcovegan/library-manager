@@ -221,6 +221,8 @@
     "examples": "Examples"
   },
   "vocab": {
+    "title": "Autocomplete Dictionaries",
+    "description": "Manage genres, tags, publishers, authors and series",
     "loading": "Loading…",
     "empty": "No values yet.",
     "showBooks": "Show books",
@@ -228,6 +230,13 @@
     "deleteCustom": "Delete",
     "confirmDelete": "Delete custom value?",
     "added": "Added value \"{{value}}\" for {{label}}",
+    "addValue": "Add value",
+    "addHint": "Add a new option or rename existing values to fix typos.",
+    "genres": "Genres",
+    "tags": "Tags",
+    "publishers": "Publishers",
+    "series": "Series",
+    "authors": "Authors",
     "labels": {
       "authors": "authors",
       "series": "series",
