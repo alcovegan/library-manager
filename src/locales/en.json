@@ -265,6 +265,9 @@
     "booksUpdated": "Books updated: {{count}}",
     "booksAddedToCollections": "Books added to collections ({{names}}).",
     "booksRemovedFromCollections": "Books removed from collections ({{names}})."
+  },
+  "settings": {
+    "language": "Language"
   }
 }
 

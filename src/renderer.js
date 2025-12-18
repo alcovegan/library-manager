@@ -1,5 +1,23 @@
 /* global api */
 
+// i18n support - load locale module
+let i18n = null;
+let t = (key, params) => key; // fallback until loaded
+
+async function initI18n() {
+  try {
+    // Dynamic import for browser environment
+    const module = await import('./locales/index.js');
+    i18n = module.default || window.i18n;
+    if (i18n) {
+      await i18n.initLocale();
+      t = i18n.t;
+    }
+  } catch (e) {
+    console.warn('i18n not available:', e);
+  }
+}
+
 // Import modules in Node.js environment (for tests)
 if (typeof module !== 'undefined' && module.exports) {
   const utils = require('./renderer/utils.js');
@@ -210,6 +228,7 @@ const syncBtn = $('#syncBtn');
 // Settings modal elements
 const settingsModal = $('#settingsModal');
 const closeSettingsBtn = $('#closeSettingsBtn');
+const settingsLanguage = $('#settingsLanguage');
 const settingsIsbndbKey = $('#settingsIsbndbKey');
 const settingsGoogleKey = $('#settingsGoogleKey');
 const settingsOpenAIBase = document.querySelector('#settingsOpenAIBase');
@@ -5612,6 +5631,10 @@ function tryCloseSettingsWithConfirm() {
 
 async function loadSettings() {
   try {
+    // Load language from i18n
+    if (settingsLanguage && i18n) {
+      settingsLanguage.value = i18n.getCurrentLocale();
+    }
     const res = await window.api.getSettings();
     if (res && res.ok && res.settings) {
       if (settingsIsbndbKey) settingsIsbndbKey.value = res.settings.isbndbApiKey || '';
@@ -5645,6 +5668,15 @@ if (openSettingsBtn) {
     openSettings();
     // snapshot current settings to detect unsaved changes
     state.settings.snapshot = captureSettingsSnapshot();
+  });
+}
+
+// Language selector handler
+if (settingsLanguage) {
+  settingsLanguage.addEventListener('change', async () => {
+    if (i18n) {
+      await i18n.setLocale(settingsLanguage.value);
+    }
   });
 }
 if (openVocabManagerBtn) {
@@ -6301,8 +6333,11 @@ function loadAppIcon() {
 setActiveMainView('library');
 
 // Initialize app
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   console.log('🚀 DOM loaded, initializing app...');
+
+  // Initialize i18n first
+  await initI18n();
 
   // Re-check collection buttons after DOM is ready
   const createBtn = document.querySelector('#createCollectionBtn');
