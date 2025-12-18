@@ -502,82 +502,82 @@
         <div id="empty" class="empty" style="display:none;" data-i18n="app.noBooks">Пока нет книг. Добавьте первую!</div>
       </section>
       <section id="enrichView" class="card" style="display:none;">
-        <h3>Обогащение ISBN (CSV → OpenAI → проверка)</h3>
+        <h3 data-i18n="enrich.title">Обогащение ISBN (CSV → OpenAI → проверка)</h3>
         <div class="row" style="margin:8px 0; gap:8px; align-items:flex-end;">
           <div>
-            <label>CSV файл</label>
+            <label data-i18n="enrich.csvFile">CSV файл</label>
             <input id="csvInput" type="file" accept=".csv,text/csv" />
           </div>
-          <button id="parseCsvBtn">Загрузить</button>
+          <button id="parseCsvBtn" data-i18n="enrich.load">Загрузить</button>
         </div>
         <div id="mappingArea" style="display:none; margin:8px 0;">
-          <div style="font-size:12px; color:var(--muted); margin-bottom:6px;">Сопоставьте колонки</div>
+          <div style="font-size:12px; color:var(--muted); margin-bottom:6px;" data-i18n="enrich.mapColumns">Сопоставьте колонки</div>
           <div class="row" style="gap:8px;">
-            <div><label>Название</label><select id="mapTitle"></select></div>
-            <div><label>Авторы</label><select id="mapAuthors"></select></div>
-            <div><label>Издательство</label><select id="mapPublisher"></select></div>
-            <div><label>Год</label><select id="mapYear"></select></div>
+            <div><label data-i18n="enrich.mapTitle">Название</label><select id="mapTitle"></select></div>
+            <div><label data-i18n="enrich.mapAuthors">Авторы</label><select id="mapAuthors"></select></div>
+            <div><label data-i18n="enrich.mapPublisher">Издательство</label><select id="mapPublisher"></select></div>
+            <div><label data-i18n="enrich.mapYear">Год</label><select id="mapYear"></select></div>
           </div>
           <div class="row" style="gap:8px; align-items:center; margin-top:6px;">
             <input id="csvHeaderless" type="checkbox" />
-            <label for="csvHeaderless" style="margin:0;">CSV без заголовка (первая строка — данные)</label>
+            <label for="csvHeaderless" style="margin:0;" data-i18n="enrich.noHeader">CSV без заголовка (первая строка — данные)</label>
           </div>
           <div class="row" style="margin-top:8px;">
-            <button id="startEnrichBtn" class="primary">Начать</button>
-            <button id="stopEnrichBtn">Пауза</button>
+            <button id="startEnrichBtn" class="primary" data-i18n="enrich.start">Начать</button>
+            <button id="stopEnrichBtn" data-i18n="enrich.pause">Пауза</button>
             <label style="display:flex; align-items:center; gap:6px; margin-left:8px;">
-              <input id="enrichIgnoreCache" type="checkbox" /> Игнорировать кэш (OpenAI)
+              <input id="enrichIgnoreCache" type="checkbox" /> <span data-i18n="enrich.ignoreCache">Игнорировать кэш (OpenAI)</span>
             </label>
-            <button id="clearAiCacheBtn" title="Очистить кэш OpenAI результатов" style="margin-left:auto;">Очистить кэш</button>
+            <button id="clearAiCacheBtn" title="Очистить кэш OpenAI результатов" style="margin-left:auto;" data-i18n="enrich.clearCache">Очистить кэш</button>
           </div>
         </div>
         <div id="enrichList" style="margin-top:10px; display:flex; flex-direction:column; gap:8px;"></div>
         <div class="row" style="margin-top:10px;">
-          <button id="exportCsvBtn">Экспорт CSV</button>
+          <button id="exportCsvBtn" data-i18n="enrich.exportCsv">Экспорт CSV</button>
         </div>
       </section>
       <section id="historyView" class="card" style="display:none; grid-column: 1 / -1;">
         <div class="history-view">
           <div style="display:flex; justify-content:space-between; align-items:center;">
-            <h3 style="margin:0;">История изменений</h3>
+            <h3 style="margin:0;" data-i18n="history.title">История изменений</h3>
             <div style="display:flex; gap:8px;">
-              <button id="historyReloadBtn" class="btn secondary" type="button">Обновить</button>
-              <button id="historyExportBtn" class="btn secondary" type="button">Экспорт</button>
+              <button id="historyReloadBtn" class="btn secondary" type="button" data-i18n="history.reload">Обновить</button>
+              <button id="historyExportBtn" class="btn secondary" type="button" data-i18n="history.export">Экспорт</button>
             </div>
           </div>
           <div class="history-controls">
             <select id="historyActionFilter" class="input" style="width:auto; min-width:12rem;">
-              <option value="all">Все события</option>
-              <option value="book">Книги</option>
-              <option value="storage">Места хранения</option>
-              <option value="sync">Синхронизация</option>
-              <option value="backup">Бэкапы</option>
-              <option value="activity">Журнал</option>
+              <option value="all" data-i18n="history.all">Все события</option>
+              <option value="book" data-i18n="history.books">Книги</option>
+              <option value="storage" data-i18n="history.storages">Места хранения</option>
+              <option value="sync" data-i18n="history.sync">Синхронизация</option>
+              <option value="backup" data-i18n="history.backups">Бэкапы</option>
+              <option value="activity" data-i18n="history.activity">Журнал</option>
             </select>
-            <input id="historySearchInput" class="input" type="search" placeholder="Поиск по журналу" style="flex:1 1 240px; min-width:14rem;" />
+            <input id="historySearchInput" class="input" type="search" placeholder="Поиск по журналу" data-i18n="history.searchPlaceholder" data-i18n-attr="placeholder" style="flex:1 1 240px; min-width:14rem;" />
           </div>
           <div class="history-list-wrapper">
-            <div id="historyEmpty" class="history-empty" style="display:none;">Записей журнала пока нет.</div>
+            <div id="historyEmpty" class="history-empty" style="display:none;" data-i18n="history.empty">Записей журнала пока нет.</div>
             <div id="historyList" class="history-list"></div>
             <div class="history-loadmore">
-              <button id="historyLoadMoreBtn" class="btn secondary" type="button" style="display:none;">Загрузить ещё</button>
+              <button id="historyLoadMoreBtn" class="btn secondary" type="button" style="display:none;" data-i18n="history.loadMore">Загрузить ещё</button>
             </div>
           </div>
         </div>
       </section>
       <section id="statsView" class="card" style="display:none; grid-column: 1 / -1;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-          <h3 style="margin:0;">📊 Статистика чтения</h3>
+          <h3 style="margin:0;" data-i18n="stats.title">📊 Статистика чтения</h3>
         </div>
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:16px;">
           <!-- Stats by Status -->
           <div style="border:1px solid var(--border); border-radius:12px; padding:16px; background:var(--surface);">
-            <h4 style="margin:0 0 12px 0; font-size:15px; font-weight:600;">По статусам</h4>
+            <h4 style="margin:0 0 12px 0; font-size:15px; font-weight:600;" data-i18n="stats.byStatus">По статусам</h4>
             <div id="statsByStatus" style="display:flex; flex-direction:column; gap:8px;"></div>
           </div>
           <!-- Stats by Year -->
           <div style="border:1px solid var(--border); border-radius:12px; padding:16px; background:var(--surface);">
-            <h4 style="margin:0 0 12px 0; font-size:15px; font-weight:600;">Прочитано по годам</h4>
+            <h4 style="margin:0 0 12px 0; font-size:15px; font-weight:600;" data-i18n="stats.byYear">Прочитано по годам</h4>
             <div id="statsByYear" style="display:flex; flex-direction:column; gap:8px;"></div>
           </div>
         </div>
@@ -589,8 +589,8 @@
       <div class="modal-backdrop" style="position:absolute; inset:0; background:rgba(0,0,0,0.35);"></div>
       <div class="modal-card" style="position:relative; width:min(620px, 96vw); max-height:100%; overflow:auto; background: var(--surface); border:1px solid var(--border); border-radius:14px; box-shadow: var(--shadow); padding:18px;">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
-          <h3 style="margin:0;">Подсказки по поиску</h3>
-          <button id="searchHelpCloseBtn">Закрыть</button>
+          <h3 style="margin:0;" data-i18n="searchHelp.title">Подсказки по поиску</h3>
+          <button id="searchHelpCloseBtn" data-i18n="modal.close">Закрыть</button>
         </div>
         <div class="search-help-content" style="margin-top:12px; font-size:13px;">
           <div class="search-help-section">
@@ -649,8 +649,8 @@
       <div class="modal-backdrop" style="position:absolute; inset:0; background:rgba(0,0,0,0.35);"></div>
       <div class="modal-card" style="position:relative; width: min(820px, 96vw); max-height: 100%; overflow:auto; background: var(--surface); border:1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); padding: 16px;">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
-          <h3 style="margin:0;">Карточка книги</h3>
-          <button id="closeModalBtn">Закрыть</button>
+          <h3 style="margin:0;" data-i18n="modal.bookCard">Карточка книги</h3>
+          <button id="closeModalBtn" data-i18n="modal.close">Закрыть</button>
         </div>
         <div style="display:grid; grid-template-columns: 220px 1fr; gap: 14px; margin-top: 12px;">
           <div>
@@ -658,11 +658,11 @@
             <div class="row" style="margin-top:8px; gap:8px; align-items:center;">
               <button id="modalChooseCoverBtn" class="btn" style="flex:1; font-size:12px; display:flex; align-items:center; justify-content:center; gap:8px;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="0.51" y="0.5" width="13" height="13" rx="1"/><circle cx="9.25" cy="4.75" r="1.75"/><path d="M9.4 13.4999C9.07801 11.7849 8.15715 10.2401 6.80173 9.14113C5.44632 8.04214 3.74452 7.46048 2 7.49993C1.49668 7.49858 0.994381 7.54546 0.5 7.63993"/><path d="M13.5 9.91002C12.6946 9.63803 11.8501 9.49954 11 9.50002C9.92394 9.49768 8.85877 9.71548 7.87 10.14"/></svg>
-                <span>Обложка…</span>
+                <span data-i18n="modal.coverLabel">Обложка…</span>
               </button>
               <button id="modalCoverSearchBtn" type="button" class="btn secondary" style="flex:1; font-size:12px; display:flex; align-items:center; justify-content:center; gap:8px;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="6.5"/><path d="M0.5 7H13.5"/><path d="M9.5 7C9.3772 9.37699 8.50168 11.6533 7 13.5C5.49832 11.6533 4.6228 9.37699 4.5 7C4.6228 4.62301 5.49832 2.34665 7 0.5C8.50168 2.34665 9.3772 4.62301 9.5 7V7Z"/></svg>
-                <span>Найти…</span>
+                <span data-i18n="modal.findCover">Найти…</span>
               </button>
             </div>
             <div style="margin-top:6px; font-size:12px; color:var(--muted);" id="modalCoverLabel"></div>
@@ -682,162 +682,162 @@
             <div class="row" style="margin-top:6px; display:flex; flex-wrap:wrap; gap:8px;">
               <button id="modalStorageHistoryBtn" type="button" class="btn secondary" style="flex:1 1 30%; min-width:110px; font-size:12px; display:flex; align-items:center; justify-content:center; gap:8px;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12.5 13.54H3C2.60218 13.54 2.22064 13.382 1.93934 13.1007C1.65804 12.8194 1.5 12.4379 1.5 12.04C1.5 11.6422 1.65804 11.2607 1.93934 10.9794C2.22064 10.6981 2.60218 10.54 3 10.54H11.5C11.7652 10.54 12.0196 10.4347 12.2071 10.2471C12.3946 10.0596 12.5 9.80526 12.5 9.54004V1.54004C12.5 1.27482 12.3946 1.02047 12.2071 0.832932C12.0196 0.645396 11.7652 0.540039 11.5 0.540039H3C2.60901 0.5399 2.23342 0.692433 1.95324 0.965144C1.67305 1.23785 1.51043 1.60919 1.5 2.00004V12"/><path d="M11.5 10.54V13.54"/></svg>
-                <span>История…</span>
+                <span data-i18n="modal.storageHistory">История…</span>
               </button>
               <button id="modalLendBtn" type="button" class="btn" style="flex:1 1 30%; min-width:110px; font-size:12px; display:flex; align-items:center; justify-content:center; gap:8px;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 10.5V12.5C13.5 12.7652 13.3946 13.0196 13.2071 13.2071C13.0196 13.3946 12.7652 13.5 12.5 13.5H10.5"/><path d="M10.5 0.5H12.5C12.7652 0.5 13.0196 0.605357 13.2071 0.792893C13.3946 0.98043 13.5 1.23478 13.5 1.5V3.5"/><path d="M0.5 3.5V1.5C0.5 1.23478 0.605357 0.98043 0.792893 0.792893C0.98043 0.605357 1.23478 0.5 1.5 0.5H3.5"/><path d="M3.5 13.5H1.5C1.23478 13.5 0.98043 13.3946 0.792893 13.2071C0.605357 13.0196 0.5 12.7652 0.5 12.5V10.5"/><circle cx="7" cy="4.5" r="2"/><path d="M10.16 10.5001C9.87562 9.90292 9.42786 9.39855 8.86858 9.04543C8.30931 8.6923 7.66142 8.50488 7 8.50488C6.33857 8.50488 5.69068 8.6923 5.13141 9.04543C4.57214 9.39855 4.12437 9.90292 3.84 10.5001"/></svg>
-                <span>Отдать…</span>
+                <span data-i18n="modal.lend">Отдать…</span>
               </button>
               <button id="modalReturnBtn" type="button" class="btn" style="flex:1 1 30%; min-width:110px; font-size:12px; display:flex; align-items:center; justify-content:center; gap:8px;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8L6.05 9.64C6.10506 9.68534 6.16952 9.71784 6.23872 9.73514C6.30791 9.75244 6.38009 9.7541 6.45 9.74C6.52058 9.72676 6.58749 9.69847 6.64616 9.65706C6.70483 9.61564 6.75389 9.56207 6.79 9.5L10 4"/><circle cx="7" cy="7" r="6.5"/></svg>
-                <span>Вернуть…</span>
+                <span data-i18n="modal.return">Вернуть…</span>
               </button>
             </div>
             <div id="modalLoanStatus" class="loan-status" style="display:none;">
-              <span class="loan-badge">Отдана</span>
+              <span class="loan-badge" data-i18n="modal.lent">Отдана</span>
               <div id="modalLoanDetails" class="loan-status-text"></div>
             </div>
 
             <!-- Reading Status Section -->
             <details id="readingStatusPanel" style="border:1px solid var(--border); border-radius:12px; padding:8px 12px 12px; background:var(--surface); margin-top:12px;">
-              <summary style="font-weight:600; cursor:pointer; outline:none; user-select:none;">📚 Статус чтения</summary>
+              <summary style="font-weight:600; cursor:pointer; outline:none; user-select:none;" data-i18n="readingStatus.title">📚 Статус чтения</summary>
               <div style="margin-top:12px; display:flex; flex-direction:column; gap:12px;">
                 <div>
-                  <label>Статус</label>
+                  <label data-i18n="readingStatus.status">Статус</label>
                   <select id="modalReadingStatus" class="input" style="height:36px;">
-                    <option value="">— Не указан —</option>
-                    <option value="want_to_read">🔖 Хочу прочитать</option>
-                    <option value="reading">📖 Читаю</option>
-                    <option value="finished">✅ Прочитано</option>
-                    <option value="re_reading">🔁 Перечитываю</option>
-                    <option value="abandoned">❌ Брошено</option>
-                    <option value="on_hold">⏸️ Отложено</option>
+                    <option value="" data-i18n="readingStatus.notSet">— Не указан —</option>
+                    <option value="want_to_read" data-i18n="readingStatus.wantToRead">🔖 Хочу прочитать</option>
+                    <option value="reading" data-i18n="readingStatus.reading">📖 Читаю</option>
+                    <option value="finished" data-i18n="readingStatus.finished">✅ Прочитано</option>
+                    <option value="re_reading" data-i18n="readingStatus.reReading">🔁 Перечитываю</option>
+                    <option value="abandoned" data-i18n="readingStatus.abandoned">❌ Брошено</option>
+                    <option value="on_hold" data-i18n="readingStatus.onHold">⏸️ Отложено</option>
                   </select>
                 </div>
                 <div>
-                  <label>Дата начала</label>
+                  <label data-i18n="readingStatus.startDate">Дата начала</label>
                   <input id="modalReadingStartedAt" type="date" class="input" />
                 </div>
                 <div>
-                  <label>Дата окончания</label>
+                  <label data-i18n="readingStatus.endDate">Дата окончания</label>
                   <input id="modalReadingFinishedAt" type="date" class="input" />
                 </div>
                 <div id="readingHistorySection" style="display:none; border-top:1px solid var(--border); padding-top:12px;">
-                  <div style="font-size:12px; font-weight:600; color:var(--muted); margin-bottom:8px;">История чтения</div>
+                  <div style="font-size:12px; font-weight:600; color:var(--muted); margin-bottom:8px;" data-i18n="readingStatus.readingHistory">История чтения</div>
                   <div id="readingHistoryList" style="display:flex; flex-direction:column; gap:6px;"></div>
                 </div>
               </div>
             </details>
           </div>
           <div>
-            <label>Название</label>
+            <label data-i18n="form.title">Название</label>
             <input id="modalTitle" type="text" />
-            <label>Авторы (через запятую)</label>
+            <label data-i18n="form.authors">Авторы (через запятую)</label>
             <input id="modalAuthors" type="text" />
             <div class="row" style="gap:10px;">
               <div style="flex:1;">
-                <label>Серия</label>
+                <label data-i18n="form.series">Серия</label>
                 <input id="modalSeries" type="text" />
               </div>
               <div style="width:140px;">
-                <label>№ в серии</label>
+                <label data-i18n="form.seriesIndex">№ в серии</label>
                 <input id="modalSeriesIndex" type="text" />
               </div>
             </div>
             <div class="row" style="gap:10px;">
               <div style="width:140px;">
-                <label>Год</label>
+                <label data-i18n="form.year">Год</label>
                 <input id="modalYear" type="text" />
               </div>
               <div style="flex:1;">
-                <label>Издательство</label>
+                <label data-i18n="form.publisher">Издательство</label>
                 <div class="row">
                   <input id="modalPublisher" type="text" />
-                  <button id="publisherCyrBtn" title="Сконвертировать в кириллицу">Кириллицей</button>
+                  <button id="publisherCyrBtn" title="Сконвертировать в кириллицу" data-i18n="form.toCyrillic">Кириллицей</button>
                 </div>
               </div>
             </div>
             <div>
-              <label>ISBN</label>
+              <label data-i18n="form.isbn">ISBN</label>
               <div class="row" style="gap:8px;">
                 <input id="modalIsbn" type="text" style="flex:1;" />
                 <button id="aiIsbnSearchBtn" title="Найти ISBN через AI по названию и автору" style="display:flex; align-items:center; gap:8px;">
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12.64 1.8699L11.8 4.3499C11.771 4.40726 11.7559 4.47063 11.7559 4.5349C11.7559 4.59917 11.771 4.66255 11.8 4.7199L13.37 6.8199C13.4151 6.88001 13.4424 6.95161 13.4487 7.0265C13.455 7.1014 13.4401 7.17655 13.4056 7.24335C13.3712 7.31015 13.3186 7.36589 13.254 7.40419C13.1893 7.44249 13.1152 7.4618 13.04 7.4599H10.42C10.3558 7.46179 10.2928 7.47804 10.2357 7.50746C10.1786 7.53688 10.1288 7.57872 10.09 7.6299L8.63003 9.7299C8.5872 9.79129 8.52802 9.83943 8.4592 9.86885C8.39038 9.89827 8.31468 9.90779 8.24072 9.89633C8.16676 9.88488 8.09749 9.85289 8.0408 9.80403C7.98411 9.75516 7.94226 9.69137 7.92003 9.6199L7.14002 7.1199C7.12223 7.05811 7.08904 7.00184 7.04357 6.95636C6.99809 6.91089 6.94182 6.8777 6.88003 6.8599L4.38003 6.0799C4.30856 6.05766 4.24477 6.01582 4.1959 5.95913C4.14703 5.90244 4.11505 5.83317 4.10359 5.75921C4.09213 5.68525 4.10166 5.60955 4.13108 5.54073C4.1605 5.47191 4.20864 5.41272 4.27003 5.3699L6.41002 3.8599C6.46121 3.82109 6.50305 3.7713 6.53247 3.71419C6.56189 3.65709 6.57814 3.59411 6.58002 3.5299V0.909903C6.58282 0.841088 6.60333 0.77416 6.63958 0.715598C6.67583 0.657037 6.72658 0.608827 6.78693 0.575637C6.84728 0.542446 6.91517 0.525399 6.98404 0.526147C7.0529 0.526894 7.12041 0.54541 7.18002 0.579903L9.28003 2.1499C9.33334 2.18693 9.39468 2.21077 9.459 2.21946C9.52333 2.22816 9.5888 2.22145 9.65002 2.1999L12.13 1.3599C12.2011 1.33491 12.2779 1.33052 12.3514 1.34724C12.4249 1.36397 12.4922 1.40113 12.5455 1.45443C12.5988 1.50774 12.636 1.57503 12.6527 1.64853C12.6694 1.72204 12.665 1.79878 12.64 1.8699V1.8699Z"/><path d="M7.04 6.95996L0.5 13.5"/></svg>
-                  <span>Найти ISBN</span>
+                  <span data-i18n="form.findIsbn">Найти ISBN</span>
                 </button>
                 <button id="isbnSearchBtn" style="display:flex; align-items:center; gap:8px;">
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.92" cy="5.92" r="5.42"/><path d="M13.5 13.5L9.75 9.75"/></svg>
-                  <span>По ISBN</span>
+                  <span data-i18n="form.searchByIsbn">По ISBN</span>
                 </button>
                 <button id="isbnRefreshBtn" title="Игнорировать кеш и обновить" style="display:flex; align-items:center; gap:8px;">
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M11 9L13 8.5L13.5 10.5"/><path d="M13 8.5C12.5558 9.75861 11.749 10.8576 10.6813 11.6584C9.61353 12.4592 8.33262 12.926 6.99999 13C5.7681 13.0002 4.566 12.6213 3.55697 11.9146C2.54794 11.2079 1.78088 10.2078 1.35999 9.05"/><path d="M3 5L1 5.5L0.5 3.5"/><path d="M1 5.5C1.84 3.2 4.42 1 7 1C8.23789 1.00348 9.4444 1.38976 10.4541 2.10588C11.4639 2.822 12.2274 3.8329 12.64 5"/></svg>
-                  <span>Обновить</span>
+                  <span data-i18n="form.refresh">Обновить</span>
                 </button>
               </div>
             </div>
             <div class="row" style="gap:10px; flex-wrap:wrap;">
               <div style="width:180px;">
-                <label>Язык</label>
+                <label data-i18n="form.language">Язык</label>
                 <input id="modalLanguage" type="text" />
               </div>
               <div style="width:160px;">
-                <label>Формат</label>
+                <label data-i18n="form.format">Формат</label>
                 <select id="modalFormat" class="input" style="height:36px;">
-                  <option value="">—</option>
-                  <option value="paper">Бумажная</option>
-                  <option value="ebook">Электронная</option>
-                  <option value="audiobook">Аудио</option>
+                  <option value="" data-i18n="format.none">—</option>
+                  <option value="paper" data-i18n="format.paper">Бумажная</option>
+                  <option value="ebook" data-i18n="format.ebook">Электронная</option>
+                  <option value="audiobook" data-i18n="format.audiobook">Аудио</option>
                 </select>
               </div>
               <div style="width:140px;">
-                <label>Рейтинг (0–5)</label>
-                <input id="modalRating" type="text" placeholder="напр. 4.5" />
+                <label data-i18n="form.rating">Рейтинг (0–5)</label>
+                <input id="modalRating" type="text" placeholder="напр. 4.5" data-i18n="form.ratingPlaceholder" data-i18n-attr="placeholder" />
               </div>
               <div style="flex:1; min-width:180px;">
-                <label>Жанры (через запятую)</label>
+                <label data-i18n="form.genres">Жанры (через запятую)</label>
                 <input id="modalGenres" type="text" />
               </div>
               <div style="flex:1; min-width:180px;">
-                <label>Теги (через запятую)</label>
+                <label data-i18n="form.tags">Теги (через запятую)</label>
                 <input id="modalTags" type="text" />
               </div>
             </div>
             <div class="row" style="margin-top:8px; gap:8px; align-items:center;">
               <button id="goodreadsLookupBtn" type="button" class="btn secondary" style="display:flex; align-items:center; gap:8px;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12.64 1.8699L11.8 4.3499C11.771 4.40726 11.7559 4.47063 11.7559 4.5349C11.7559 4.59917 11.771 4.66255 11.8 4.7199L13.37 6.8199C13.4151 6.88001 13.4424 6.95161 13.4487 7.0265C13.455 7.1014 13.4401 7.17655 13.4056 7.24335C13.3712 7.31015 13.3186 7.36589 13.254 7.40419C13.1893 7.44249 13.1152 7.4618 13.04 7.4599H10.42C10.3558 7.46179 10.2928 7.47804 10.2357 7.50746C10.1786 7.53688 10.1288 7.57872 10.09 7.6299L8.63003 9.7299C8.5872 9.79129 8.52802 9.83943 8.4592 9.86885C8.39038 9.89827 8.31468 9.90779 8.24072 9.89633C8.16676 9.88488 8.09749 9.85289 8.0408 9.80403C7.98411 9.75516 7.94226 9.69137 7.92003 9.6199L7.14002 7.1199C7.12223 7.05811 7.08904 7.00184 7.04357 6.95636C6.99809 6.91089 6.94182 6.8777 6.88003 6.8599L4.38003 6.0799C4.30856 6.05766 4.24477 6.01582 4.1959 5.95913C4.14703 5.90244 4.11505 5.83317 4.10359 5.75921C4.09213 5.68525 4.10166 5.60955 4.13108 5.54073C4.1605 5.47191 4.20864 5.41272 4.27003 5.3699L6.41002 3.8599C6.46121 3.82109 6.50305 3.7713 6.53247 3.71419C6.56189 3.65709 6.57814 3.59411 6.58002 3.5299V0.909903C6.58282 0.841088 6.60333 0.77416 6.63958 0.715598C6.67583 0.657037 6.72658 0.608827 6.78693 0.575637C6.84728 0.542446 6.91517 0.525399 6.98404 0.526147C7.0529 0.526894 7.12041 0.54541 7.18002 0.579903L9.28003 2.1499C9.33334 2.18693 9.39468 2.21077 9.459 2.21946C9.52333 2.22816 9.5888 2.22145 9.65002 2.1999L12.13 1.3599C12.2011 1.33491 12.2779 1.33052 12.3514 1.34724C12.4249 1.36397 12.4922 1.40113 12.5455 1.45443C12.5988 1.50774 12.636 1.57503 12.6527 1.64853C12.6694 1.72204 12.665 1.79878 12.64 1.8699V1.8699Z"/><path d="M7.04 6.95996L0.5 13.5"/></svg>
-                <span>Найти на Goodreads</span>
+                <span data-i18n="goodreads.searchGr">Найти на Goodreads</span>
               </button>
               <button id="goodreadsRefreshBtn" type="button" class="btn" disabled style="display:flex; align-items:center; gap:8px;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M11 9L13 8.5L13.5 10.5"/><path d="M13 8.5C12.5558 9.75861 11.749 10.8576 10.6813 11.6584C9.61353 12.4592 8.33262 12.926 6.99999 13C5.7681 13.0002 4.566 12.6213 3.55697 11.9146C2.54794 11.2079 1.78088 10.2078 1.35999 9.05"/><path d="M3 5L1 5.5L0.5 3.5"/><path d="M1 5.5C1.84 3.2 4.42 1 7 1C8.23789 1.00348 9.4444 1.38976 10.4541 2.10588C11.4639 2.822 12.2274 3.8329 12.64 5"/></svg>
-                <span>Обновить данные</span>
+                <span data-i18n="goodreads.refreshGr">Обновить данные</span>
               </button>
               <span id="goodreadsStatus" style="font-size:12px; color:var(--muted); display:none;"></span>
             </div>
             <details id="goodreadsPanel" class="goodreads-panel">
-              <summary>Оригинал и данные Goodreads</summary>
+              <summary data-i18n="goodreads.title">Оригинал и данные Goodreads</summary>
               <div class="goodreads-grid">
                 <div>
-                  <label>Оригинальное название (EN)</label>
+                  <label data-i18n="form.originalTitle">Оригинальное название (EN)</label>
                   <input id="modalOriginalTitleEn" type="text" placeholder="Например, Anna: The Biography" />
                 </div>
                 <div>
-                  <label>Авторы (EN, через запятую)</label>
+                  <label data-i18n="form.originalAuthors">Авторы (EN, через запятую)</label>
                   <input id="modalOriginalAuthorsEn" type="text" placeholder="Amy Odell" />
                 </div>
                 <div>
-                  <label>Оценка Goodreads</label>
+                  <label data-i18n="goodreads.grRating">Оценка Goodreads</label>
                   <input id="modalGoodreadsRating" type="text" placeholder="—" readonly />
                 </div>
                 <div>
-                  <label>Количество оценок</label>
+                  <label data-i18n="goodreads.grRatingsCount">Количество оценок</label>
                   <input id="modalGoodreadsRatingsCount" type="text" placeholder="—" readonly />
                 </div>
                 <div>
-                  <label>Количество отзывов</label>
+                  <label data-i18n="goodreads.grReviewsCount">Количество отзывов</label>
                   <input id="modalGoodreadsReviewsCount" type="text" placeholder="—" readonly />
                 </div>
                 <div>
-                  <label>Ссылка на Goodreads</label>
+                  <label data-i18n="goodreads.grLink">Ссылка на Goodreads</label>
                   <input id="modalGoodreadsUrl" type="text" placeholder="https://www.goodreads.com/..." style="text-transform:none;" />
                 </div>
               </div>
@@ -847,7 +847,7 @@
               <div style="font-size:12px; color:var(--muted); margin-bottom:4px;">Найдено на Goodreads</div>
               <div id="goodreadsResultContent" style="display:flex; flex-direction:column; gap:8px; font-size:13px;"></div>
             </div>
-            <label>Заметки</label>
+            <label data-i18n="form.notes">Заметки</label>
             <textarea id="modalNotes" rows="3" style="resize:vertical;"></textarea>
 
             <div id="isbnResults" class="card" style="margin-top:12px; display:none;">
@@ -857,11 +857,11 @@
             <div class="row" style="margin-top:12px; gap:8px;">
               <button id="modalSaveBtn" class="primary" style="display:flex; align-items:center; gap:6px;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8L6.05 9.64C6.10506 9.68534 6.16952 9.71784 6.23872 9.73514C6.30791 9.75244 6.38009 9.7541 6.45 9.74C6.52058 9.72676 6.58749 9.69847 6.64616 9.65706C6.70483 9.61564 6.75389 9.56207 6.79 9.5L10 4"/><circle cx="7" cy="7" r="6.5"/></svg>
-                <span>Сохранить</span>
+                <span data-i18n="form.save">Сохранить</span>
               </button>
               <button id="modalCollectionsBtn" class="btn secondary" style="display:flex; align-items:center; gap:6px;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M11 13.5L7 9.5L3 13.5V1.5C3 1.23478 3.10536 0.98043 3.29289 0.792893C3.48043 0.605357 3.73478 0.5 4 0.5H10C10.2652 0.5 10.5196 0.605357 10.7071 0.792893C10.8946 0.98043 11 1.23478 11 1.5V13.5Z"/></svg>
-                <span>Коллекции</span>
+                <span data-i18n="modal.collections">Коллекции</span>
               </button>
             </div>
           </div>
@@ -929,37 +929,37 @@
       <div class="modal-backdrop" style="position:absolute; inset:0; background:rgba(0,0,0,0.35);"></div>
       <div class="modal-card" style="position:relative; width:min(900px,96vw); max-height:100%; overflow:auto; background:var(--surface); border:1px solid var(--border); border-radius:14px; box-shadow:var(--shadow); padding:18px; display:flex; flex-direction:column; gap:12px;">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
-          <h3 style="margin:0;">Места хранения</h3>
-          <button id="storageManagerCloseBtn" class="icon-btn" title="Закрыть" style="width:32px; height:32px;">
+          <h3 style="margin:0;" data-i18n="storage.title">Места хранения</h3>
+          <button id="storageManagerCloseBtn" class="icon-btn" title="Закрыть" data-i18n="modal.close" data-i18n-attr="title" style="width:32px; height:32px;">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 0.5L0.5 13.5"/><path d="M0.5 0.5L13.5 13.5"/></svg>
           </button>
         </div>
-        <div style="font-size:12px; color:var(--muted);">Создавайте коды для шкафов, полок и особых статусов (например, RN — «читаю сейчас»).</div>
+        <div style="font-size:12px; color:var(--muted);" data-i18n="storage.description">Создавайте коды для шкафов, полок и особых статусов (например, RN — «читаю сейчас»).</div>
         <div style="display:flex; gap:16px; flex-wrap:wrap;">
           <div style="flex:2 1 360px; min-width:320px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-              <h4 style="margin:0; font-size:14px;">Список</h4>
-              <button id="storageCreateBtn" class="btn secondary" type="button">Добавить</button>
+              <h4 style="margin:0; font-size:14px;" data-i18n="storage.list">Список</h4>
+              <button id="storageCreateBtn" class="btn secondary" type="button" data-i18n="storage.add">Добавить</button>
             </div>
             <div id="storageList" style="display:flex; flex-direction:column; gap:8px;"></div>
           </div>
           <div style="flex:1 1 260px; min-width:260px; border:1px solid var(--border); border-radius:12px; padding:12px; background:var(--muted-surface);">
-            <h4 style="margin:0 0 8px 0; font-size:14px;">Редактирование</h4>
+            <h4 style="margin:0 0 8px 0; font-size:14px;" data-i18n="storage.editing">Редактирование</h4>
             <div class="form-grid" style="display:flex; flex-direction:column; gap:8px;">
-              <label>Код</label>
-              <input id="storageFormCode" type="text" class="input" placeholder="Например, R1-A1-S7" />
-              <label>Описание</label>
-              <input id="storageFormTitle" type="text" class="input" placeholder="Комната/стеллаж/полка" />
-              <label>Примечание</label>
+              <label data-i18n="storage.code">Код</label>
+              <input id="storageFormCode" type="text" class="input" placeholder="Например, R1-A1-S7" data-i18n="storage.codePlaceholder" data-i18n-attr="placeholder" />
+              <label data-i18n="storage.descriptionLabel">Описание</label>
+              <input id="storageFormTitle" type="text" class="input" placeholder="Комната/стеллаж/полка" data-i18n="storage.descPlaceholder" data-i18n-attr="placeholder" />
+              <label data-i18n="storage.note">Примечание</label>
               <textarea id="storageFormNote" rows="2" class="input" style="resize:vertical;"></textarea>
               <label style="display:flex; align-items:center; gap:6px;">
-                <input id="storageFormActive" type="checkbox" checked /> Активно
+                <input id="storageFormActive" type="checkbox" checked /> <span data-i18n="storage.active">Активно</span>
               </label>
-              <label>Порядок сортировки</label>
+              <label data-i18n="storage.sortOrder">Порядок сортировки</label>
               <input id="storageFormSort" type="number" class="input" value="0" />
               <div class="row" style="justify-content:flex-end; gap:8px;">
-                <button id="storageFormCancel" type="button" class="btn">Отмена</button>
-                <button id="storageFormSave" type="button" class="btn primary">Сохранить</button>
+                <button id="storageFormCancel" type="button" class="btn" data-i18n="actions.cancel">Отмена</button>
+                <button id="storageFormSave" type="button" class="btn primary" data-i18n="form.save">Сохранить</button>
               </div>
             </div>
           </div>
@@ -971,8 +971,8 @@
       <div class="modal-backdrop" style="position:absolute; inset:0; background:rgba(0,0,0,0.35);"></div>
       <div class="modal-card" style="position:relative; width:min(720px,92vw); max-height:100%; overflow:auto; background:var(--surface); border:1px solid var(--border); border-radius:14px; box-shadow:var(--shadow); padding:18px; display:flex; flex-direction:column; gap:12px;">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
-          <h3 style="margin:0;">История перемещений</h3>
-          <button id="storageHistoryCloseBtn" class="icon-btn" title="Закрыть" style="width:32px; height:32px;">
+          <h3 style="margin:0;" data-i18n="storage.movementHistory">История перемещений</h3>
+          <button id="storageHistoryCloseBtn" class="icon-btn" title="Закрыть" data-i18n="modal.close" data-i18n-attr="title" style="width:32px; height:32px;">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 0.5L0.5 13.5"/><path d="M0.5 0.5L13.5 13.5"/></svg>
           </button>
         </div>
@@ -984,15 +984,15 @@
       <div class="modal-backdrop" style="position:absolute; inset:0; background:rgba(0,0,0,0.35);"></div>
       <div class="modal-card" style="position:relative; width:min(420px,90vw); max-height:100%; overflow:auto; background:var(--surface); border:1px solid var(--border); border-radius:14px; box-shadow:var(--shadow); padding:18px; display:flex; flex-direction:column; gap:12px;">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
-          <h3 id="storageLoanTitle" style="margin:0;">Выдача книги</h3>
-          <button id="storageLoanCloseBtn" class="icon-btn" title="Закрыть" style="width:32px; height:32px;">
+          <h3 id="storageLoanTitle" style="margin:0;" data-i18n="storage.lendBook">Выдача книги</h3>
+          <button id="storageLoanCloseBtn" class="icon-btn" title="Закрыть" data-i18n="modal.close" data-i18n-attr="title" style="width:32px; height:32px;">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 0.5L0.5 13.5"/><path d="M0.5 0.5L13.5 13.5"/></svg>
           </button>
         </div>
         <div id="storageLoanContext" style="font-size:12px; color:var(--muted);"></div>
         <div id="storageLoanPersonRow" style="display:flex; flex-direction:column; gap:6px;">
-          <label>Кому передаём</label>
-          <input id="storageLoanPerson" type="text" class="input" placeholder="Имя / получатель" />
+          <label data-i18n="storage.lendTo">Кому передаём</label>
+          <input id="storageLoanPerson" type="text" class="input" placeholder="Имя / получатель" data-i18n="storage.recipientPlaceholder" data-i18n-attr="placeholder" />
         </div>
         <div id="storageLoanLocationRow" style="display:flex; flex-direction:column; gap:6px;">
           <label data-i18n="form.storage">Место хранения</label>
@@ -1066,14 +1066,14 @@
           <div>
             <label>ISBNdb API Key</label>
             <input id="settingsIsbndbKey" type="text" placeholder="sk_xxx" />
-            <div style="font-size:12px; color:var(--muted);">Хранится локально в userData/settings.json</div>
+            <div style="font-size:12px; color:var(--muted);" data-i18n="settings.storedLocally">Хранится локально в userData/settings.json</div>
           </div>
           <div>
             <label>Google Books API Key (опционально)</label>
             <input id="settingsGoogleKey" type="text" placeholder="AIza..." />
           </div>
           <div>
-            <label>AI провайдер для поиска ISBN</label>
+            <label data-i18n="settings.aiProvider">AI провайдер для поиска ISBN</label>
             <select id="settingsAiProvider" class="input">
               <option value="openai">OpenAI (GPT-5, o1-preview)</option>
               <option value="perplexity">Perplexity (дешевле, с поиском) 💰</option>
@@ -1124,18 +1124,18 @@
           <div style="margin-top:8px;">
             <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
               <input id="settingsOpenAIDisableCache" type="checkbox" />
-              <span>Отключить кэширование AI запросов (для тестирования)</span>
+              <span data-i18n="settings.disableAiCache">Отключить кэширование AI запросов (для тестирования)</span>
             </label>
           </div>
           <div style="margin-top:8px;">
             <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
               <input id="settingsAiStrictMode" type="checkbox" />
-              <span>🎯 Строгий режим AI поиска (меньше результатов, но точнее)</span>
+              <span data-i18n="settings.aiStrictMode">🎯 Строгий режим AI поиска (меньше результатов, но точнее)</span>
             </label>
           </div>
 
           <div style="margin-top:16px; padding:12px; background:var(--muted-surface); border-radius:8px;">
-            <h4 style="margin:0 0 8px 0; font-size:14px; font-weight:600;">🔄 Синхронизация</h4>
+            <h4 style="margin:0 0 8px 0; font-size:14px; font-weight:600;" data-i18n="settings.sync">🔄 Синхронизация</h4>
             <div style="display:flex; flex-direction:column; gap:8px;">
               <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
                 <div>

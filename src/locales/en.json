@@ -134,14 +134,17 @@
     "collections": "Collections"
   },
   "goodreads": {
-    "title": "Goodreads",
+    "title": "Original & Goodreads Data",
     "searchGr": "Search on Goodreads",
     "grLink": "Goodreads link",
     "grLinkPlaceholder": "https://goodreads.com/book/show/...",
     "lookupByLink": "Lookup by link",
-    "refreshGr": "Refresh",
+    "refreshGr": "Refresh data",
     "openOnGr": "Open on Goodreads",
     "confidence": "Confidence",
+    "grRating": "Goodreads rating",
+    "grRatingsCount": "Ratings count",
+    "grReviewsCount": "Reviews count",
     "apiNotAvailable": "Goodreads API is not available yet.",
     "enterTitle": "Enter book title before searching.",
     "findFirst": "First find a book on Goodreads or enter a link."
@@ -156,7 +159,22 @@
     "noStorage": "— No storage location —",
     "assignStorage": "Assign storage location",
     "assignHint": "Select a shelf to assign to all selected books. Select «No storage location» to remove assignment.",
-    "apply": "Apply"
+    "apply": "Apply",
+    "description": "Create codes for shelves, bookcases and special statuses (e.g., RN — «reading now»).",
+    "list": "List",
+    "add": "Add",
+    "editing": "Editing",
+    "code": "Code",
+    "codePlaceholder": "e.g., R1-A1-S7",
+    "descriptionLabel": "Description",
+    "descPlaceholder": "Room/bookcase/shelf",
+    "note": "Note",
+    "active": "Active",
+    "sortOrder": "Sort order",
+    "movementHistory": "Movement History",
+    "lendBook": "Lend Book",
+    "lendTo": "Lend to",
+    "recipientPlaceholder": "Name / recipient"
   },
   "history": {
     "title": "Change History",
@@ -267,7 +285,12 @@
     "booksRemovedFromCollections": "Books removed from collections ({{names}})."
   },
   "settings": {
-    "language": "Language"
+    "language": "Language",
+    "storedLocally": "Stored locally in userData/settings.json",
+    "aiProvider": "AI provider for ISBN search",
+    "disableAiCache": "Disable AI request caching (for testing)",
+    "aiStrictMode": "🎯 Strict AI search mode (fewer results, but more accurate)",
+    "sync": "🔄 Sync"
   }
 }
 
