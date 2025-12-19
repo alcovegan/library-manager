@@ -2019,9 +2019,31 @@ function getReadingStats(ctx) {
     });
   }
 
+  // Get monthly stats for finished books (for breakdown within years)
+  const monthlyRes = ctx.db.exec(`
+    SELECT strftime('%Y', rs.finishedAt) as year, 
+           strftime('%m', rs.finishedAt) as month, 
+           COUNT(*) as count
+    FROM reading_sessions rs
+    WHERE rs.status = 'finished' AND rs.finishedAt IS NOT NULL
+    GROUP BY year, month
+    ORDER BY year DESC, month ASC
+  `);
+
+  const monthlyStats = {};
+  if (monthlyRes[0]) {
+    monthlyRes[0].values.forEach(([year, month, count]) => {
+      if (year && month) {
+        if (!monthlyStats[year]) monthlyStats[year] = {};
+        monthlyStats[year][parseInt(month, 10)] = count;
+      }
+    });
+  }
+
   return {
     byStatus: statusCounts,
     byYear: yearlyStats,
+    byMonth: monthlyStats,
     total: Object.values(statusCounts).reduce((sum, count) => sum + count, 0)
   };
 }

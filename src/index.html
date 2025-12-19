@@ -153,7 +153,7 @@
       #themeToggle .icon-moon { display: block; }
       body.theme-dark #themeToggle .icon-sun { display: block; }
       body.theme-dark #themeToggle .icon-moon { display: none; }
-      
+
       /* Theme toggle glow effects */
       #themeToggle {
         position: relative;
@@ -217,6 +217,18 @@
       main { flex: 1; min-height: 0; }
       .input { height:36px; padding:0 12px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--text); font-size:14px; box-sizing:border-box; }
       .input:focus { outline:none; box-shadow:0 0 0 2px rgba(99,102,241,.55); }
+      select.input {
+        appearance: none; -webkit-appearance: none; -moz-appearance: none;
+        padding-right: 32px;
+        background-image: url("data:image/svg+xml,%3Csvg width='14' height='14' viewBox='0 0 14 14' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0.5 3.85L6.65 10C6.695 10.048 6.749 10.086 6.809 10.112C6.87 10.138 6.934 10.152 7 10.152C7.066 10.152 7.13 10.138 7.191 10.112C7.251 10.086 7.305 10.048 7.35 10L13.5 3.85' stroke='%236b728e' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        background-size: 12px;
+        cursor: pointer;
+      }
+      body.theme-dark select.input {
+        background-image: url("data:image/svg+xml,%3Csvg width='14' height='14' viewBox='0 0 14 14' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0.5 3.85L6.65 10C6.695 10.048 6.749 10.086 6.809 10.112C6.87 10.138 6.934 10.152 7 10.152C7.066 10.152 7.13 10.138 7.191 10.112C7.251 10.086 7.305 10.048 7.35 10L13.5 3.85' stroke='%23a6add6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      }
       body.theme-dark .input:focus { box-shadow:0 0 0 2px rgba(129,140,248,.45); }
       .btn { height:36px; padding:0 12px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--text); font-size:14px; cursor:pointer; box-sizing:border-box; }
       .btn:hover { background:var(--muted-surface); }
@@ -394,19 +406,19 @@
           </div>
         </div>
         <!-- Filters toolbar (refactored layout) -->
-        <div id="filtersBar" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:8px;">
-          <!-- Left group: actual filters -->
-          <div style="display:flex; flex-wrap:wrap; gap:8px; flex:1 1 auto; min-width:0;">
-            <select id="filterAuthor" class="input" style="width:auto; min-width:12rem;">
+        <div id="filtersBar" style="display:flex; flex-direction:column; gap:8px; margin-bottom:8px;">
+          <!-- Row 1: Main filters -->
+          <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
+            <select id="filterAuthor" class="input" style="width:auto; min-width:10rem;">
               <option value="" data-i18n="filters.author">Автор…</option>
             </select>
-            <select id="filterFormat" class="input" style="width:auto; min-width:10rem;">
+            <select id="filterFormat" class="input" style="width:auto; min-width:8rem;">
               <option value="" data-i18n="filters.format">Формат…</option>
               <option value="paper" data-i18n="format.paper">Бумажная</option>
               <option value="ebook" data-i18n="format.ebook">Электронная</option>
               <option value="audiobook" data-i18n="format.audiobook">Аудио</option>
             </select>
-            <select id="filterReadingStatus" class="input" style="width:auto; min-width:12rem;">
+            <select id="filterReadingStatus" class="input" style="width:auto; min-width:10rem;">
               <option value="" data-i18n="filters.readingStatus">Статус чтения…</option>
               <option value="want_to_read" data-i18n="readingStatus.wantToRead">🔖 Хочу прочитать</option>
               <option value="reading" data-i18n="readingStatus.reading">📖 Читаю</option>
@@ -416,45 +428,46 @@
               <option value="on_hold" data-i18n="readingStatus.onHold">⏸️ Отложено</option>
               <option value="no_status" data-i18n="readingStatus.noStatus">—  Без статуса</option>
             </select>
-            <input id="filterYearFrom" class="input" type="number" placeholder="Год от" data-i18n="filters.yearFrom" data-i18n-attr="placeholder" style="width:7rem;" />
-            <input id="filterYearTo" class="input" type="number" placeholder="Год до" data-i18n="filters.yearTo" data-i18n-attr="placeholder" style="width:7rem;" />
-            <input id="filterGoodreadsFrom" class="input" type="number" step="0.1" placeholder="GR от" data-i18n="filters.grFrom" data-i18n-attr="placeholder" style="width:6rem;" />
-            <input id="filterGoodreadsTo" class="input" type="number" step="0.1" placeholder="GR до" data-i18n="filters.grTo" data-i18n-attr="placeholder" style="width:6rem;" />
-            <input id="filterGenres" class="input" type="text" placeholder="Жанры, через запятую" data-i18n="filters.genres" data-i18n-attr="placeholder" style="min-width:14rem; flex:1 1 14rem;" />
-          </div>
-          <!-- Right group: collections controls -->
-          <div style="display:flex; gap:8px; align-items:center; flex:1 1 auto; justify-content:flex-end; min-width:0; flex-wrap:wrap;">
-            <input id="filterTags" class="input" type="text" placeholder="Теги, через запятую" data-i18n="filters.tags" data-i18n-attr="placeholder" style="min-width:12rem; flex:1 1 12rem;" />
-            <select id="filterPresetSelect" class="input" style="width:auto; min-width:14rem;">
-              <option value="" data-i18n="filters.savedSearches">Сохранённые поиски…</option>
-            </select>
-            <button id="savePresetBtn" type="button" class="btn secondary" title="Сохранить текущий поиск" style="display:flex; align-items:center; gap:8px;">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 12.5C13.5 12.7652 13.3946 13.0196 13.2071 13.2071C13.0196 13.3946 12.7652 13.5 12.5 13.5H1.5C1.23478 13.5 0.98043 13.3946 0.792893 13.2071C0.605357 13.0196 0.5 12.7652 0.5 12.5V3.5L3.5 0.5H12.5C12.7652 0.5 13.0196 0.605357 13.2071 0.792893C13.3946 0.98043 13.5 1.23478 13.5 1.5V12.5Z"/><rect x="3.5" y="8.5" width="7" height="5"/><rect x="4.5" y="0.5" width="6" height="4"/></svg>
-              <span data-i18n="filters.saveSearch">Сохранить поиск</span>
-            </button>
-            <button id="deletePresetBtn" type="button" class="btn" title="Удалить выбранный поиск" style="display:flex; align-items:center; gap:8px;">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M1 3.5H13"/><path d="M2.5 3.5H11.5V12.5C11.5 12.7652 11.3946 13.0196 11.2071 13.2071C11.0196 13.3946 10.7652 13.5 10.5 13.5H3.5C3.23478 13.5 2.98043 13.3946 2.79289 13.2071C2.60536 13.0196 2.5 12.7652 2.5 12.5V3.5Z"/><path d="M4.5 3.5V3C4.5 2.33696 4.76339 1.70107 5.23223 1.23223C5.70107 0.763392 6.33696 0.5 7 0.5C7.66304 0.5 8.29893 0.763392 8.76777 1.23223C9.23661 1.70107 9.5 2.33696 9.5 3V3.5"/><path d="M5.5 5.5V11"/><path d="M8.5 5.5V11"/></svg>
-              <span data-i18n="filters.deleteSearch">Удалить поиск</span>
-            </button>
-            <select id="collectionSelect" class="input" style="width:auto; min-width:12rem;">
-              <option value="" data-i18n="filters.collections">Коллекции…</option>
-            </select>
-            <button id="createCollectionBtn" type="button" class="btn secondary" title="Создать новую коллекцию" style="display:flex; align-items:center; justify-content:center; padding:0 10px;">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M7 0.540039V13.54"/><path d="M0.5 7H13.5"/></svg>
-            </button>
-            <button id="saveCollectionBtn" type="button" class="btn" style="display:flex; align-items:center; gap:8px;">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 12.5C13.5 12.7652 13.3946 13.0196 13.2071 13.2071C13.0196 13.3946 12.7652 13.5 12.5 13.5H1.5C1.23478 13.5 0.98043 13.3946 0.792893 13.2071C0.605357 13.0196 0.5 12.7652 0.5 12.5V3.5L3.5 0.5H12.5C12.7652 0.5 13.0196 0.605357 13.2071 0.792893C13.3946 0.98043 13.5 1.23478 13.5 1.5V12.5Z"/><rect x="3.5" y="8.5" width="7" height="5"/><rect x="4.5" y="0.5" width="6" height="4"/></svg>
-              <span data-i18n="filters.saveAs">Сохранить как…</span>
-            </button>
-            <button id="deleteCollectionBtn" type="button" class="btn" style="display:flex; align-items:center; gap:8px;">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M1 3.5H13"/><path d="M2.5 3.5H11.5V12.5C11.5 12.7652 11.3946 13.0196 11.2071 13.2071C11.0196 13.3946 10.7652 13.5 10.5 13.5H3.5C3.23478 13.5 2.98043 13.3946 2.79289 13.2071C2.60536 13.0196 2.5 12.7652 2.5 12.5V3.5Z"/><path d="M4.5 3.5V3C4.5 2.33696 4.76339 1.70107 5.23223 1.23223C5.70107 0.763392 6.33696 0.5 7 0.5C7.66304 0.5 8.29893 0.763392 8.76777 1.23223C9.23661 1.70107 9.5 2.33696 9.5 3V3.5"/><path d="M5.5 5.5V11"/><path d="M8.5 5.5V11"/></svg>
-              <span data-i18n="filters.delete">Удалить</span>
-            </button>
-            <button id="btnClearFilters" class="btn" type="button" style="display:flex; align-items:center; gap:8px;">
+            <input id="filterYearFrom" class="input" type="number" placeholder="Год от" data-i18n="filters.yearFrom" data-i18n-attr="placeholder" style="width:6rem;" />
+            <input id="filterYearTo" class="input" type="number" placeholder="Год до" data-i18n="filters.yearTo" data-i18n-attr="placeholder" style="width:6rem;" />
+            <input id="filterGoodreadsFrom" class="input" type="number" step="0.1" placeholder="GR от" data-i18n="filters.grFrom" data-i18n-attr="placeholder" style="width:5.5rem;" />
+            <input id="filterGoodreadsTo" class="input" type="number" step="0.1" placeholder="GR до" data-i18n="filters.grTo" data-i18n-attr="placeholder" style="width:5.5rem;" />
+            <input id="filterGenres" class="input" type="text" placeholder="Жанры" data-i18n="filters.genresShort" data-i18n-attr="placeholder" style="width:8rem;" />
+            <input id="filterTags" class="input" type="text" placeholder="Теги" data-i18n="filters.tagsShort" data-i18n-attr="placeholder" style="width:8rem;" />
+            <button id="btnClearFilters" class="btn" type="button" title="Сбросить фильтры" style="display:flex; align-items:center; justify-content:center; padding:0 10px;">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 0.5L0.5 13.5"/><path d="M0.5 0.5L13.5 13.5"/></svg>
-              <span data-i18n="filters.clear">Сбросить</span>
             </button>
             <button id="bulkEditToggle" class="btn secondary" type="button" data-i18n="filters.bulkEdit">Массовое редактирование</button>
+          </div>
+          <!-- Row 2: Saved searches and Collections -->
+          <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
+            <!-- Saved searches group -->
+            <div style="display:flex; gap:6px; align-items:center; padding:4px 8px; background:var(--muted-surface); border-radius:8px;">
+              <select id="filterPresetSelect" class="input" style="width:auto; min-width:11rem; height:28px; font-size:13px;">
+                <option value="" data-i18n="filters.savedSearches">Сохранённые поиски…</option>
+              </select>
+              <button id="savePresetBtn" type="button" class="btn" title="Сохранить текущий поиск" style="height:28px; padding:0 8px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 12.5C13.5 12.7652 13.3946 13.0196 13.2071 13.2071C13.0196 13.3946 12.7652 13.5 12.5 13.5H1.5C1.23478 13.5 0.98043 13.3946 0.792893 13.2071C0.605357 13.0196 0.5 12.7652 0.5 12.5V3.5L3.5 0.5H12.5C12.7652 0.5 13.0196 0.605357 13.2071 0.792893C13.3946 0.98043 13.5 1.23478 13.5 1.5V12.5Z"/><rect x="3.5" y="8.5" width="7" height="5"/><rect x="4.5" y="0.5" width="6" height="4"/></svg>
+              </button>
+              <button id="deletePresetBtn" type="button" class="btn" title="Удалить выбранный поиск" style="height:28px; padding:0 8px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M1 3.5H13"/><path d="M2.5 3.5H11.5V12.5C11.5 12.7652 11.3946 13.0196 11.2071 13.2071C11.0196 13.3946 10.7652 13.5 10.5 13.5H3.5C3.23478 13.5 2.98043 13.3946 2.79289 13.2071C2.60536 13.0196 2.5 12.7652 2.5 12.5V3.5Z"/><path d="M4.5 3.5V3C4.5 2.33696 4.76339 1.70107 5.23223 1.23223C5.70107 0.763392 6.33696 0.5 7 0.5C7.66304 0.5 8.29893 0.763392 8.76777 1.23223C9.23661 1.70107 9.5 2.33696 9.5 3V3.5"/><path d="M5.5 5.5V11"/><path d="M8.5 5.5V11"/></svg>
+              </button>
+            </div>
+            <!-- Collections group -->
+            <div style="display:flex; gap:6px; align-items:center; padding:4px 8px; background:var(--muted-surface); border-radius:8px;">
+              <select id="collectionSelect" class="input" style="width:auto; min-width:10rem; height:28px; font-size:13px;">
+                <option value="" data-i18n="filters.collections">Коллекции…</option>
+              </select>
+              <button id="createCollectionBtn" type="button" class="btn" title="Создать коллекцию" style="height:28px; padding:0 8px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M7 0.540039V13.54"/><path d="M0.5 7H13.5"/></svg>
+              </button>
+              <button id="saveCollectionBtn" type="button" class="btn" title="Сохранить как коллекцию" style="height:28px; padding:0 8px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 12.5C13.5 12.7652 13.3946 13.0196 13.2071 13.2071C13.0196 13.3946 12.7652 13.5 12.5 13.5H1.5C1.23478 13.5 0.98043 13.3946 0.792893 13.2071C0.605357 13.0196 0.5 12.7652 0.5 12.5V3.5L3.5 0.5H12.5C12.7652 0.5 13.0196 0.605357 13.2071 0.792893C13.3946 0.98043 13.5 1.23478 13.5 1.5V12.5Z"/><rect x="3.5" y="8.5" width="7" height="5"/><rect x="4.5" y="0.5" width="6" height="4"/></svg>
+              </button>
+              <button id="deleteCollectionBtn" type="button" class="btn" title="Удалить коллекцию" style="height:28px; padding:0 8px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M1 3.5H13"/><path d="M2.5 3.5H11.5V12.5C11.5 12.7652 11.3946 13.0196 11.2071 13.2071C11.0196 13.3946 10.7652 13.5 10.5 13.5H3.5C3.23478 13.5 2.98043 13.3946 2.79289 13.2071C2.60536 13.0196 2.5 12.7652 2.5 12.5V3.5Z"/><path d="M4.5 3.5V3C4.5 2.33696 4.76339 1.70107 5.23223 1.23223C5.70107 0.763392 6.33696 0.5 7 0.5C7.66304 0.5 8.29893 0.763392 8.76777 1.23223C9.23661 1.70107 9.5 2.33696 9.5 3V3.5"/><path d="M5.5 5.5V11"/><path d="M8.5 5.5V11"/></svg>
+              </button>
+            </div>
           </div>
           <!-- Inline save input (appears when saving) -->
           <div id="collectionSaveInline" class="row" style="display:none; align-items:center; gap:6px; width:100%;">
@@ -600,17 +613,17 @@
             <strong data-i18n="searchHelp.quickSearch">Быстрый поиск</strong>
             <ul class="search-help-list">
               <li data-i18n="searchHelp.quickSearchDesc">По умолчанию запрос ищет совпадения в названии, авторах, тегах, жанрах, заметках, издателе, серии, формате и языке.</li>
-              <li><span data-i18n="searchHelp.caseNote">Регистры не важны. Чтобы искать точную фразу, используйте кавычки:</span> <code>"война и мир"</code>.</li>
+              <li><span data-i18n="searchHelp.caseNote">Регистры не важны. Чтобы искать точную фразу, используйте кавычки:</span> <code data-i18n="searchHelp.codeQuote">"война и мир"</code></li>
             </ul>
           </div>
           <div class="search-help-section">
             <strong data-i18n="searchHelp.logicalOps">Логические операторы</strong>
             <ul class="search-help-list">
-              <li><code>слово1 слово2</code> <span data-i18n="searchHelp.logicalAnd">— сначала ищет фразу, а если точного совпадения нет, оба слова должны встретиться (неявный AND).</span></li>
+              <li><code data-i18n="searchHelp.codeWords">слово1 слово2</code> <span data-i18n="searchHelp.logicalAnd">— сначала ищет фразу, а если точного совпадения нет, оба слова должны встретиться (неявный AND).</span></li>
               <li><code>term1 AND term2</code> <span data-i18n="searchHelp.logicalAndExplicit">— найти записи, где есть оба условия.</span></li>
               <li><code>term1 OR term2</code> <span data-i18n="searchHelp.logicalOr">— достаточно совпадения хотя бы с одним условием.</span></li>
               <li><code>NOT term</code> <span data-i18n="searchHelp.logicalNot">— исключить книги, где встречается термин.</span></li>
-              <li><span data-i18n="searchHelp.logicalBrackets">Скобки управляют приоритетом:</span> <code>(фантастика OR космос) AND NOT tag:прочитано</code>.</li>
+              <li><span data-i18n="searchHelp.logicalBrackets">Скобки управляют приоритетом:</span> <code data-i18n="searchHelp.codeBrackets">(фантастика OR космос) AND NOT tag:прочитано</code></li>
             </ul>
           </div>
           <div class="search-help-section">
@@ -636,9 +649,9 @@
           <div class="search-help-section">
             <strong data-i18n="searchHelp.examples">Примеры</strong>
             <ul class="search-help-list">
-              <li><code>author:лем AND NOT tag:прочитано</code> <span data-i18n="searchHelp.example1">— книги Лема, которые ещё не отмечены как прочитанные.</span></li>
-              <li><code>(genre:фантастика OR tag:космос) AND year:&gt;=2000</code> <span data-i18n="searchHelp.example2">— фантастика или книги о космосе, изданные после 2000 года.</span></li>
-              <li><code>"гарри поттер" OR series:"hogwarts"</code> <span data-i18n="searchHelp.example3">— точное совпадение фразы или книги из серии «hogwarts».</span></li>
+              <li><code data-i18n="searchHelp.codeExample1">author:лем AND NOT tag:прочитано</code> <span data-i18n="searchHelp.example1">— книги Лема, которые ещё не отмечены как прочитанные.</span></li>
+              <li><code data-i18n="searchHelp.codeExample2">(genre:фантастика OR tag:космос) AND year:&gt;=2000</code> <span data-i18n="searchHelp.example2">— фантастика или книги о космосе, изданные после 2000 года.</span></li>
+              <li><code data-i18n="searchHelp.codeExample3">"гарри поттер" OR series:"hogwarts"</code> <span data-i18n="searchHelp.example3">— точное совпадение фразы или книги из серии «hogwarts».</span></li>
               <li><code>goodreads:&gt;=4.2</code> <span data-i18n="searchHelp.example4">— книги с рейтингом Goodreads 4.2 и выше.</span></li>
               <li><code>original:"anna: the biography"</code> <span data-i18n="searchHelp.example5">— поиск по оригинальному названию на английском.</span></li>
             </ul>

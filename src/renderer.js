@@ -4180,19 +4180,19 @@ const historyTimeFormatter = new Intl.DateTimeFormat('ru-RU', { hour: '2-digit',
 function setActiveMainView(view) {
   if (!MAIN_VIEWS[view]) view = 'library';
   currentMainView = view;
-  
+
   // Show/hide the special full-width views
   Object.entries(MAIN_VIEWS).forEach(([key, el]) => {
     if (!el) return;
     el.style.display = key === view ? 'block' : 'none';
   });
-  
+
   // Show/hide the library form and book list sections when switching to other views
   const listSection = document.getElementById('listSection');
   const isLibraryView = view === 'library';
   if (libraryView) libraryView.style.display = isLibraryView ? 'block' : 'none';
   if (listSection) listSection.style.display = isLibraryView ? 'flex' : 'none';
-  
+
   updateViewToggleButtons();
   if (view === 'history') {
     if (historyActionFilter) historyActionFilter.value = activityState.filters.category || 'all';
@@ -4249,7 +4249,7 @@ async function loadStats() {
             </div>
           `;
         }).join('');
-      
+
       // Add click handlers
       statsByStatusEl.querySelectorAll('.stats-status-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -4260,7 +4260,7 @@ async function loadStats() {
       });
     }
 
-    // Render stats by year
+    // Render stats by year with monthly breakdown
     const statsByYearEl = document.getElementById('statsByYear');
     if (statsByYearEl && stats.byYear) {
       const years = Object.entries(stats.byYear).sort((a, b) => b[0] - a[0]);
@@ -4269,16 +4269,49 @@ async function loadStats() {
         statsByYearEl.innerHTML = `<div style="color:var(--muted); font-size:13px;">${t('stats.noBooksRead')}</div>`;
       } else {
         const maxCount = Math.max(...years.map(([_, count]) => count));
+        const monthlyData = stats.byMonth || {};
 
         statsByYearEl.innerHTML = years.map(([year, count]) => {
           const percent = maxCount > 0 ? (count / maxCount) * 100 : 0;
+          const yearMonths = monthlyData[year] || {};
+          
+          // Calculate monthly segments
+          const segments = [];
+          let hasMonthlyData = Object.keys(yearMonths).length > 0;
+          
+          if (hasMonthlyData) {
+            // Create 12 month segments
+            const monthColors = [
+              '#3b82f6', '#2563eb', '#1d4ed8', '#1e40af', // Jan-Apr (blue shades)
+              '#10b981', '#059669', '#047857', '#065f46', // May-Aug (green shades)
+              '#f59e0b', '#d97706', '#b45309', '#92400e'  // Sep-Dec (amber shades)
+            ];
+            
+            for (let m = 1; m <= 12; m++) {
+              const monthCount = yearMonths[m] || 0;
+              const monthPercent = count > 0 ? (monthCount / count) * 100 : 0;
+              if (monthCount > 0) {
+                segments.push({
+                  month: m,
+                  count: monthCount,
+                  percent: monthPercent,
+                  color: monthColors[m - 1]
+                });
+              }
+            }
+          }
+          
+          const barContent = hasMonthlyData && segments.length > 0
+            ? segments.map(s => `<div style="height:100%; flex:${s.percent}; background:${s.color}; position:relative;" title="${t('stats.month' + s.month)}: ${s.count}"></div>`).join('')
+            : `<div style="height:100%; width:${percent}%; background:linear-gradient(90deg, #10b981, #3b82f6); border-radius:6px;"></div>`;
+          
           return `
             <div style="display:flex; align-items:center; gap:12px;">
               <span style="font-weight:600; font-size:14px; min-width:50px;">${year}</span>
-              <div style="flex:1; height:28px; background:var(--muted-surface); border-radius:6px; position:relative; overflow:hidden;">
-                <div style="height:100%; width:${percent}%; background:linear-gradient(90deg, #10b981, #3b82f6); border-radius:6px; transition:width 0.3s ease;"></div>
-                <span style="position:absolute; right:8px; top:50%; transform:translateY(-50%); font-weight:600; font-size:13px; color:var(--text);">${count}</span>
+              <div style="flex:1; height:28px; background:var(--muted-surface); border-radius:6px; position:relative; overflow:hidden; display:flex;">
+                ${barContent}
               </div>
+              <span style="font-weight:600; font-size:13px; color:var(--text); min-width:24px; text-align:right;">${count}</span>
             </div>
           `;
         }).join('');
@@ -4292,9 +4325,9 @@ async function loadStats() {
 function toggleStatsBooks(status) {
   const statsByStatusEl = document.getElementById('statsByStatus');
   if (!statsByStatusEl) return;
-  
+
   const wasExpanded = statsExpandedStatus === status;
-  
+
   // Collapse all
   statsByStatusEl.querySelectorAll('.stats-status-item').forEach(item => {
     const list = item.querySelector('.stats-books-list');
@@ -4302,17 +4335,17 @@ function toggleStatsBooks(status) {
     if (list) list.style.display = 'none';
     if (arrow) arrow.style.transform = 'rotate(0deg)';
   });
-  
+
   if (wasExpanded) {
     statsExpandedStatus = null;
     return;
   }
-  
+
   // Expand selected
   statsExpandedStatus = status;
   const selectedItem = statsByStatusEl.querySelector(`[data-status="${status}"]`);
   if (!selectedItem) return;
-  
+
   const list = selectedItem.querySelector('.stats-books-list');
   const arrow = selectedItem.querySelector('svg');
   if (list) {
@@ -4325,15 +4358,15 @@ function toggleStatsBooks(status) {
 async function loadStatsBooksForStatus(status, container) {
   // Filter books by reading status
   const booksWithStatus = state.books.filter(b => b.readingStatus === status);
-  
+
   if (booksWithStatus.length === 0) {
     container.innerHTML = `<div style="font-size:13px; color:var(--muted); text-align:center; padding:12px;">${t('app.noBooks')}</div>`;
     return;
   }
-  
+
   container.innerHTML = booksWithStatus.map(book => {
     const authors = Array.isArray(book.authors) ? book.authors.join(', ') : '';
-    const coverStyle = book.coverUrl 
+    const coverStyle = book.coverUrl
       ? `background-image:url('${escapeHtml(book.coverUrl)}'); background-size:cover; background-position:center;`
       : 'background:var(--muted-surface);';
     return `
@@ -4346,7 +4379,7 @@ async function loadStatsBooksForStatus(status, container) {
       </button>
     `;
   }).join('');
-  
+
   // Add click handlers to open book details
   container.querySelectorAll('.stats-book-item').forEach(item => {
     item.addEventListener('click', () => {
@@ -5774,6 +5807,14 @@ if (settingsLanguage) {
   settingsLanguage.addEventListener('change', async () => {
     if (i18n) {
       await i18n.setLocale(settingsLanguage.value);
+      // Reload stats if on stats view to update translated labels
+      if (currentMainView === 'stats') {
+        loadStats();
+      }
+      // Re-populate dynamic dropdowns with new translations
+      populateAuthorFilter();
+      syncCollectionsUI();
+      syncFilterPresetsUI();
     }
   });
 }
