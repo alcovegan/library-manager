@@ -4204,6 +4204,9 @@ function setActiveMainView(view) {
   }
 }
 
+// State for expanded status in stats view
+let statsExpandedStatus = null;
+
 async function loadStats() {
   try {
     const res = await window.api.getReadingStats();
@@ -4218,25 +4221,43 @@ async function loadStats() {
     const statsByStatusEl = document.getElementById('statsByStatus');
     if (statsByStatusEl && stats.byStatus) {
       const statusLabels = {
-        want_to_read: { emoji: '🔖', label: 'Хочу прочитать', color: '#8b5cf6' },
-        reading: { emoji: '📖', label: 'Читаю', color: '#3b82f6' },
-        finished: { emoji: '✅', label: 'Прочитано', color: '#10b981' },
-        re_reading: { emoji: '🔁', label: 'Перечитываю', color: '#f59e0b' },
-        abandoned: { emoji: '❌', label: 'Брошено', color: '#ef4444' },
-        on_hold: { emoji: '⏸️', label: 'Отложено', color: '#6b7280' },
+        want_to_read: { emoji: '🔖', label: t('readingStatus.wantToRead').replace(/^[^\s]+\s*/, ''), color: '#8b5cf6' },
+        reading: { emoji: '📖', label: t('readingStatus.reading').replace(/^[^\s]+\s*/, ''), color: '#3b82f6' },
+        finished: { emoji: '✅', label: t('readingStatus.finished').replace(/^[^\s]+\s*/, ''), color: '#10b981' },
+        re_reading: { emoji: '🔁', label: t('readingStatus.reReading').replace(/^[^\s]+\s*/, ''), color: '#f59e0b' },
+        abandoned: { emoji: '❌', label: t('readingStatus.abandoned').replace(/^[^\s]+\s*/, ''), color: '#ef4444' },
+        on_hold: { emoji: '⏸️', label: t('readingStatus.onHold').replace(/^[^\s]+\s*/, ''), color: '#6b7280' },
       };
 
       statsByStatusEl.innerHTML = Object.entries(stats.byStatus)
         .sort((a, b) => b[1] - a[1])
         .map(([status, count]) => {
           const config = statusLabels[status] || { emoji: '📚', label: status, color: '#9ca3af' };
+          const isExpanded = statsExpandedStatus === status;
           return `
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; border-radius:8px; background:${config.color}10; border:1px solid ${config.color}30;">
-              <span style="font-size:14px;">${config.emoji} ${config.label}</span>
-              <span style="font-weight:600; font-size:16px; color:${config.color};">${count}</span>
+            <div class="stats-status-item" data-status="${status}">
+              <button type="button" class="stats-status-btn" style="width:100%; display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-radius:8px; background:${config.color}10; border:1px solid ${config.color}30; cursor:pointer; transition:all 0.2s;">
+                <span style="font-size:14px; display:flex; align-items:center; gap:8px;">
+                  ${config.emoji} ${config.label}
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transform:rotate(${isExpanded ? '180deg' : '0deg'}); transition:transform 0.2s;">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </span>
+                <span style="font-weight:600; font-size:16px; color:${config.color};">${count}</span>
+              </button>
+              <div class="stats-books-list" style="display:${isExpanded ? 'block' : 'none'}; margin-top:8px; padding:8px; background:var(--muted-surface); border-radius:8px; max-height:300px; overflow-y:auto;"></div>
             </div>
           `;
         }).join('');
+      
+      // Add click handlers
+      statsByStatusEl.querySelectorAll('.stats-status-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const item = btn.closest('.stats-status-item');
+          const status = item.dataset.status;
+          toggleStatsBooks(status);
+        });
+      });
     }
 
     // Render stats by year
@@ -4266,6 +4287,74 @@ async function loadStats() {
   } catch (e) {
     console.error('Failed to load reading stats:', e);
   }
+}
+
+function toggleStatsBooks(status) {
+  const statsByStatusEl = document.getElementById('statsByStatus');
+  if (!statsByStatusEl) return;
+  
+  const wasExpanded = statsExpandedStatus === status;
+  
+  // Collapse all
+  statsByStatusEl.querySelectorAll('.stats-status-item').forEach(item => {
+    const list = item.querySelector('.stats-books-list');
+    const arrow = item.querySelector('svg');
+    if (list) list.style.display = 'none';
+    if (arrow) arrow.style.transform = 'rotate(0deg)';
+  });
+  
+  if (wasExpanded) {
+    statsExpandedStatus = null;
+    return;
+  }
+  
+  // Expand selected
+  statsExpandedStatus = status;
+  const selectedItem = statsByStatusEl.querySelector(`[data-status="${status}"]`);
+  if (!selectedItem) return;
+  
+  const list = selectedItem.querySelector('.stats-books-list');
+  const arrow = selectedItem.querySelector('svg');
+  if (list) {
+    list.style.display = 'block';
+    loadStatsBooksForStatus(status, list);
+  }
+  if (arrow) arrow.style.transform = 'rotate(180deg)';
+}
+
+async function loadStatsBooksForStatus(status, container) {
+  // Filter books by reading status
+  const booksWithStatus = state.books.filter(b => b.readingStatus === status);
+  
+  if (booksWithStatus.length === 0) {
+    container.innerHTML = `<div style="font-size:13px; color:var(--muted); text-align:center; padding:12px;">${t('app.noBooks')}</div>`;
+    return;
+  }
+  
+  container.innerHTML = booksWithStatus.map(book => {
+    const authors = Array.isArray(book.authors) ? book.authors.join(', ') : '';
+    const coverStyle = book.coverUrl 
+      ? `background-image:url('${escapeHtml(book.coverUrl)}'); background-size:cover; background-position:center;`
+      : 'background:var(--muted-surface);';
+    return `
+      <button type="button" class="stats-book-item" data-book-id="${book.id}" style="width:100%; display:flex; align-items:center; gap:10px; padding:8px; border:1px solid var(--border); border-radius:8px; background:var(--surface); cursor:pointer; text-align:left; margin-bottom:6px;">
+        <div style="width:36px; height:50px; border-radius:4px; flex-shrink:0; ${coverStyle}"></div>
+        <div style="flex:1; min-width:0; overflow:hidden;">
+          <div style="font-weight:500; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(book.title || t('form.title'))}</div>
+          <div style="font-size:12px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(authors)}</div>
+        </div>
+      </button>
+    `;
+  }).join('');
+  
+  // Add click handlers to open book details
+  container.querySelectorAll('.stats-book-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const bookId = item.dataset.bookId;
+      const book = state.books.find(b => String(b.id) === String(bookId));
+      if (book) openDetails(book);
+    });
+  });
 }
 
 function updateViewToggleButtons() {

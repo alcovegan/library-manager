@@ -569,18 +569,21 @@
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
           <h3 style="margin:0;" data-i18n="stats.title">📊 Статистика чтения</h3>
         </div>
-        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:16px;">
-          <!-- Stats by Status -->
-          <div style="border:1px solid var(--border); border-radius:12px; padding:16px; background:var(--surface);">
-            <h4 style="margin:0 0 12px 0; font-size:15px; font-weight:600;" data-i18n="stats.byStatus">По статусам</h4>
-            <div id="statsByStatus" style="display:flex; flex-direction:column; gap:8px;"></div>
-          </div>
-          <!-- Stats by Year -->
-          <div style="border:1px solid var(--border); border-radius:12px; padding:16px; background:var(--surface);">
-            <h4 style="margin:0 0 12px 0; font-size:15px; font-weight:600;" data-i18n="stats.byYear">Прочитано по годам</h4>
+        <!-- Stats by Status -->
+        <div style="border:1px solid var(--border); border-radius:12px; padding:16px; background:var(--surface); margin-bottom:16px;">
+          <h4 style="margin:0 0 12px 0; font-size:15px; font-weight:600;" data-i18n="stats.byStatus">По статусам</h4>
+          <div style="font-size:12px; color:var(--muted); margin-bottom:12px;" data-i18n="stats.clickToExpand">Нажмите на статус, чтобы увидеть книги</div>
+          <div id="statsByStatus" style="display:flex; flex-direction:column; gap:8px;"></div>
+        </div>
+        <!-- Stats by Year (collapsible) -->
+        <details style="border:1px solid var(--border); border-radius:12px; background:var(--surface);">
+          <summary style="padding:16px; cursor:pointer; font-size:15px; font-weight:600; display:flex; align-items:center; gap:8px;">
+            <span data-i18n="stats.byYear">Прочитано по годам</span>
+          </summary>
+          <div style="padding:0 16px 16px 16px;">
             <div id="statsByYear" style="display:flex; flex-direction:column; gap:8px;"></div>
           </div>
-        </div>
+        </details>
       </section>
     </main>
 

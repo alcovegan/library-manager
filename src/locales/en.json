@@ -403,7 +403,8 @@
     "title": "📊 Reading Statistics",
     "byStatus": "By status",
     "byYear": "Read by year",
-    "noBooksRead": "No data on books read."
+    "noBooksRead": "No data on books read.",
+    "clickToExpand": "Click on a status to see books"
   }
 }
 
