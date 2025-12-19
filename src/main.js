@@ -1043,6 +1043,27 @@ ipcMain.handle('collections:update', async (_event, payload) => {
   }
 });
 
+ipcMain.handle('collections:rename', async (_event, payload) => {
+  try {
+    const oldName = String(payload?.oldName || '').trim();
+    const newName = String(payload?.newName || '').trim();
+    if (!oldName || !newName) throw new Error('oldName and newName required');
+    const collection = dbLayer.getCollectionByName(db, oldName);
+    if (!collection) throw new Error('collection not found');
+    const updated = dbLayer.updateCollection(db, { id: collection.id, name: newName });
+    recordActivity({
+      action: 'collection.rename',
+      entityType: 'collection',
+      entityId: collection.id,
+      summary: `Переименована коллекция: ${oldName} → ${newName}`,
+      payload: { before: { name: oldName }, after: { name: newName } },
+    });
+    return { ok: true, collection: updated };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
+});
+
 ipcMain.handle('collections:delete', async (_event, payload) => {
   try {
     const id = typeof payload === 'string' ? payload : String(payload?.id || '').trim();

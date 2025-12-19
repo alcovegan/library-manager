@@ -98,6 +98,9 @@
     "readingStatus": "Статус чтения…",
     "yearFrom": "Год от",
     "yearTo": "Год до",
+    "yearLabel": "Год",
+    "from": "от",
+    "to": "до",
     "grFrom": "GR от",
     "grTo": "GR до",
     "genres": "Жанры, через запятую",
@@ -107,11 +110,18 @@
     "savedSearches": "Сохранённые поиски…",
     "saveSearch": "Сохранить поиск",
     "deleteSearch": "Удалить поиск",
+    "savePresetTitle": "Сохранить текущий поиск",
+    "deletePresetTitle": "Удалить выбранный поиск",
     "collections": "Коллекции…",
+    "createCollectionTitle": "Создать коллекцию",
+    "renameCollectionTitle": "Переименовать коллекцию",
+    "deleteCollectionTitle": "Удалить коллекцию",
+    "clearTitle": "Сбросить фильтры",
     "saveAs": "Сохранить как…",
     "delete": "Удалить",
     "clear": "Сбросить",
     "bulkEdit": "Массовое редактирование",
+    "bulkEditExit": "Выйти из массового режима",
     "collectionName": "Название коллекции"
   },
   "bulk": {
@@ -251,7 +261,8 @@
     "addedToCountFew": "Книга добавлена в {{count}} коллекции",
     "addedToCountMany": "Книга добавлена в {{count}} коллекций",
     "filterCollections": "Фильтр-коллекции",
-    "staticCollections": "Статические коллекции"
+    "staticCollections": "Статические коллекции",
+    "renameCollectionTitle": "Переименовать коллекцию"
   },
   "actions": {
     "ok": "OK",
@@ -281,12 +292,15 @@
     "selectAtLeastOne": "Выберите хотя бы одну книгу.",
     "createCollectionSingle": "Создание коллекции доступно в режиме одиночной книги.",
     "noStaticCollections": "Создайте хотя бы одну статическую коллекцию.",
-    "booksNotInCollections": "Выбранные книги не состоят ни в одной статической коллекции."
+    "booksNotInCollections": "Выбранные книги не состоят ни в одной статической коллекции.",
+    "noCollectionSelected": "Сначала выберите коллекцию.",
+    "renameCollectionFailed": "Не удалось переименовать коллекцию."
   },
   "success": {
     "booksUpdated": "Обновлено книг: {{count}}",
     "booksAddedToCollections": "Книги добавлены в коллекции ({{names}}).",
-    "booksRemovedFromCollections": "Книги удалены из коллекций ({{names}})."
+    "booksRemovedFromCollections": "Книги удалены из коллекций ({{names}}).",
+    "collectionRenamed": "Коллекция переименована."
   },
   "settings": {
     "language": "Язык / Language",

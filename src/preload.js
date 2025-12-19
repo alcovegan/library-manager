@@ -34,6 +34,7 @@ contextBridge.exposeInMainWorld('api', {
   listCollections: () => ipcRenderer.invoke('collections:list'),
   createCollection: (payload) => ipcRenderer.invoke('collections:create', payload),
   updateCollection: (payload) => ipcRenderer.invoke('collections:update', payload),
+  renameCollection: (oldName, newName) => ipcRenderer.invoke('collections:rename', { oldName, newName }),
   deleteCollection: (payload) => ipcRenderer.invoke('collections:delete', payload),
   updateCollectionMembership: (payload) => ipcRenderer.invoke('collections:updateMembership', payload),
   listFilterPresets: () => ipcRenderer.invoke('filterPresets:list'),

@@ -98,6 +98,9 @@
     "readingStatus": "Reading status…",
     "yearFrom": "Year from",
     "yearTo": "Year to",
+    "yearLabel": "Year",
+    "from": "from",
+    "to": "to",
     "grFrom": "GR from",
     "grTo": "GR to",
     "genres": "Genres, comma separated",
@@ -107,11 +110,18 @@
     "savedSearches": "Saved searches…",
     "saveSearch": "Save search",
     "deleteSearch": "Delete search",
+    "savePresetTitle": "Save current search",
+    "deletePresetTitle": "Delete selected search",
     "collections": "Collections…",
+    "createCollectionTitle": "Create collection",
+    "renameCollectionTitle": "Rename collection",
+    "deleteCollectionTitle": "Delete collection",
+    "clearTitle": "Clear filters",
     "saveAs": "Save as…",
     "delete": "Delete",
     "clear": "Clear",
     "bulkEdit": "Bulk edit",
+    "bulkEditExit": "Exit bulk mode",
     "collectionName": "Collection name"
   },
   "bulk": {
@@ -251,7 +261,8 @@
     "addedToCountFew": "Book added to {{count}} collections",
     "addedToCountMany": "Book added to {{count}} collections",
     "filterCollections": "Filter collections",
-    "staticCollections": "Static collections"
+    "staticCollections": "Static collections",
+    "renameCollectionTitle": "Rename collection"
   },
   "actions": {
     "ok": "OK",
@@ -281,12 +292,15 @@
     "selectAtLeastOne": "Select at least one book.",
     "createCollectionSingle": "Collection creation is available in single book mode.",
     "noStaticCollections": "Create at least one static collection first.",
-    "booksNotInCollections": "Selected books are not in any static collection."
+    "booksNotInCollections": "Selected books are not in any static collection.",
+    "noCollectionSelected": "Select a collection first.",
+    "renameCollectionFailed": "Failed to rename collection."
   },
   "success": {
     "booksUpdated": "Books updated: {{count}}",
     "booksAddedToCollections": "Books added to collections ({{names}}).",
-    "booksRemovedFromCollections": "Books removed from collections ({{names}})."
+    "booksRemovedFromCollections": "Books removed from collections ({{names}}).",
+    "collectionRenamed": "Collection renamed."
   },
   "settings": {
     "language": "Language",

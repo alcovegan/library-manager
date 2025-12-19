@@ -264,7 +264,7 @@ const filterTags = document.querySelector('#filterTags');
 const btnClearFilters = document.querySelector('#btnClearFilters');
 const collectionSelect = document.querySelector('#collectionSelect');
 const createCollectionBtn = document.querySelector('#createCollectionBtn');
-const saveCollectionBtn = document.querySelector('#saveCollectionBtn');
+const renameCollectionBtn = document.querySelector('#renameCollectionBtn');
 const deleteCollectionBtn = document.querySelector('#deleteCollectionBtn');
 const filterPresetSelect = document.querySelector('#filterPresetSelect');
 const savePresetBtn = $('#savePresetBtn');
@@ -284,7 +284,7 @@ const listViewportEl = document.querySelector('#listViewport');
 // Debug: Check if collection buttons are found
 console.log('🔍 Collection buttons found:', {
   createCollectionBtn: !!createCollectionBtn,
-  saveCollectionBtn: !!saveCollectionBtn,
+  renameCollectionBtn: !!renameCollectionBtn,
   deleteCollectionBtn: !!deleteCollectionBtn,
   collectionSelect: !!collectionSelect
 });
@@ -2462,8 +2462,9 @@ function updateBulkToolbar() {
     bulkToolbar.classList.toggle('active', state.bulkMode);
   }
   if (bulkEditToggle) {
-    bulkEditToggle.textContent = state.bulkMode ? 'Выйти из массового режима' : 'Массовое редактирование';
+    bulkEditToggle.title = state.bulkMode ? t('filters.bulkEditExit') : t('filters.bulkEdit');
     bulkEditToggle.classList.toggle('primary', state.bulkMode);
+    bulkEditToggle.classList.toggle('secondary', !state.bulkMode);
   }
   updateBulkSummary();
 }
@@ -3226,8 +3227,28 @@ function attachFilterEvents() {
   }
   // createCollectionBtn is now handled in initializeCollections()
 
-  if (saveCollectionBtn) saveCollectionBtn.addEventListener('click', () => {
-    showSaveInline(true);
+  if (renameCollectionBtn) renameCollectionBtn.addEventListener('click', async () => {
+    const currentName = collectionSelect && collectionSelect.value;
+    if (!currentName) {
+      showInfoModal(t('errors.noCollectionSelected'));
+      return;
+    }
+    const newName = await showPromptModal(t('collections.renameCollectionTitle'), currentName);
+    if (!newName || newName === currentName) return;
+
+    try {
+      const res = await window.api.renameCollection(currentName, newName);
+      if (res && res.ok) {
+        await syncCollectionsUI();
+        collectionSelect.value = newName;
+        showInfoModal(t('success.collectionRenamed'));
+      } else {
+        showInfoModal(t('errors.renameCollectionFailed'));
+      }
+    } catch (err) {
+      console.error('Rename collection failed:', err);
+      showInfoModal(t('errors.renameCollectionFailed'));
+    }
   });
 async function saveCollectionByName(name) {
   const n = String(name || '').trim();
@@ -4274,11 +4295,11 @@ async function loadStats() {
         statsByYearEl.innerHTML = years.map(([year, count]) => {
           const percent = maxCount > 0 ? (count / maxCount) * 100 : 0;
           const yearMonths = monthlyData[year] || {};
-          
+
           // Calculate monthly segments
           const segments = [];
           let hasMonthlyData = Object.keys(yearMonths).length > 0;
-          
+
           if (hasMonthlyData) {
             // Create 12 month segments
             const monthColors = [
@@ -4286,7 +4307,7 @@ async function loadStats() {
               '#10b981', '#059669', '#047857', '#065f46', // May-Aug (green shades)
               '#f59e0b', '#d97706', '#b45309', '#92400e'  // Sep-Dec (amber shades)
             ];
-            
+
             for (let m = 1; m <= 12; m++) {
               const monthCount = yearMonths[m] || 0;
               const monthPercent = count > 0 ? (monthCount / count) * 100 : 0;
@@ -4300,11 +4321,11 @@ async function loadStats() {
               }
             }
           }
-          
+
           const barContent = hasMonthlyData && segments.length > 0
             ? segments.map(s => `<div style="height:100%; flex:${s.percent}; background:${s.color}; position:relative;" title="${t('stats.month' + s.month)}: ${s.count}"></div>`).join('')
             : `<div style="height:100%; width:${percent}%; background:linear-gradient(90deg, #10b981, #3b82f6); border-radius:6px;"></div>`;
-          
+
           return `
             <div style="display:flex; align-items:center; gap:12px;">
               <span style="font-weight:600; font-size:14px; min-width:50px;">${year}</span>
