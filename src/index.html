@@ -65,6 +65,32 @@
       @media (min-width: 1024px) {
         main { grid-template-columns: 380px minmax(0, 1fr); }
       }
+
+      /* Collapsible form on small screens */
+      .form-toggle-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        cursor: pointer;
+        user-select: none;
+      }
+      .form-toggle-header h3 { margin: 0; }
+      .form-toggle-icon {
+        transition: transform 0.2s ease;
+        color: var(--muted);
+      }
+      .form-toggle-icon.collapsed { transform: rotate(-90deg); }
+      .form-content { overflow: hidden; }
+      @media (max-width: 1023px) {
+        .form-content.collapsed {
+          display: none;
+        }
+        .form-toggle-header { padding: 4px 0; }
+      }
+      @media (min-width: 1024px) {
+        .form-toggle-header { cursor: default; }
+        .form-toggle-icon { display: none; }
+      }
       .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; box-shadow: var(--shadow); }
       .card h3 { margin: 0 0 6px; font-size: 15px; font-weight: 600; }
       label { display:block; font-size: 12px; color: var(--muted); margin-top: 8px; margin-bottom: 6px; }
@@ -340,7 +366,11 @@
     </header>
     <main class="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-[380px,1fr] gap-5">
       <section id="libraryView" class="card">
-        <h3 id="formTitle" data-i18n="form.addBook">Добавить книгу</h3>
+        <div class="form-toggle-header" id="formToggleHeader">
+          <h3 id="formTitle" data-i18n="form.addBook">Добавить книгу</h3>
+          <svg class="form-toggle-icon collapsed" id="formToggleIcon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 5.25L7 8.75L10.5 5.25"/></svg>
+        </div>
+        <div class="form-content collapsed" id="formContent">
         <label data-i18n="form.title">Название</label>
         <input id="titleInput" type="text" placeholder="Например, Война и мир" data-i18n="form.titlePlaceholder" data-i18n-attr="placeholder" class="input w-full" />
         <label data-i18n="form.authors">Авторы (через запятую)</label>
@@ -388,6 +418,7 @@
             <span data-i18n="form.advancedForm">Расширенная форма</span>
           </button>
         </div>
+        </div><!-- /form-content -->
       </section>
 
       <section id="listSection" class="card" style="min-height:0; min-width:0; display:flex; flex-direction:column;">

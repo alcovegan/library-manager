@@ -6536,6 +6536,34 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Initialize i18n first
   await initI18n();
 
+  // Collapsible form on small screens
+  const formToggleHeader = document.getElementById('formToggleHeader');
+  const formContent = document.getElementById('formContent');
+  const formToggleIcon = document.getElementById('formToggleIcon');
+
+  if (formToggleHeader && formContent && formToggleIcon) {
+    // Check if we should start collapsed (small screens)
+    const isSmallScreen = () => window.innerWidth < 1024;
+
+    const updateFormVisibility = () => {
+      if (!isSmallScreen()) {
+        // On large screens, always show and remove collapsed state
+        formContent.classList.remove('collapsed');
+        formToggleIcon.classList.remove('collapsed');
+      }
+    };
+
+    formToggleHeader.addEventListener('click', () => {
+      if (isSmallScreen()) {
+        formContent.classList.toggle('collapsed');
+        formToggleIcon.classList.toggle('collapsed');
+      }
+    });
+
+    // Update on resize
+    window.addEventListener('resize', updateFormVisibility);
+  }
+
   // Re-check collection buttons after DOM is ready
   const createBtn = document.querySelector('#createCollectionBtn');
   console.log('🔍 createCollectionBtn after DOM load:', !!createBtn);
