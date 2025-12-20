@@ -2165,7 +2165,7 @@ function renderVocabList() {
             ${canDelete ? `<button class="btn danger" data-action="delete" data-id="${escapeHtml(entry.customId)}">${t('vocab.deleteCustom')}</button>` : ''}
           </div>
         </div>
-        <div class="vocab-books" data-slot="${escapeHtml(key)}" style="display:${vocabState.openKey === key ? 'block' : 'none'};"></div>
+        <div class="vocab-books" data-vocab-books-slot="${escapeHtml(key)}" style="display:${vocabState.openKey === key ? 'block' : 'none'};"></div>
       </div>
     `;
   });
@@ -4279,6 +4279,15 @@ async function loadStats() {
           toggleStatsBooks(status);
         });
       });
+
+      // If a status was expanded, reload its books (for language switch)
+      if (statsExpandedStatus) {
+        const expandedItem = statsByStatusEl.querySelector(`[data-status="${statsExpandedStatus}"]`);
+        if (expandedItem) {
+          const list = expandedItem.querySelector('.stats-books-list');
+          if (list) loadStatsBooksForStatus(statsExpandedStatus, list);
+        }
+      }
     }
 
     // Render stats by year with monthly breakdown
@@ -4323,7 +4332,14 @@ async function loadStats() {
           }
 
           const barContent = hasMonthlyData && segments.length > 0
-            ? segments.map(s => `<div style="height:100%; flex:${s.percent}; background:${s.color}; position:relative;" title="${t('stats.month' + s.month)}: ${s.count}"></div>`).join('')
+            ? segments.map(s => {
+                // Show count on segment if wide enough (>8% of total)
+                const showCount = s.percent > 8;
+                const countHtml = showCount 
+                  ? `<span style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:11px; font-weight:600; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,0.5);">${s.count}</span>`
+                  : '';
+                return `<div style="height:100%; flex:${s.percent}; background:${s.color}; position:relative;" title="${t('stats.month' + s.month)}: ${s.count}">${countHtml}</div>`;
+              }).join('')
             : `<div style="height:100%; width:${percent}%; background:linear-gradient(90deg, #10b981, #3b82f6); border-radius:6px;"></div>`;
 
           return `
@@ -4387,15 +4403,32 @@ async function loadStatsBooksForStatus(status, container) {
 
   container.innerHTML = booksWithStatus.map(book => {
     const authors = Array.isArray(book.authors) ? book.authors.join(', ') : '';
-    const coverStyle = book.coverUrl
-      ? `background-image:url('${escapeHtml(book.coverUrl)}'); background-size:cover; background-position:center;`
+    const coverSrc = book.coverPath ? toFileUrl(book.coverPath) : '';
+    const coverStyle = coverSrc
+      ? `background-image:url('${escapeHtml(coverSrc)}'); background-size:cover; background-position:center;`
       : 'background:var(--muted-surface);';
+    
+    // Format reading dates
+    const dateParts = [];
+    if (book.readingStartedAt) {
+      const d = new Date(book.readingStartedAt);
+      if (!isNaN(d)) dateParts.push(`${t('stats.started')}: ${d.toLocaleDateString()}`);
+    }
+    if (book.readingFinishedAt) {
+      const d = new Date(book.readingFinishedAt);
+      if (!isNaN(d)) dateParts.push(`${t('stats.finished')}: ${d.toLocaleDateString()}`);
+    }
+    const datesHtml = dateParts.length > 0 
+      ? `<div style="font-size:11px; color:var(--accent); margin-top:2px;">${dateParts.join(' • ')}</div>` 
+      : '';
+
     return `
       <button type="button" class="stats-book-item" data-book-id="${book.id}" style="width:100%; display:flex; align-items:center; gap:10px; padding:8px; border:1px solid var(--border); border-radius:8px; background:var(--surface); cursor:pointer; text-align:left; margin-bottom:6px;">
         <div style="width:36px; height:50px; border-radius:4px; flex-shrink:0; ${coverStyle}"></div>
         <div style="flex:1; min-width:0; overflow:hidden;">
           <div style="font-weight:500; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(book.title || t('form.title'))}</div>
           <div style="font-size:12px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(authors)}</div>
+          ${datesHtml}
         </div>
       </button>
     `;
