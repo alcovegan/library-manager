@@ -2472,7 +2472,7 @@ function updateBulkToolbar() {
 function updateBulkSummary() {
   const count = state.bulkSelectedIds.size;
   if (bulkSelectedCounter) {
-    bulkSelectedCounter.textContent = `Выбрано: ${count}`;
+    bulkSelectedCounter.textContent = t('bulk.selected', { count });
   }
   const actionButtons = [
     bulkAddTagsBtn,
