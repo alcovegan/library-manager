@@ -35,3 +35,6 @@ tests/e2e/screenshots/*.png
 # ai chat logs
 docs/cursor/
 docs/codex/
+
+# research docs
+docs/research/
