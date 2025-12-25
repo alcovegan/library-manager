@@ -2048,6 +2048,127 @@ function getReadingStats(ctx) {
   };
 }
 
+// List all custom vocabulary entries (for export)
+function listCustomVocabulary(ctx) {
+  const res = ctx.db.exec('SELECT id, domain, value, createdAt, updatedAt FROM vocab_custom ORDER BY domain, lower(value)');
+  if (!res[0]) return [];
+  return res[0].values.map(([id, domain, value, createdAt, updatedAt]) => ({
+    id, domain, value, createdAt, updatedAt
+  }));
+}
+
+// List all reading sessions (for export)
+function listAllReadingSessions(ctx) {
+  const res = ctx.db.exec('SELECT id, bookId, status, startedAt, finishedAt, notes, createdAt, updatedAt FROM reading_sessions ORDER BY bookId, createdAt DESC');
+  if (!res[0]) return [];
+  return res[0].values.map(([id, bookId, status, startedAt, finishedAt, notes, createdAt, updatedAt]) => ({
+    id, bookId, status, startedAt, finishedAt, notes, createdAt, updatedAt
+  }));
+}
+
+// Import storage location with specific id (for backup restore)
+function importStorageLocation(ctx, loc) {
+  const stmt = ctx.db.prepare(`
+    INSERT OR REPLACE INTO storage_locations(id, code, title, note, is_active, sort_order, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  stmt.bind([
+    loc.id,
+    loc.code,
+    loc.title || null,
+    loc.note || null,
+    loc.isActive !== false ? 1 : 0,
+    loc.sortOrder || 0,
+    loc.createdAt || new Date().toISOString(),
+    loc.updatedAt || new Date().toISOString()
+  ]);
+  stmt.step();
+  stmt.free();
+}
+
+// Import collection with specific id (for backup restore)
+function importCollection(ctx, col) {
+  const stmt = ctx.db.prepare(`
+    INSERT OR REPLACE INTO collections(id, name, type, filters, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `);
+  stmt.bind([
+    col.id,
+    col.name,
+    col.type || 'static',
+    col.filters ? JSON.stringify(col.filters) : null,
+    col.createdAt || new Date().toISOString(),
+    col.updatedAt || new Date().toISOString()
+  ]);
+  stmt.step();
+  stmt.free();
+  
+  // Import collection books
+  if (Array.isArray(col.books) && col.books.length > 0) {
+    col.books.forEach(bookId => {
+      const relStmt = ctx.db.prepare('INSERT OR IGNORE INTO collection_books(collectionId, bookId) VALUES (?, ?)');
+      relStmt.bind([col.id, bookId]);
+      relStmt.step();
+      relStmt.free();
+    });
+  }
+}
+
+// Import filter preset with specific id (for backup restore)
+function importFilterPreset(ctx, preset) {
+  const stmt = ctx.db.prepare(`
+    INSERT OR REPLACE INTO filter_presets(id, name, slug, filters, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `);
+  stmt.bind([
+    preset.id,
+    preset.name,
+    preset.slug || null,
+    preset.filters ? JSON.stringify(preset.filters) : null,
+    preset.createdAt || new Date().toISOString(),
+    preset.updatedAt || new Date().toISOString()
+  ]);
+  stmt.step();
+  stmt.free();
+}
+
+// Import custom vocabulary entry with specific id (for backup restore)
+function importCustomVocabulary(ctx, entry) {
+  const stmt = ctx.db.prepare(`
+    INSERT OR REPLACE INTO vocab_custom(id, domain, value, createdAt, updatedAt)
+    VALUES (?, ?, ?, ?, ?)
+  `);
+  stmt.bind([
+    entry.id,
+    entry.domain,
+    entry.value,
+    entry.createdAt || new Date().toISOString(),
+    entry.updatedAt || new Date().toISOString()
+  ]);
+  stmt.step();
+  stmt.free();
+}
+
+// Import reading session with specific id (for backup restore)
+function importReadingSession(ctx, session) {
+  const stmt = ctx.db.prepare(`
+    INSERT OR REPLACE INTO reading_sessions(id, bookId, status, startedAt, finishedAt, notes, createdAt, updatedAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  stmt.bind([
+    session.id,
+    session.bookId,
+    session.status,
+    session.startedAt || null,
+    session.finishedAt || null,
+    session.notes || null,
+    session.createdAt || new Date().toISOString(),
+    session.updatedAt || new Date().toISOString()
+  ]);
+  stmt.step();
+  stmt.free();
+}
+
 module.exports = {
   openDb,
   migrate,
@@ -2104,4 +2225,12 @@ module.exports = {
   setReadingStatus,
   clearReadingStatus,
   getReadingStats,
+  // Export/Import helpers
+  listCustomVocabulary,
+  listAllReadingSessions,
+  importStorageLocation,
+  importCollection,
+  importFilterPreset,
+  importCustomVocabulary,
+  importReadingSession,
 };

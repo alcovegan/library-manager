@@ -1395,8 +1395,14 @@ ipcMain.handle('covers:search-online', async (_event, payload) => {
 
 ipcMain.handle('backup:export', async () => {
   const books = dbLayer.listBooks(db);
+  const storageLocations = dbLayer.listStorageLocations(db);
+  const collections = dbLayer.listCollections(db);
+  const filterPresets = dbLayer.listFilterPresets(db);
+  const vocabCustom = dbLayer.listCustomVocabulary(db);
+  const readingSessions = dbLayer.listAllReadingSessions(db);
+  
   const payload = {
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     books: await Promise.all(books.map(async (b) => {
       let cover = null;
@@ -1409,6 +1415,11 @@ ipcMain.handle('backup:export', async () => {
       }
       return { ...b, cover };
     })),
+    storageLocations,
+    collections,
+    filterPresets,
+    vocabCustom,
+    readingSessions,
   };
 
   const { canceled, filePath } = await dialog.showSaveDialog({
@@ -1422,7 +1433,15 @@ ipcMain.handle('backup:export', async () => {
     action: 'backup.export',
     entityType: 'backup',
     summary: 'Экспорт бэкапа завершён',
-    payload: { filePath, books: payload.books.length },
+    payload: { 
+      filePath, 
+      books: payload.books.length,
+      storageLocations: storageLocations.length,
+      collections: collections.length,
+      filterPresets: filterPresets.length,
+      vocabCustom: vocabCustom.length,
+      readingSessions: readingSessions.length,
+    },
   });
   return { ok: true, filePath };
 });
@@ -1539,6 +1558,81 @@ ipcMain.handle('backup:import', async () => {
     existingTaSet.add(taKey(title, authors));
     return createdBook;
   });
+
+  // Import additional entities (v2 format)
+  const importStats = {
+    storageLocations: 0,
+    collections: 0,
+    filterPresets: 0,
+    vocabCustom: 0,
+    readingSessions: 0,
+  };
+
+  // Import storage locations
+  if (Array.isArray(parsed.storageLocations)) {
+    for (const loc of parsed.storageLocations) {
+      if (!loc.id || !loc.code) continue;
+      try {
+        dbLayer.importStorageLocation(db, loc);
+        importStats.storageLocations++;
+      } catch (e) {
+        console.warn('Failed to import storage location:', loc.id, e.message);
+      }
+    }
+  }
+
+  // Import collections (after books are imported to link correctly)
+  if (Array.isArray(parsed.collections)) {
+    for (const col of parsed.collections) {
+      if (!col.id || !col.name) continue;
+      try {
+        dbLayer.importCollection(db, col);
+        importStats.collections++;
+      } catch (e) {
+        console.warn('Failed to import collection:', col.id, e.message);
+      }
+    }
+  }
+
+  // Import filter presets
+  if (Array.isArray(parsed.filterPresets)) {
+    for (const preset of parsed.filterPresets) {
+      if (!preset.id || !preset.name) continue;
+      try {
+        dbLayer.importFilterPreset(db, preset);
+        importStats.filterPresets++;
+      } catch (e) {
+        console.warn('Failed to import filter preset:', preset.id, e.message);
+      }
+    }
+  }
+
+  // Import custom vocabulary
+  if (Array.isArray(parsed.vocabCustom)) {
+    for (const entry of parsed.vocabCustom) {
+      if (!entry.id || !entry.domain || !entry.value) continue;
+      try {
+        dbLayer.importCustomVocabulary(db, entry);
+        importStats.vocabCustom++;
+      } catch (e) {
+        console.warn('Failed to import vocab entry:', entry.id, e.message);
+      }
+    }
+  }
+
+  // Import reading sessions
+  if (Array.isArray(parsed.readingSessions)) {
+    for (const session of parsed.readingSessions) {
+      if (!session.id || !session.bookId || !session.status) continue;
+      try {
+        dbLayer.importReadingSession(db, session);
+        importStats.readingSessions++;
+      } catch (e) {
+        console.warn('Failed to import reading session:', session.id, e.message);
+      }
+    }
+  }
+
   recordActivity({
     action: 'backup.import',
     entityType: 'backup',
@@ -1548,9 +1642,10 @@ ipcMain.handle('backup:import', async () => {
       processed: restored.length,
       created,
       skipped,
+      ...importStats,
     },
   });
-  return { ok: true, count: restored.length, created, skipped };
+  return { ok: true, count: restored.length, created, skipped, ...importStats };
 });
 
 // ISBN metadata lookup
