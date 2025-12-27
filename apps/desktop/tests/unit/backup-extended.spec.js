@@ -74,7 +74,7 @@ describe('Extended backup export/import', () => {
       dbLayer.addCustomVocabularyEntry(ctx, 'authors', 'Custom Author C');
 
       const entries = dbLayer.listCustomVocabulary(ctx);
-      
+
       expect(entries).toHaveLength(3);
       expect(entries.map(e => e.value)).toContain('Custom Genre A');
       expect(entries.map(e => e.value)).toContain('Custom Tag B');
@@ -95,7 +95,7 @@ describe('Extended backup export/import', () => {
       });
 
       const sessions = dbLayer.listAllReadingSessions(ctx);
-      
+
       expect(sessions).toHaveLength(2);
       expect(sessions.some(s => s.bookId === book1.id && s.status === 'reading')).toBe(true);
       expect(sessions.some(s => s.bookId === book2.id && s.status === 'finished')).toBe(true);
@@ -119,7 +119,7 @@ describe('Extended backup export/import', () => {
 
       const locations = dbLayer.listStorageLocations(ctx);
       const imported = locations.find(l => l.id === 'test-loc-123');
-      
+
       expect(imported).toBeDefined();
       expect(imported.code).toBe('TEST-1');
       expect(imported.title).toBe('Test Location');
@@ -143,7 +143,7 @@ describe('Extended backup export/import', () => {
 
       const locations = dbLayer.listStorageLocations(ctx);
       const imported = locations.find(l => l.id === 'test-loc-123');
-      
+
       expect(imported.title).toBe('Updated');
     });
   });
@@ -166,7 +166,7 @@ describe('Extended backup export/import', () => {
 
       const collections = dbLayer.listCollections(ctx);
       const imported = collections.find(c => c.id === 'test-col-123');
-      
+
       expect(imported).toBeDefined();
       expect(imported.name).toBe('Test Collection');
       expect(imported.type).toBe('static');
@@ -188,7 +188,7 @@ describe('Extended backup export/import', () => {
 
       const collections = dbLayer.listCollections(ctx);
       const imported = collections.find(c => c.id === 'test-filter-col');
-      
+
       expect(imported).toBeDefined();
       expect(imported.type).toBe('filter');
       expect(imported.filters).toEqual({ author: 'Test Author', status: 'reading' });
@@ -210,7 +210,7 @@ describe('Extended backup export/import', () => {
 
       const presets = dbLayer.listFilterPresets(ctx);
       const imported = presets.find(p => p.id === 'test-preset-123');
-      
+
       expect(imported).toBeDefined();
       expect(imported.name).toBe('My Preset');
       expect(imported.slug).toBe('my-preset');
@@ -232,7 +232,7 @@ describe('Extended backup export/import', () => {
 
       const vocab = dbLayer.listCustomVocabulary(ctx);
       const imported = vocab.find(v => v.id === 'vocab-123');
-      
+
       expect(imported).toBeDefined();
       expect(imported.domain).toBe('genres');
       expect(imported.value).toBe('Imported Genre');
@@ -258,7 +258,7 @@ describe('Extended backup export/import', () => {
 
       const sessions = dbLayer.getReadingSessions(ctx, book.id);
       const imported = sessions.find(s => s.id === 'session-123');
-      
+
       expect(imported).toBeDefined();
       expect(imported.status).toBe('finished');
       expect(imported.startedAt).toBe('2024-01-01T00:00:00.000Z');

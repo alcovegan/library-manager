@@ -13,7 +13,8 @@ async function openDb(userDataPath) {
   const SQL = await initSqlJs({
     locateFile: (file) => {
       // Use module path in dev; packagers can adjust this as needed
-      return path.join(__dirname, '../../node_modules/sql.js/dist', file);
+      // In monorepo, node_modules is at the root level
+      return path.join(__dirname, '../../../../node_modules/sql.js/dist', file);
     },
   });
 
@@ -2021,8 +2022,8 @@ function getReadingStats(ctx) {
 
   // Get monthly stats for finished books (for breakdown within years)
   const monthlyRes = ctx.db.exec(`
-    SELECT strftime('%Y', rs.finishedAt) as year, 
-           strftime('%m', rs.finishedAt) as month, 
+    SELECT strftime('%Y', rs.finishedAt) as year,
+           strftime('%m', rs.finishedAt) as month,
            COUNT(*) as count
     FROM reading_sessions rs
     WHERE rs.status = 'finished' AND rs.finishedAt IS NOT NULL
@@ -2102,7 +2103,7 @@ function importCollection(ctx, col) {
   ]);
   stmt.step();
   stmt.free();
-  
+
   // Import collection books
   if (Array.isArray(col.books) && col.books.length > 0) {
     col.books.forEach(bookId => {

@@ -1400,7 +1400,7 @@ ipcMain.handle('backup:export', async () => {
   const filterPresets = dbLayer.listFilterPresets(db);
   const vocabCustom = dbLayer.listCustomVocabulary(db);
   const readingSessions = dbLayer.listAllReadingSessions(db);
-  
+
   const payload = {
     version: 2,
     exportedAt: new Date().toISOString(),
@@ -1433,8 +1433,8 @@ ipcMain.handle('backup:export', async () => {
     action: 'backup.export',
     entityType: 'backup',
     summary: 'Экспорт бэкапа завершён',
-    payload: { 
-      filePath, 
+    payload: {
+      filePath,
       books: payload.books.length,
       storageLocations: storageLocations.length,
       collections: collections.length,
