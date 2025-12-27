@@ -1,0 +1,83 @@
+{
+  "name": "desktop",
+  "version": "1.7.3",
+  "description": "Library Manager - Desktop App",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "ELECTRON_ENABLE_STACK_DUMPING=1 electron .",
+    "start-named": "./start-library-manager.sh",
+    "dev": "ELECTRON_ENABLE_STACK_DUMPING=1 electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "publish": "electron-builder -p always",
+    "rebuild": "electron-builder install-app-deps",
+    "test:unit": "vitest run",
+    "test:watch": "vitest --watch",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:debug": "playwright test --debug"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.0.1",
+    "@playwright/test": "^1.56.1",
+    "electron": "^38.1.0",
+    "electron-builder": "^24.13.3",
+    "jsdom": "^27.1.0",
+    "playwright": "^1.56.1",
+    "vitest": "^4.0.4"
+  },
+  "dependencies": {
+    "@library-manager/shared": "*",
+    "@aws-sdk/client-s3": "^3.891.0",
+    "dotenv": "^17.2.2",
+    "electron-updater": "^6.3.9",
+    "fuse.js": "^7.1.0",
+    "openai": "^5.20.2",
+    "papaparse": "^5.5.3",
+    "sql.js": "^1.13.0",
+    "uuid": "^13.0.0"
+  },
+  "build": {
+    "appId": "com.example.librarymanager",
+    "productName": "Library Manager",
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "!**/*.map"
+    ],
+    "mac": {
+      "icon": "assets/icons/icon.icns",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "win": {
+      "icon": "assets/icons/icon.ico",
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "linux": {
+      "icon": "assets/icons/512x512.png",
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Utility"
+    },
+    "publish": [
+      {
+        "provider": "github"
+      }
+    ]
+  }
+}

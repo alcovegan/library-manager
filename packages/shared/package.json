@@ -1,0 +1,11 @@
+{
+  "name": "@library-manager/shared",
+  "version": "1.0.0",
+  "description": "Shared types, schema, and constants for Library Manager",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"No tests yet\""
+  },
+  "keywords": [],
+  "license": "ISC"
+}
