@@ -5,7 +5,7 @@
 
 import * as SQLite from 'expo-sqlite';
 import { SCHEMA_VERSION, SCHEMA_SQL, MIGRATIONS } from '@library-manager/shared';
-import type { Book, BookWithAuthors, Author, ReadingSession, StorageLocation } from '../types';
+import type { Book, BookWithAuthors, Author, ReadingSession, StorageLocation, Collection } from '../types';
 
 // Debug: verify shared module loaded correctly
 console.log('[DB] Shared module loaded:', {
@@ -13,6 +13,13 @@ console.log('[DB] Shared module loaded:', {
   SCHEMA_SQL_LENGTH: SCHEMA_SQL?.length ?? 'undefined',
   MIGRATIONS_KEYS: MIGRATIONS ? Object.keys(MIGRATIONS) : 'undefined',
 });
+
+/**
+ * Generate a unique ID for new records
+ */
+function generateId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).substring(2, 9);
+}
 
 let db: SQLite.SQLiteDatabase | null = null;
 let initPromise: Promise<SQLite.SQLiteDatabase> | null = null;
@@ -422,4 +429,191 @@ export async function closeDatabase(): Promise<void> {
 export function resetDatabase(): void {
   db = null;
   initPromise = null;
+}
+
+// ============ Collections ============
+
+/**
+ * Collection with book count
+ */
+export interface CollectionWithCount extends Collection {
+  bookCount: number;
+}
+
+/**
+ * Get all collections with book counts
+ */
+export async function getAllCollections(): Promise<CollectionWithCount[]> {
+  const database = await getDatabase();
+
+  const collections = await database.getAllAsync<CollectionWithCount>(`
+    SELECT c.*,
+      (SELECT COUNT(*) FROM collection_books cb WHERE cb.collectionId = c.id) as bookCount
+    FROM collections c
+    ORDER BY c.name COLLATE NOCASE
+  `);
+
+  return collections;
+}
+
+/**
+ * Get a single collection by ID
+ */
+export async function getCollectionById(id: string): Promise<Collection | null> {
+  const database = await getDatabase();
+
+  return database.getFirstAsync<Collection>(
+    'SELECT * FROM collections WHERE id = ?',
+    [id]
+  );
+}
+
+/**
+ * Get books in a collection
+ */
+export async function getCollectionBooks(collectionId: string): Promise<BookWithAuthors[]> {
+  const database = await getDatabase();
+
+  const collection = await getCollectionById(collectionId);
+  if (!collection) return [];
+
+  if (collection.type === 'filter' && collection.filters) {
+    // Dynamic filter collection - parse filters and apply
+    try {
+      const filters = JSON.parse(collection.filters) as BookFilters;
+      return filterBooks(filters);
+    } catch (e) {
+      console.error('[DB] Failed to parse collection filters:', e);
+      return [];
+    }
+  }
+
+  // Static collection - fetch books by junction table
+  const books = await database.getAllAsync<Book>(`
+    SELECT b.* FROM books b
+    JOIN collection_books cb ON cb.bookId = b.id
+    WHERE cb.collectionId = ?
+    ORDER BY b.title COLLATE NOCASE
+  `, [collectionId]);
+
+  return attachAuthorsToBooks(database, books);
+}
+
+/**
+ * Get collections count
+ */
+export async function getCollectionsCount(): Promise<number> {
+  const database = await getDatabase();
+  const result = await database.getFirstAsync<{ count: number }>(
+    'SELECT COUNT(*) as count FROM collections'
+  );
+  return result?.count ?? 0;
+}
+
+/**
+ * Create a new collection
+ */
+export async function createCollection(
+  name: string,
+  type: 'static' | 'filter' = 'static',
+  filters: string | null = null
+): Promise<string> {
+  const database = await getDatabase();
+  const id = generateId();
+  const now = new Date().toISOString();
+
+  await database.runAsync(
+    `INSERT INTO collections (id, name, type, filters, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [id, name, type, filters, now, now]
+  );
+
+  return id;
+}
+
+/**
+ * Update a collection
+ */
+export async function updateCollection(
+  id: string,
+  updates: { name?: string; filters?: string | null }
+): Promise<void> {
+  const database = await getDatabase();
+  const now = new Date().toISOString();
+
+  const setClauses: string[] = ['updated_at = ?'];
+  const values: (string | null)[] = [now];
+
+  if (updates.name !== undefined) {
+    setClauses.push('name = ?');
+    values.push(updates.name);
+  }
+  if (updates.filters !== undefined) {
+    setClauses.push('filters = ?');
+    values.push(updates.filters);
+  }
+
+  values.push(id);
+
+  await database.runAsync(
+    `UPDATE collections SET ${setClauses.join(', ')} WHERE id = ?`,
+    values
+  );
+}
+
+/**
+ * Delete a collection
+ */
+export async function deleteCollection(id: string): Promise<void> {
+  const database = await getDatabase();
+
+  // Delete junction table entries first
+  await database.runAsync(
+    'DELETE FROM collection_books WHERE collectionId = ?',
+    [id]
+  );
+
+  // Delete the collection
+  await database.runAsync(
+    'DELETE FROM collections WHERE id = ?',
+    [id]
+  );
+}
+
+/**
+ * Add a book to a static collection
+ */
+export async function addBookToCollection(
+  collectionId: string,
+  bookId: string
+): Promise<void> {
+  const database = await getDatabase();
+
+  // Check if already exists
+  const existing = await database.getFirstAsync<{ collectionId: string }>(
+    'SELECT collectionId FROM collection_books WHERE collectionId = ? AND bookId = ?',
+    [collectionId, bookId]
+  );
+
+  if (!existing) {
+    await database.runAsync(
+      'INSERT INTO collection_books (collectionId, bookId) VALUES (?, ?)',
+      [collectionId, bookId]
+    );
+  }
+}
+
+/**
+ * Remove a book from a static collection
+ */
+export async function removeBookFromCollection(
+  collectionId: string,
+  bookId: string
+): Promise<void> {
+  const database = await getDatabase();
+
+  await database.runAsync(
+    'DELETE FROM collection_books WHERE collectionId = ? AND bookId = ?',
+    [collectionId, bookId]
+  );
 }

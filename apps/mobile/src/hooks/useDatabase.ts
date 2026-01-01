@@ -13,7 +13,10 @@ import {
   getAuthors,
   getFormats,
   getLanguages,
+  getAllCollections,
+  getCollectionBooks,
   type BookFilters,
+  type CollectionWithCount,
 } from '../services/database';
 import { subscribe, AppEvents } from '../services/events';
 import type { BookWithAuthors } from '../types';
@@ -258,4 +261,114 @@ export function useDatabaseInit() {
   }, []);
 
   return { ready, error };
+}
+
+/**
+ * Hook to get all collections
+ */
+export function useCollections() {
+  const [collections, setCollections] = useState<CollectionWithCount[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  const refresh = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await getAllCollections();
+      setCollections(data);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to load collections'));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refresh();
+
+    const unsubscribe = subscribe(AppEvents.DATA_CHANGED, () => {
+      console.log('[useCollections] Data changed, refreshing...');
+      refresh();
+    });
+
+    return unsubscribe;
+  }, [refresh]);
+
+  return { collections, loading, error, refresh };
+}
+
+/**
+ * Hook to get a single collection by ID
+ */
+export function useCollection(collectionId: string | null) {
+  const [collection, setCollection] = useState<import('../services/database').CollectionWithCount | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  const refresh = useCallback(async () => {
+    if (!collectionId) {
+      setCollection(null);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      const collections = await getAllCollections();
+      const found = collections.find(c => c.id === collectionId) || null;
+      setCollection(found);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to load collection'));
+    } finally {
+      setLoading(false);
+    }
+  }, [collectionId]);
+
+  useEffect(() => {
+    refresh();
+
+    const unsubscribe = subscribe(AppEvents.DATA_CHANGED, refresh);
+    return unsubscribe;
+  }, [refresh]);
+
+  return { collection, loading, error, refresh };
+}
+
+/**
+ * Hook to get books in a collection
+ */
+export function useCollectionBooks(collectionId: string | null) {
+  const [books, setBooks] = useState<BookWithAuthors[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  const refresh = useCallback(async () => {
+    if (!collectionId) {
+      setBooks([]);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await getCollectionBooks(collectionId);
+      setBooks(data);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to load collection books'));
+    } finally {
+      setLoading(false);
+    }
+  }, [collectionId]);
+
+  useEffect(() => {
+    refresh();
+
+    const unsubscribe = subscribe(AppEvents.DATA_CHANGED, refresh);
+    return unsubscribe;
+  }, [refresh]);
+
+  return { books, loading, error, refresh };
 }

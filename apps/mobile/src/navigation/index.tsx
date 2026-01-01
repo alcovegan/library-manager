@@ -12,6 +12,9 @@ import LibraryScreen from '../screens/LibraryScreen';
 import SearchScreen from '../screens/SearchScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import BookDetailsScreen from '../screens/BookDetailsScreen';
+import CollectionsScreen from '../screens/CollectionsScreen';
+import CollectionDetailsScreen from '../screens/CollectionDetailsScreen';
+import SyncSettingsScreen from '../screens/SyncSettingsScreen';
 import type { RootStackParamList, MainTabParamList } from '../types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -21,6 +24,7 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   const icons: Record<string, string> = {
     Library: '📚',
     Search: '🔍',
+    Collections: '📁',
     Settings: '⚙️',
   };
 
@@ -54,6 +58,11 @@ function MainTabs() {
         options={{ title: 'Поиск' }}
       />
       <Tab.Screen
+        name="Collections"
+        component={CollectionsScreen}
+        options={{ title: 'Коллекции' }}
+      />
+      <Tab.Screen
         name="Settings"
         component={SettingsScreen}
         options={{ title: 'Настройки' }}
@@ -75,6 +84,16 @@ export default function Navigation() {
           name="BookDetails"
           component={BookDetailsScreen}
           options={{ title: 'Книга' }}
+        />
+        <Stack.Screen
+          name="CollectionDetails"
+          component={CollectionDetailsScreen}
+          options={{ title: 'Коллекция' }}
+        />
+        <Stack.Screen
+          name="SyncSettings"
+          component={SyncSettingsScreen}
+          options={{ title: 'Синхронизация' }}
         />
       </Stack.Navigator>
     </NavigationContainer>

@@ -26,3 +26,9 @@ export function emit(event: string): void {
   console.log(`[Events] Emitting: ${event}`);
   listeners.get(event)?.forEach((callback) => callback());
 }
+
+// Convenience object for event emitter pattern
+export const eventEmitter = {
+  emit,
+  subscribe,
+};

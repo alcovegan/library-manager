@@ -83,12 +83,15 @@ export interface Collection {
 export type RootStackParamList = {
   Main: undefined;
   BookDetails: { bookId: string };
+  CollectionDetails: { collectionId: string };
   AddBook: undefined;
   EditBook: { bookId: string };
+  SyncSettings: undefined;
 };
 
 export type MainTabParamList = {
   Library: undefined;
   Search: undefined;
+  Collections: undefined;
   Settings: undefined;
 };

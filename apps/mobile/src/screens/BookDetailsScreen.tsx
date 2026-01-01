@@ -2,7 +2,7 @@
  * Book Details Screen
  */
 
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,11 +10,18 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  TouchableOpacity,
+  Modal,
+  FlatList,
+  Alert,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import { useBook } from '../hooks/useDatabase';
+import { useBook, useCollections } from '../hooks/useDatabase';
+import { addBookToCollection, removeBookFromCollection } from '../services/database';
+import type { CollectionWithCount } from '../services/database';
 import { getCoverUri } from '../utils/covers';
+import { AppEvents, eventEmitter } from '../services/events';
 import type { RootStackParamList } from '../types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'BookDetails'>;
@@ -42,6 +49,27 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export default function BookDetailsScreen({ route }: Props) {
   const { bookId } = route.params;
   const { book, loading, error } = useBook(bookId);
+  const { collections } = useCollections();
+
+  const [collectionModalVisible, setCollectionModalVisible] = useState(false);
+  const [savingCollection, setSavingCollection] = useState(false);
+
+  // Filter to only static collections (can't manually add to filter collections)
+  const staticCollections = collections.filter(c => c.type === 'static');
+
+  const handleAddToCollection = useCallback(async (collection: CollectionWithCount) => {
+    setSavingCollection(true);
+    try {
+      await addBookToCollection(collection.id, bookId);
+      eventEmitter.emit(AppEvents.DATA_CHANGED);
+      setCollectionModalVisible(false);
+      Alert.alert('Готово', `Книга добавлена в "${collection.name}"`);
+    } catch (e) {
+      Alert.alert('Ошибка', 'Не удалось добавить книгу в коллекцию');
+    } finally {
+      setSavingCollection(false);
+    }
+  }, [bookId]);
 
   if (loading) {
     return (
@@ -86,6 +114,14 @@ export default function BookDetailsScreen({ route }: Props) {
           </View>
         </View>
       </View>
+
+      {/* Add to Collection button */}
+      <TouchableOpacity
+        style={styles.addToCollectionButton}
+        onPress={() => setCollectionModalVisible(true)}
+      >
+        <Text style={styles.addToCollectionText}>📁 Добавить в коллекцию</Text>
+      </TouchableOpacity>
 
       {book.rating && (
         <View style={styles.ratingContainer}>
@@ -153,6 +189,51 @@ export default function BookDetailsScreen({ route }: Props) {
           Обновлено: {new Date(book.updatedAt).toLocaleDateString('ru-RU')}
         </Text>
       </View>
+
+      {/* Collection selection modal */}
+      <Modal
+        visible={collectionModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCollectionModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Выберите коллекцию</Text>
+
+            {staticCollections.length === 0 ? (
+              <Text style={styles.noCollectionsText}>
+                Нет доступных коллекций. Создайте коллекцию во вкладке "Коллекции".
+              </Text>
+            ) : (
+              <FlatList
+                data={staticCollections}
+                keyExtractor={(item) => item.id}
+                style={styles.collectionList}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.collectionOption}
+                    onPress={() => handleAddToCollection(item)}
+                    disabled={savingCollection}
+                  >
+                    <Text style={styles.collectionOptionText}>{item.name}</Text>
+                    <Text style={styles.collectionOptionCount}>
+                      {item.bookCount} книг
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              />
+            )}
+
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setCollectionModalVisible(false)}
+            >
+              <Text style={styles.modalCloseButtonText}>Отмена</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -294,5 +375,79 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#999',
     marginBottom: 4,
+  },
+  addToCollectionButton: {
+    backgroundColor: 'white',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e5e5',
+    alignItems: 'center',
+  },
+  addToCollectionText: {
+    fontSize: 16,
+    color: '#007AFF',
+    fontWeight: '500',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    maxWidth: 340,
+    maxHeight: '60%',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1c1c1e',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  noCollectionsText: {
+    fontSize: 15,
+    color: '#666',
+    textAlign: 'center',
+    paddingVertical: 20,
+    lineHeight: 22,
+  },
+  collectionList: {
+    maxHeight: 250,
+  },
+  collectionOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#e5e5e5',
+  },
+  collectionOptionText: {
+    fontSize: 16,
+    color: '#1c1c1e',
+    flex: 1,
+  },
+  collectionOptionCount: {
+    fontSize: 14,
+    color: '#999',
+    marginLeft: 8,
+  },
+  modalCloseButton: {
+    marginTop: 16,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  modalCloseButtonText: {
+    fontSize: 16,
+    color: '#007AFF',
+    fontWeight: '500',
   },
 });
