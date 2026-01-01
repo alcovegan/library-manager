@@ -45,14 +45,19 @@ if (app && typeof app.setName === 'function') {
   app.setName('Library Manager');
 }
 process.title = 'Library Manager';
-// Load keys from .env (project root)
-try { require('dotenv').config(); } catch {}
+// Load keys from .env (monorepo root)
+try {
+  require('dotenv').config({ path: path.resolve(__dirname, '../../..', '.env') });
+} catch {}
 const dbLayer = require('./main/db');
 const settings = require('./main/settings');
 const isbnProvider = require('./main/providers/isbn');
 const aiIsbn = require('./main/ai/isbn_enrich');
 const goodreadsEnrich = require('./main/ai/goodreads_enrich');
 const syncManager = require('./main/sync/sync_manager');
+const { syncSettings } = require('./main/sync/syncSettings');
+const { cloudProviderFactory } = require('./main/sync/providerFactory');
+const { cloudSyncManager } = require('./main/sync/cloudSyncManager');
 const { version: APP_VERSION } = require('../package.json');
 
 const GOOGLE_BOOKS_API_KEY = process.env.GOOGLE_BOOKS_API_KEY || '';
@@ -1855,6 +1860,16 @@ ipcMain.handle('sync:down', async () => {
       appVersion: APP_VERSION,
     });
     const result = await syncManager.syncDown();
+
+    // CRITICAL: After downloading database from S3, reload it from disk
+    // Otherwise the in-memory db will overwrite the downloaded file on next persist()
+    if (result.success && result.database && result.database.ok) {
+      console.log('🔄 Reloading database from disk after sync...');
+      db = await dbLayer.openDb(app.getPath('userData'));
+      await dbLayer.migrate(db);
+      console.log('✅ Database reloaded successfully');
+    }
+
     recordActivity({
       action: 'sync.down',
       entityType: 'sync',
@@ -1896,6 +1911,165 @@ ipcMain.handle('sync:cleanup', async () => {
     return { ok: false, error: String(e?.message || e) };
   }
 });
+
+// ==================== Cloud Provider Handlers ====================
+
+ipcMain.handle('cloud:getProviders', async () => {
+  try {
+    return { ok: true, providers: syncSettings.getAllProviders() };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+});
+
+ipcMain.handle('cloud:getActiveProvider', async () => {
+  try {
+    return { ok: true, provider: syncSettings.getActiveProvider() };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+});
+
+ipcMain.handle('cloud:setActiveProvider', async (_event, providerType) => {
+  try {
+    await syncSettings.setActiveProvider(providerType);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+});
+
+ipcMain.handle('cloud:connect', async (_event, providerType) => {
+  try {
+    if (!['yandex', 'googledrive', 'dropbox'].includes(providerType)) {
+      return { ok: false, error: `Unknown provider: ${providerType}` };
+    }
+
+    const provider = cloudProviderFactory.getProvider(providerType);
+    const result = await provider.authorizeWithBrowser();
+
+    if (result.success) {
+      // Save tokens to settings
+      syncSettings.saveProviderTokens(
+        providerType,
+        result.accessToken,
+        result.refreshToken,
+        result.expiresAt
+      );
+      // Set as active provider
+      await syncSettings.setActiveProvider(providerType);
+
+      // Initialize cloud sync manager
+      await cloudSyncManager.initialize(app.getPath('userData'), providerType);
+
+      return { ok: true, userInfo: result.userInfo };
+    }
+
+    return { ok: false, error: result.error || 'OAuth failed' };
+  } catch (e) {
+    console.error('Cloud connect error:', e);
+    return { ok: false, error: String(e?.message || e) };
+  }
+});
+
+ipcMain.handle('cloud:disconnect', async (_event, providerType) => {
+  try {
+    await syncSettings.disconnectProvider(providerType);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+});
+
+ipcMain.handle('cloud:testConnection', async (_event, providerType) => {
+  try {
+    // Load tokens if not already loaded
+    syncSettings.loadProviderTokens(providerType);
+
+    const provider = cloudProviderFactory.getProvider(providerType);
+    const result = await provider.testConnection();
+
+    return {
+      ok: result.success,
+      userInfo: result.userInfo,
+      error: result.error
+    };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+});
+
+ipcMain.handle('cloud:syncUp', async () => {
+  try {
+    const activeProvider = syncSettings.getActiveProvider();
+    if (activeProvider === 'none' || activeProvider === 's3') {
+      return { ok: false, error: 'No cloud provider active' };
+    }
+
+    // Load tokens
+    syncSettings.loadProviderTokens(activeProvider);
+
+    // Initialize cloud sync manager if needed
+    if (!cloudSyncManager.isInitialized) {
+      await cloudSyncManager.initialize(app.getPath('userData'), activeProvider);
+    }
+
+    const result = await cloudSyncManager.syncUp();
+
+    recordActivity({
+      action: 'sync.cloud.up',
+      entityType: 'sync',
+      entityId: activeProvider,
+      summary: result.success ? 'Синхронизация (облако) завершена' : 'Синхронизация (облако) с ошибками',
+      payload: result,
+    });
+
+    return result;
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+});
+
+ipcMain.handle('cloud:syncDown', async () => {
+  try {
+    const activeProvider = syncSettings.getActiveProvider();
+    if (activeProvider === 'none' || activeProvider === 's3') {
+      return { ok: false, error: 'No cloud provider active' };
+    }
+
+    // Load tokens
+    syncSettings.loadProviderTokens(activeProvider);
+
+    // Initialize cloud sync manager if needed
+    if (!cloudSyncManager.isInitialized) {
+      await cloudSyncManager.initialize(app.getPath('userData'), activeProvider);
+    }
+
+    const result = await cloudSyncManager.syncDown();
+
+    // Reload database after successful sync
+    if (result.success && result.database && result.database.ok) {
+      console.log('🔄 Reloading database from disk after cloud sync...');
+      db = await dbLayer.openDb(app.getPath('userData'));
+      await dbLayer.migrate(db);
+      console.log('✅ Database reloaded successfully');
+    }
+
+    recordActivity({
+      action: 'sync.cloud.down',
+      entityType: 'sync',
+      entityId: activeProvider,
+      summary: result.success ? 'Синхронизация (облако) завершена' : 'Синхронизация (облако) с ошибками',
+      payload: result,
+    });
+
+    return result;
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+});
+
+// ==================== End Cloud Provider Handlers ====================
 
 ipcMain.handle('activity:list', async (_event, options) => {
   try {

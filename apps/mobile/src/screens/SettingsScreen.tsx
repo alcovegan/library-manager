@@ -13,7 +13,10 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useBooksCount } from '../hooks/useDatabase';
+import type { RootStackParamList } from '../types';
 import { loadS3Config, saveS3Config, getLastSync } from '../services/settings';
 import { configureSync, syncDown, getSyncStatus, initializeSync } from '../services/syncManager';
 import type { S3Config } from '../services/s3Client';
@@ -55,7 +58,10 @@ function SettingsRow({
   return content;
 }
 
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+
 export default function SettingsScreen() {
+  const navigation = useNavigation<NavigationProp>();
   const { count } = useBooksCount();
   const [showS3Config, setShowS3Config] = useState(false);
   const [s3Config, setS3Config] = useState<S3Config>({
@@ -237,17 +243,20 @@ export default function SettingsScreen() {
 
       <SettingsSection title="Синхронизация">
         <SettingsRow
-          label="Статус"
+          label="Облачная синхронизация"
+          value="Yandex, Google, Dropbox"
+          onPress={() => navigation.navigate('SyncSettings')}
+          showArrow
+        />
+        <SettingsRow
+          label="Настройки S3"
           value={isConfigured ? 'Настроено' : 'Не настроено'}
+          onPress={() => setShowS3Config(true)}
+          showArrow
         />
         <SettingsRow
           label="Последняя синхронизация"
           value={formatLastSync(lastSync)}
-        />
-        <SettingsRow
-          label="Настройки S3"
-          onPress={() => setShowS3Config(true)}
-          showArrow
         />
       </SettingsSection>
 

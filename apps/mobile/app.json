@@ -2,11 +2,17 @@
   "expo": {
     "name": "Library Manager",
     "slug": "library-manager-mobile",
+    "scheme": "librarymanager",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "extra": {
+      "yandexClientId": "57f8ac290a6c407caa2e4081759fd965",
+      "googleClientId": "938368603688-ct0e25tpminhmf0htrfa66rnb6dun6mp.apps.googleusercontent.com",
+      "dropboxAppKey": "c8r1xsf87nzv128"
+    },
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -14,7 +20,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.librarymanager.mobile"
+      "bundleIdentifier": "com.alcovegan.librarymanager"
     },
     "android": {
       "adaptiveIcon": {
@@ -29,7 +35,8 @@
     },
     "plugins": [
       "expo-sqlite",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-web-browser"
     ]
   }
 }

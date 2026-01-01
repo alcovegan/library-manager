@@ -236,12 +236,20 @@ const settingsOpenAIModel = document.querySelector('#settingsOpenAIModel');
 const settingsOpenAIDisableCache = document.querySelector('#settingsOpenAIDisableCache');
 const settingsAiStrictMode = document.querySelector('#settingsAiStrictMode');
 const settingsAutoSync = $('#settingsAutoSync');
+const settingsSyncProvider = $('#settingsSyncProvider');
+const syncSettingsS3 = $('#syncSettingsS3');
+const syncSettingsCloud = $('#syncSettingsCloud');
+const syncSettingsCommon = $('#syncSettingsCommon');
 const settingsS3Endpoint = $('#settingsS3Endpoint');
 const settingsS3Region = $('#settingsS3Region');
 const settingsS3Bucket = $('#settingsS3Bucket');
 const settingsS3AccessKey = $('#settingsS3AccessKey');
 const settingsS3SecretKey = $('#settingsS3SecretKey');
 const testSyncBtn = $('#testSyncBtn');
+const cloudConnectBtn = $('#cloudConnectBtn');
+const cloudDisconnectBtn = $('#cloudDisconnectBtn');
+const testCloudSyncBtn = $('#testCloudSyncBtn');
+const cloudProviderStatusText = $('#cloudProviderStatusText');
 const settingsOpenAIKey = $('#settingsOpenAIKey');
 const settingsAiProvider = document.querySelector('#settingsAiProvider');
 const settingsPerplexityKey = document.querySelector('#settingsPerplexityKey');
@@ -5843,6 +5851,11 @@ async function loadSettings() {
       if (settingsPerplexityKey) settingsPerplexityKey.value = res.settings.perplexityApiKey || '';
       if (settingsPerplexityModel) settingsPerplexityModel.value = res.settings.perplexityModel || 'sonar';
       toggleAiProviderSettings(); // Update UI based on current provider
+
+      // Load sync provider settings
+      const activeProvider = res.settings.syncProvider || 'none';
+      if (settingsSyncProvider) settingsSyncProvider.value = activeProvider;
+      await updateSyncProviderUI(activeProvider);
     }
   } catch (e) { console.error(e); }
 }
@@ -6085,6 +6098,7 @@ if (saveSettingsBtn) {
         openaiDisableCache: settingsOpenAIDisableCache ? settingsOpenAIDisableCache.checked : false,
         aiStrictMode: aiStrictModeValue,
         autoSync: settingsAutoSync ? settingsAutoSync.checked : false,
+        syncProvider: settingsSyncProvider ? settingsSyncProvider.value : 'none',
         s3Endpoint: settingsS3Endpoint ? settingsS3Endpoint.value.trim() : '',
         s3Region: settingsS3Region ? settingsS3Region.value.trim() : 'us-east-1',
         s3Bucket: settingsS3Bucket ? settingsS3Bucket.value.trim() : '',
@@ -6607,258 +6621,242 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 });
 
-  // Sync choice dialog with custom buttons
-  async function showSyncChoiceDialog(statusInfo) {
+  // Sync dialog with progress support
+  let syncDialogState = null;
+
+  function createSyncDialog() {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      animation: fadeIn 0.2s ease-out;
+    `;
+
+    const dialog = document.createElement('div');
+    dialog.style.cssText = `
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px;
+      max-width: 520px;
+      width: 90%;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15), 0 8px 16px rgba(0, 0, 0, 0.1);
+      animation: slideUp 0.3s ease-out;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      position: relative;
+    `;
+
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes slideUp { from { opacity: 0; transform: translateY(20px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+      @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+      .sync-btn { padding: 16px 24px; font-size: 15px; font-weight: 600; border-radius: 12px; border: none; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; font-family: inherit; }
+      .sync-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); }
+      .sync-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+      .sync-btn-primary { background: linear-gradient(135deg, #4f46e5, #7c3aed); color: white; }
+      .sync-btn-primary:hover:not(:disabled) { background: linear-gradient(135deg, #4338ca, #6d28d9); }
+      .sync-btn-secondary { background: var(--surface); color: var(--text); border: 2px solid var(--border); }
+      .sync-btn-secondary:hover:not(:disabled) { background: var(--muted-surface); border-color: var(--accent); }
+      .sync-btn-success { background: linear-gradient(135deg, #059669, #10b981); color: white; }
+      .sync-close-btn { position: absolute; top: 16px; right: 16px; width: 32px; height: 32px; border: none; background: var(--muted-surface); color: var(--muted); border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: all 0.2s ease; font-family: inherit; }
+      .sync-close-btn:hover { background: var(--border); color: var(--text); }
+      .sync-spinner { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--accent, #4f46e5); border-radius: 50%; animation: spin 0.8s linear infinite; }
+      .sync-progress-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 13px; color: var(--muted); }
+      .sync-progress-item.done { color: #059669; }
+      .sync-progress-item.error { color: #dc2626; }
+      .sync-progress-item.active { color: var(--text); font-weight: 500; }
+    `;
+    document.head.appendChild(style);
+
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    return { overlay, dialog, style };
+  }
+
+  function showSyncChoiceDialog(statusInfo, providerName) {
     return new Promise((resolve) => {
-      // Create modal dialog
-      const overlay = document.createElement('div');
-      overlay.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.6);
-        backdrop-filter: blur(4px);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 1000;
-        animation: fadeIn 0.2s ease-out;
-      `;
+      const { overlay, dialog, style } = createSyncDialog();
 
-      const dialog = document.createElement('div');
-      dialog.style.cssText = `
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 16px;
-        padding: 32px;
-        max-width: 520px;
-        width: 90%;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15), 0 8px 16px rgba(0, 0, 0, 0.1);
-        animation: slideUp 0.3s ease-out;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        position: relative;
-      `;
-
-      // Add CSS animations
-      const style = document.createElement('style');
-      style.textContent = `
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes slideUp {
-          from {
-            opacity: 0;
-            transform: translateY(20px) scale(0.95);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-        }
-        .sync-btn {
-          padding: 16px 24px;
-          font-size: 15px;
-          font-weight: 600;
-          border-radius: 12px;
-          border: none;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          min-height: 52px;
-          font-family: inherit;
-        }
-        .sync-btn:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        }
-        .sync-btn:active {
-          transform: translateY(0);
-        }
-        .sync-btn-primary {
-          background: linear-gradient(135deg, #4f46e5, #7c3aed);
-          color: white;
-        }
-        .sync-btn-primary:hover {
-          background: linear-gradient(135deg, #4338ca, #6d28d9);
-        }
-        .sync-btn-secondary {
-          background: var(--surface);
-          color: var(--text);
-          border: 2px solid var(--border);
-        }
-        .sync-btn-secondary:hover {
-          background: var(--muted-surface);
-          border-color: var(--accent);
-        }
-        .sync-close-btn {
-          position: absolute;
-          top: 16px;
-          right: 16px;
-          width: 32px;
-          height: 32px;
-          border: none;
-          background: var(--muted-surface);
-          color: var(--muted);
-          border-radius: 50%;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 16px;
-          transition: all 0.2s ease;
-          font-family: inherit;
-        }
-        .sync-close-btn:hover {
-          background: var(--border);
-          color: var(--text);
-          transform: scale(1.05);
-        }
-        .sync-close-btn:active {
-          transform: scale(0.95);
-        }
-        @media (max-width: 480px) {
-          .sync-btn-row {
-            flex-direction: column !important;
-          }
-          .sync-btn {
-            font-size: 14px;
-            padding: 14px 20px;
-          }
-        }
-      `;
-      document.head.appendChild(style);
-
-            dialog.innerHTML = `
+      dialog.innerHTML = `
         <button id="closeBtn" class="sync-close-btn" title="Закрыть (Esc)">×</button>
-
         <div style="text-align: center; margin-bottom: 24px;">
           <div style="font-size: 24px; margin-bottom: 8px;">🔄</div>
           <h3 style="margin: 0; font-size: 20px; font-weight: 700; color: var(--text);">Синхронизация</h3>
         </div>
-
-        <div style="
-          margin-bottom: 28px;
-          white-space: pre-line;
-          color: var(--muted);
-          font-size: 14px;
-          line-height: 1.5;
-          background: var(--muted-surface);
-          padding: 16px;
-          border-radius: 8px;
-          border-left: 4px solid var(--accent);
-        ">${statusInfo}</div>
-
+        <div style="margin-bottom: 28px; white-space: pre-line; color: var(--muted); font-size: 14px; line-height: 1.5; background: var(--muted-surface); padding: 16px; border-radius: 8px; border-left: 4px solid var(--accent);">${statusInfo}</div>
         <div class="sync-btn-row" style="display: flex; gap: 12px;">
-          <button id="uploadBtn" class="sync-btn sync-btn-primary" style="flex: 1;">
-            <span style="font-size: 18px;">📤</span>
-            <span>Загрузить НА сервер</span>
-          </button>
-          <button id="downloadBtn" class="sync-btn sync-btn-secondary" style="flex: 1;">
-            <span style="font-size: 18px;">📥</span>
-            <span>Скачать С сервера</span>
-          </button>
+          <button id="uploadBtn" class="sync-btn sync-btn-primary" style="flex: 1;"><span style="font-size: 18px;">📤</span><span>Загрузить НА сервер</span></button>
+          <button id="downloadBtn" class="sync-btn sync-btn-secondary" style="flex: 1;"><span style="font-size: 18px;">📥</span><span>Скачать С сервера</span></button>
         </div>
       `;
 
-          const uploadBtn = dialog.querySelector('#uploadBtn');
-      const downloadBtn = dialog.querySelector('#downloadBtn');
-      const closeBtn = dialog.querySelector('#closeBtn');
-
       const cleanup = () => {
-        document.body.removeChild(overlay);
-        document.head.removeChild(style);
+        if (document.body.contains(overlay)) document.body.removeChild(overlay);
+        if (document.head.contains(style)) document.head.removeChild(style);
         document.removeEventListener('keydown', handleEscape);
+        syncDialogState = null;
       };
 
-      // Handle Escape key
-      const handleEscape = (e) => {
-        if (e.key === 'Escape') {
-          cleanup();
-          resolve('cancel');
-        }
-      };
+      const handleEscape = (e) => { if (e.key === 'Escape' && !syncDialogState?.isSyncing) { cleanup(); resolve('cancel'); } };
 
-      uploadBtn.onclick = () => { cleanup(); resolve('upload'); };
-      downloadBtn.onclick = () => { cleanup(); resolve('download'); };
-      closeBtn.onclick = () => { cleanup(); resolve('cancel'); };
-
-      // Close on overlay click
-      overlay.onclick = (e) => {
-        if (e.target === overlay) {
-          cleanup();
-          resolve('cancel');
-        }
-      };
-
-      // Add keyboard listener
+      dialog.querySelector('#uploadBtn').onclick = () => resolve('upload');
+      dialog.querySelector('#downloadBtn').onclick = () => resolve('download');
+      dialog.querySelector('#closeBtn').onclick = () => { cleanup(); resolve('cancel'); };
+      overlay.onclick = (e) => { if (e.target === overlay && !syncDialogState?.isSyncing) { cleanup(); resolve('cancel'); } };
       document.addEventListener('keydown', handleEscape);
 
-    overlay.appendChild(dialog);
-    document.body.appendChild(overlay);
-  });
-}
+      syncDialogState = { overlay, dialog, style, cleanup, isSyncing: false, providerName };
+    });
+  }
 
-// Sync functionality
+  function showSyncProgress(direction) {
+    if (!syncDialogState) return;
+    const { dialog, providerName } = syncDialogState;
+    syncDialogState.isSyncing = true;
+
+    const isUpload = direction === 'upload';
+    const icon = isUpload ? '📤' : '📥';
+    const title = isUpload ? 'Загрузка на сервер...' : 'Скачивание с сервера...';
+
+    dialog.innerHTML = `
+      <div style="text-align: center; margin-bottom: 24px;">
+        <div style="font-size: 32px; margin-bottom: 12px;">${icon}</div>
+        <h3 style="margin: 0; font-size: 20px; font-weight: 700; color: var(--text);">${title}</h3>
+        <p style="margin: 8px 0 0; color: var(--muted); font-size: 14px;">${providerName}</p>
+      </div>
+      <div id="syncProgressList" style="background: var(--muted-surface); padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+        <div class="sync-progress-item active"><div class="sync-spinner"></div><span>Подготовка...</span></div>
+      </div>
+      <div style="text-align: center; color: var(--muted); font-size: 12px;">Не закрывайте это окно</div>
+    `;
+  }
+
+  function updateSyncProgress(steps) {
+    if (!syncDialogState) return;
+    const list = syncDialogState.dialog.querySelector('#syncProgressList');
+    if (!list) return;
+
+    list.innerHTML = steps.map(step => {
+      const icon = step.status === 'done' ? '✓' : step.status === 'error' ? '✗' : step.status === 'active' ? '<div class="sync-spinner"></div>' : '○';
+      return `<div class="sync-progress-item ${step.status}"><span style="width:20px;text-align:center;">${icon}</span><span>${step.label}</span></div>`;
+    }).join('');
+  }
+
+  function showSyncResult(success, message) {
+    if (!syncDialogState) return;
+    const { dialog, cleanup } = syncDialogState;
+    syncDialogState.isSyncing = false;
+
+    const icon = success ? '✅' : '❌';
+    const title = success ? 'Синхронизация завершена' : 'Ошибка синхронизации';
+    const btnClass = success ? 'sync-btn-success' : 'sync-btn-secondary';
+
+    dialog.innerHTML = `
+      <div style="text-align: center; margin-bottom: 24px;">
+        <div style="font-size: 48px; margin-bottom: 12px;">${icon}</div>
+        <h3 style="margin: 0; font-size: 20px; font-weight: 700; color: var(--text);">${title}</h3>
+      </div>
+      <div style="margin-bottom: 24px; white-space: pre-line; color: var(--muted); font-size: 14px; line-height: 1.6; background: var(--muted-surface); padding: 16px; border-radius: 8px; max-height: 200px; overflow-y: auto;">${message}</div>
+      <button id="okBtn" class="sync-btn ${btnClass}" style="width: 100%;">Закрыть</button>
+    `;
+
+    dialog.querySelector('#okBtn').onclick = cleanup;
+  }
+
+// Sync functionality - provider-aware
+let activeSyncProvider = 'none';
+let activeSyncProviderName = '';
+
 async function showSyncDialog() {
   try {
-    // Debug: check if API functions are available
-    console.log('🔍 Available sync API functions:', {
-      getSyncStatus: typeof window.api.getSyncStatus,
-      testSync: typeof window.api.testSync,
-      syncUp: typeof window.api.syncUp,
-      syncDown: typeof window.api.syncDown
-    });
+    // Get active provider first
+    const providerResult = await window.api.getActiveProvider();
+    if (!providerResult.ok) {
+      alert('Ошибка получения активного провайдера');
+      return;
+    }
 
-    if (typeof window.api.testSync !== 'function') {
-      const shouldReload = confirm('❌ Sync API не инициализирован.\n\nПерезагрузить приложение без кэша?');
-      if (shouldReload && window.api?.reloadIgnoringCache) {
-        window.api.reloadIgnoringCache();
+    activeSyncProvider = providerResult.provider || 'none';
+
+    if (activeSyncProvider === 'none') {
+      alert('Синхронизация не настроена.\n\nОткройте Настройки → Синхронизация и выберите провайдер (S3 или облачный сервис).');
+      return;
+    }
+
+    // Get provider name
+    const providersResult = await window.api.getSyncProviders();
+    if (providersResult.ok) {
+      const provider = providersResult.providers.find(p => p.type === activeSyncProvider);
+      activeSyncProviderName = provider?.name || activeSyncProvider;
+    }
+
+    let statusInfo = '';
+    let connectionOk = false;
+
+    if (activeSyncProvider === 's3') {
+      // S3 provider - use existing logic
+      console.log('🔄 Testing S3 connection...');
+      const testResult = await window.api.testSync();
+
+      if (!testResult.ok) {
+        alert(`Ошибка подключения к S3:\n${testResult.error}\n\nПроверьте настройки S3.`);
+        return;
       }
-      return;
+
+      const statusResult = await window.api.getSyncStatus();
+      if (!statusResult.ok) {
+        alert(`Ошибка получения статуса:\n${statusResult.error}`);
+        return;
+      }
+
+      const status = statusResult.status;
+      connectionOk = status.connectionOk;
+      statusInfo = `Провайдер: S3\nУстройство: ${status.deviceId}\nСоединение: ${connectionOk ? '✅ Подключено' : '❌ Ошибка'}`;
+
+      if (status.devices && status.devices.length > 0) {
+        statusInfo += '\n\nДругие устройства:\n' +
+          status.devices
+            .filter(d => !d.isCurrentDevice)
+            .map(d => `• ${d.deviceName} (${d.platform}) - ${new Date(d.timestamp).toLocaleString()}`)
+            .join('\n');
+      }
+    } else {
+      // Cloud provider
+      console.log(`🔄 Testing ${activeSyncProviderName} connection...`);
+      const testResult = await window.api.cloudTestConnection(activeSyncProvider);
+
+      if (!testResult.ok) {
+        alert(`Ошибка подключения к ${activeSyncProviderName}:\n${testResult.error}\n\nПроверьте настройки в разделе Синхронизация.`);
+        return;
+      }
+
+      connectionOk = true;
+      statusInfo = `Провайдер: ${activeSyncProviderName}`;
+      if (testResult.userInfo?.name) {
+        statusInfo += `\nАккаунт: ${testResult.userInfo.name}`;
+      }
+      statusInfo += `\nСоединение: ✅ Подключено`;
     }
 
-    // Test connection first
-    console.log('🔄 Testing sync connection...');
-    const testResult = await window.api.testSync();
-
-    if (!testResult.ok) {
-      alert(`Ошибка подключения к S3:\n${testResult.error}\n\nПроверьте настройки S3 в файле .env`);
-      return;
-    }
-
-    // Get sync status
-    const statusResult = await window.api.getSyncStatus();
-    if (!statusResult.ok) {
-      alert(`Ошибка получения статуса синхронизации:\n${statusResult.error}`);
-      return;
-    }
-
-    const status = statusResult.status;
-    const deviceInfo = `Устройство: ${status.deviceId}\nСоединение: ${status.connectionOk ? '✅ Подключено' : '❌ Ошибка'}`;
-
-    let devicesInfo = '';
-    if (status.devices && status.devices.length > 0) {
-      devicesInfo = '\n\nДругие устройства:\n' +
-        status.devices
-          .filter(d => !d.isCurrentDevice)
-          .map(d => `• ${d.deviceName} (${d.platform}) - ${new Date(d.timestamp).toLocaleString()}`)
-          .join('\n');
-    }
-
-        // Create a more intuitive dialog
-    const choice = await showSyncChoiceDialog(deviceInfo + devicesInfo);
+    // Create dialog with provider info
+    const choice = await showSyncChoiceDialog(statusInfo, activeSyncProviderName);
 
     if (choice === 'upload') {
       await syncUp();
     } else if (choice === 'download') {
       await syncDown();
-    } // If cancelled, do nothing
+    }
   } catch (error) {
     console.error('❌ Sync dialog error:', error);
     alert(`Ошибка синхронизации: ${error.message}`);
@@ -6867,33 +6865,57 @@ async function showSyncDialog() {
 
 async function syncUp() {
   try {
-    if (syncBtn) {
-      syncBtn.disabled = true;
-      syncBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="6.5"/><path d="M7 7V10.5"/><circle cx="7" cy="4.5" r="0.5" fill="currentColor"/></svg>';
-    }
+    if (syncBtn) syncBtn.disabled = true;
 
-    console.log('📤 Starting upload sync...');
-    const result = await window.api.syncUp();
+    // Show progress UI
+    showSyncProgress('upload');
+    console.log(`📤 Starting upload sync via ${activeSyncProvider}...`);
+
+    updateSyncProgress([
+      { label: 'Проверка совместимости...', status: 'active' },
+      { label: 'Метаданные устройства', status: 'pending' },
+      { label: 'База данных', status: 'pending' },
+      { label: 'Настройки', status: 'pending' },
+      { label: 'Обложки книг', status: 'pending' }
+    ]);
+
+    // Use appropriate sync method based on provider
+    const result = activeSyncProvider === 's3'
+      ? await window.api.syncUp()
+      : await window.api.cloudSyncUp();
 
     if (result.blocked) {
       const remoteSchema = result.compatibility?.remote?.schemaVersion ?? result.remoteMetadata?.schemaVersion;
       const localSchema = result.compatibility?.local?.schemaVersion ?? '—';
-      alert(`Синхронизация отменена: в облаке более новая версия данных (schema ${remoteSchema ?? 'неизвестно'}; локально ${localSchema}). Обновите приложение и попробуйте снова.`);
+      showSyncResult(false, `Синхронизация отменена: в облаке более новая версия данных.\n\nСхема в облаке: ${remoteSchema ?? 'неизвестно'}\nЛокальная схема: ${localSchema}\n\nОбновите приложение и попробуйте снова.`);
       return;
     }
 
+    // Update progress based on results
+    const steps = [
+      { label: 'Проверка совместимости', status: result.compatibility?.ok !== false ? 'done' : 'error' },
+      { label: 'Метаданные устройства', status: result.metadata?.ok ? 'done' : result.metadata ? 'error' : 'pending' },
+      { label: 'База данных', status: result.database?.ok ? 'done' : result.database ? 'error' : 'pending' },
+      { label: 'Настройки', status: result.settings?.ok ? 'done' : result.settings ? 'error' : 'pending' },
+      { label: `Обложки книг${result.covers?.successful ? ` (${result.covers.successful})` : ''}`, status: result.covers?.ok ? 'done' : result.covers ? 'error' : 'pending' }
+    ];
+    updateSyncProgress(steps);
+
+    // Small delay to show final state
+    await new Promise(r => setTimeout(r, 500));
+
     if (result.success) {
-      alert('✅ Данные успешно загружены на сервер!\n\nЗагружено:\n• База данных\n• Настройки\n• Обложки книг');
+      showSyncResult(true, `Данные успешно загружены в ${activeSyncProviderName}!\n\n• База данных\n• Настройки\n• Обложки книг`);
     } else {
-      console.error('Upload sync errors:', result);
-      alert(`⚠️ Синхронизация завершена с ошибками:\n\n${Object.entries(result)
-        .filter(([key, value]) => key !== 'success' && value && !value.ok)
+      const errors = Object.entries(result)
+        .filter(([key, value]) => key !== 'success' && key !== 'blocked' && value && !value.ok)
         .map(([key, value]) => `• ${key}: ${value.error || 'Ошибка'}`)
-        .join('\n')}`);
+        .join('\n');
+      showSyncResult(false, `Синхронизация завершена с ошибками:\n\n${errors}`);
     }
   } catch (error) {
     console.error('❌ Upload sync failed:', error);
-    alert(`❌ Ошибка загрузки на сервер: ${error.message}`);
+    showSyncResult(false, `Ошибка загрузки:\n\n${error.message}`);
   } finally {
     markActivityDirty();
     if (syncBtn) {
@@ -6905,38 +6927,61 @@ async function syncUp() {
 
 async function syncDown() {
   try {
-    if (syncBtn) {
-      syncBtn.disabled = true;
-      syncBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="6.5"/><path d="M7 7V10.5"/><circle cx="7" cy="4.5" r="0.5" fill="currentColor"/></svg>';
-    }
+    if (syncBtn) syncBtn.disabled = true;
 
-    console.log('📥 Starting download sync...');
-    const result = await window.api.syncDown();
+    // Show progress UI
+    showSyncProgress('download');
+    console.log(`📥 Starting download sync via ${activeSyncProvider}...`);
+
+    updateSyncProgress([
+      { label: 'Проверка совместимости...', status: 'active' },
+      { label: 'База данных', status: 'pending' },
+      { label: 'Настройки', status: 'pending' },
+      { label: 'Обложки книг', status: 'pending' }
+    ]);
+
+    // Use appropriate sync method based on provider
+    const result = activeSyncProvider === 's3'
+      ? await window.api.syncDown()
+      : await window.api.cloudSyncDown();
 
     if (result.blocked) {
       const remoteSchema = result.compatibility?.remote?.schemaVersion ?? result.remoteMetadata?.schemaVersion;
       const localSchema = result.compatibility?.local?.schemaVersion ?? '—';
-      alert(`Синхронизация отменена: в облаке данные с более новой схемой (schema ${remoteSchema ?? 'неизвестно'}; локально ${localSchema}). Обновите приложение перед загрузкой.`);
+      showSyncResult(false, `Синхронизация отменена: в облаке данные с более новой схемой.\n\nСхема в облаке: ${remoteSchema ?? 'неизвестно'}\nЛокальная схема: ${localSchema}\n\nОбновите приложение перед загрузкой.`);
       return;
     }
 
-    if (result.success) {
-      alert('✅ Данные успешно загружены с сервера!\n\nЗагружено:\n• База данных\n• Настройки\n• Обложки книг\n\nПерезагрузите приложение для применения изменений.');
+    // Update progress based on results
+    const steps = [
+      { label: 'Проверка совместимости', status: result.compatibility?.ok !== false ? 'done' : 'error' },
+      { label: 'База данных', status: result.database?.ok ? 'done' : result.database?.notFound ? 'done' : result.database ? 'error' : 'pending' },
+      { label: 'Настройки', status: result.settings?.ok ? 'done' : result.settings?.notFound ? 'done' : result.settings ? 'error' : 'pending' },
+      { label: `Обложки книг${result.covers?.successful ? ` (${result.covers.successful})` : ''}`, status: result.covers?.ok ? 'done' : result.covers ? 'error' : 'pending' }
+    ];
+    updateSyncProgress(steps);
 
-      // Reload app to apply downloaded data
-      if (window.api?.reloadIgnoringCache) {
-        window.api.reloadIgnoringCache();
-      }
+    await new Promise(r => setTimeout(r, 500));
+
+    if (result.success) {
+      showSyncResult(true, `Данные успешно загружены из ${activeSyncProviderName}!\n\n• База данных\n• Настройки\n• Обложки книг\n\nПриложение будет перезагружено.`);
+
+      // Reload after a short delay
+      setTimeout(() => {
+        if (window.api?.reloadIgnoringCache) {
+          window.api.reloadIgnoringCache();
+        }
+      }, 2000);
     } else {
-      console.error('Download sync errors:', result);
-      alert(`⚠️ Синхронизация завершена с ошибками:\n\n${Object.entries(result)
-        .filter(([key, value]) => key !== 'success' && value && !value.ok && !value.notFound)
+      const errors = Object.entries(result)
+        .filter(([key, value]) => key !== 'success' && key !== 'blocked' && value && !value.ok && !value.notFound)
         .map(([key, value]) => `• ${key}: ${value.error || 'Ошибка'}`)
-        .join('\n')}`);
+        .join('\n');
+      showSyncResult(false, `Синхронизация завершена с ошибками:\n\n${errors}`);
     }
   } catch (error) {
     console.error('❌ Download sync failed:', error);
-    alert(`❌ Ошибка загрузки с сервера: ${error.message}`);
+    showSyncResult(false, `Ошибка загрузки с сервера:\n\n${error.message}`);
   } finally {
     markActivityDirty();
     if (syncBtn) {
@@ -6976,6 +7021,196 @@ async function testSyncConnection() {
     testSyncBtn.disabled = false;
   }
 }
+
+// ==================== Cloud Provider Settings ====================
+
+/**
+ * Update sync provider UI based on selected provider
+ */
+async function updateSyncProviderUI(providerType) {
+  // Hide all panels first
+  if (syncSettingsS3) syncSettingsS3.style.display = 'none';
+  if (syncSettingsCloud) syncSettingsCloud.style.display = 'none';
+  if (syncSettingsCommon) syncSettingsCommon.style.display = 'none';
+
+  if (providerType === 'none') {
+    return;
+  }
+
+  if (providerType === 's3') {
+    if (syncSettingsS3) syncSettingsS3.style.display = 'flex';
+    if (syncSettingsCommon) syncSettingsCommon.style.display = 'block';
+    return;
+  }
+
+  // Cloud provider selected
+  if (syncSettingsCloud) syncSettingsCloud.style.display = 'flex';
+  if (syncSettingsCommon) syncSettingsCommon.style.display = 'block';
+
+  // Check if provider is connected
+  try {
+    const result = await window.api.getSyncProviders();
+    if (result.ok) {
+      const provider = result.providers.find(p => p.type === providerType);
+      if (provider && provider.configured) {
+        // Provider is connected
+        if (cloudProviderStatusText) {
+          cloudProviderStatusText.textContent = `✅ Подключено: ${provider.name}`;
+          cloudProviderStatusText.style.color = 'var(--success)';
+        }
+        if (cloudConnectBtn) cloudConnectBtn.style.display = 'none';
+        if (cloudDisconnectBtn) cloudDisconnectBtn.style.display = 'block';
+        if (testCloudSyncBtn) testCloudSyncBtn.style.display = 'block';
+      } else {
+        // Provider not connected
+        if (cloudProviderStatusText) {
+          cloudProviderStatusText.textContent = '⚠️ Не подключено';
+          cloudProviderStatusText.style.color = 'var(--warning)';
+        }
+        if (cloudConnectBtn) cloudConnectBtn.style.display = 'block';
+        if (cloudDisconnectBtn) cloudDisconnectBtn.style.display = 'none';
+        if (testCloudSyncBtn) testCloudSyncBtn.style.display = 'none';
+      }
+    }
+  } catch (error) {
+    console.error('Failed to get provider status:', error);
+  }
+}
+
+/**
+ * Connect to cloud provider via OAuth
+ */
+async function connectCloudProvider() {
+  const providerType = settingsSyncProvider ? settingsSyncProvider.value : null;
+  if (!providerType || providerType === 'none' || providerType === 's3') {
+    return;
+  }
+
+  if (cloudConnectBtn) {
+    cloudConnectBtn.disabled = true;
+    cloudConnectBtn.textContent = '🔄 Подключение...';
+  }
+
+  try {
+    const result = await window.api.cloudConnect(providerType);
+
+    if (result.ok) {
+      if (cloudProviderStatusText) {
+        cloudProviderStatusText.textContent = `✅ Подключено${result.userInfo?.name ? `: ${result.userInfo.name}` : ''}`;
+        cloudProviderStatusText.style.color = 'var(--success)';
+      }
+      if (cloudConnectBtn) cloudConnectBtn.style.display = 'none';
+      if (cloudDisconnectBtn) cloudDisconnectBtn.style.display = 'block';
+      if (testCloudSyncBtn) testCloudSyncBtn.style.display = 'block';
+    } else {
+      alert(`❌ Ошибка подключения:\n${result.error}`);
+    }
+  } catch (error) {
+    alert(`❌ Ошибка: ${error.message}`);
+  } finally {
+    if (cloudConnectBtn) {
+      cloudConnectBtn.disabled = false;
+      cloudConnectBtn.textContent = '🔗 Подключить';
+    }
+  }
+}
+
+/**
+ * Disconnect from cloud provider
+ */
+async function disconnectCloudProvider() {
+  const providerType = settingsSyncProvider ? settingsSyncProvider.value : null;
+  if (!providerType || providerType === 'none' || providerType === 's3') {
+    return;
+  }
+
+  const confirmed = confirm('Отключить облачный провайдер? Токены будут удалены.');
+  if (!confirmed) return;
+
+  try {
+    await window.api.cloudDisconnect(providerType);
+
+    if (cloudProviderStatusText) {
+      cloudProviderStatusText.textContent = '⚠️ Не подключено';
+      cloudProviderStatusText.style.color = 'var(--warning)';
+    }
+    if (cloudConnectBtn) cloudConnectBtn.style.display = 'block';
+    if (cloudDisconnectBtn) cloudDisconnectBtn.style.display = 'none';
+    if (testCloudSyncBtn) testCloudSyncBtn.style.display = 'none';
+
+    // Reset provider to none
+    if (settingsSyncProvider) settingsSyncProvider.value = 'none';
+    await updateSyncProviderUI('none');
+  } catch (error) {
+    alert(`❌ Ошибка: ${error.message}`);
+  }
+}
+
+/**
+ * Test cloud provider connection
+ */
+async function testCloudConnection() {
+  const providerType = settingsSyncProvider ? settingsSyncProvider.value : null;
+  if (!providerType || providerType === 'none' || providerType === 's3') {
+    return;
+  }
+
+  if (testCloudSyncBtn) {
+    testCloudSyncBtn.disabled = true;
+    testCloudSyncBtn.textContent = '🔄 Проверка...';
+  }
+
+  try {
+    const result = await window.api.cloudTestConnection(providerType);
+
+    if (result.ok) {
+      if (testCloudSyncBtn) testCloudSyncBtn.textContent = '✅ Подключение OK';
+      setTimeout(() => {
+        if (testCloudSyncBtn) {
+          testCloudSyncBtn.textContent = '🔗 Проверить подключение';
+          testCloudSyncBtn.disabled = false;
+        }
+      }, 2000);
+    } else {
+      alert(`❌ Ошибка подключения:\n${result.error}`);
+      if (testCloudSyncBtn) {
+        testCloudSyncBtn.textContent = '❌ Ошибка';
+        setTimeout(() => {
+          testCloudSyncBtn.textContent = '🔗 Проверить подключение';
+          testCloudSyncBtn.disabled = false;
+        }, 2000);
+      }
+    }
+  } catch (error) {
+    alert(`❌ Ошибка: ${error.message}`);
+    if (testCloudSyncBtn) {
+      testCloudSyncBtn.textContent = '🔗 Проверить подключение';
+      testCloudSyncBtn.disabled = false;
+    }
+  }
+}
+
+// Event listeners for cloud provider settings
+if (settingsSyncProvider) {
+  settingsSyncProvider.addEventListener('change', async () => {
+    const providerType = settingsSyncProvider.value;
+    await updateSyncProviderUI(providerType);
+  });
+}
+
+if (cloudConnectBtn) {
+  cloudConnectBtn.addEventListener('click', connectCloudProvider);
+}
+
+if (cloudDisconnectBtn) {
+  cloudDisconnectBtn.addEventListener('click', disconnectCloudProvider);
+}
+
+if (testCloudSyncBtn) {
+  testCloudSyncBtn.addEventListener('click', testCloudConnection);
+}
+
+// ==================== End Cloud Provider Settings ====================
 
 // Auto sync on app start
 async function autoSyncOnStart() {
