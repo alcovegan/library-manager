@@ -7,8 +7,11 @@
 
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { v4: uuidv4 } = require('uuid');
 const { cloudProviderFactory } = require('./providerFactory');
+const { exportDatabaseToPayload, importPayloadWithMerge } = require('./syncDatabase');
+const settings = require('../settings');
 
 /**
  * @typedef {import('./providers/base')} BaseCloudProvider
@@ -18,6 +21,7 @@ const { cloudProviderFactory } = require('./providerFactory');
 // Sync paths in cloud storage
 const SYNC_PATHS = {
   database: 'library.db',
+  syncData: 'sync-data.json',
   metadata: 'sync-metadata.json',
   settings: 'settings.json',
   covers: 'covers/',
@@ -40,6 +44,7 @@ class CloudSyncManager {
       schemaVersion: 0,
       appVersion: '0.0.0'
     };
+    this.dbContext = null; // Database context for entity-level sync
   }
 
   /**
@@ -79,6 +84,14 @@ class CloudSyncManager {
   }
 
   /**
+   * Set database context for entity-level sync
+   * @param {object} ctx - Database context with db property (sql.js database instance)
+   */
+  setDbContext(ctx) {
+    this.dbContext = ctx;
+  }
+
+  /**
    * Get or create unique device ID
    */
   async getOrCreateDeviceId() {
@@ -106,6 +119,74 @@ class CloudSyncManager {
     } catch (error) {
       console.error('❌ Failed to get/create device ID:', error.message);
       throw error;
+    }
+  }
+
+  /**
+   * Save the cloud syncedAt timestamp locally (to track if we're up-to-date)
+   */
+  saveLastSyncedAt(syncedAt) {
+    const syncedAtPath = path.join(this.userDataPath, 'data', 'last-synced-at.txt');
+    try {
+      const dir = path.dirname(syncedAtPath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(syncedAtPath, syncedAt);
+      console.log('📅 Saved last synced at:', syncedAt);
+    } catch (error) {
+      console.error('❌ Failed to save last synced at:', error.message);
+    }
+  }
+
+  /**
+   * Get the last known cloud syncedAt timestamp
+   */
+  getLastSyncedAt() {
+    const syncedAtPath = path.join(this.userDataPath, 'data', 'last-synced-at.txt');
+    try {
+      if (fs.existsSync(syncedAtPath)) {
+        return fs.readFileSync(syncedAtPath, 'utf-8').trim();
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  }
+
+  /**
+   * Check if local data is up-to-date with cloud
+   */
+  isDataUpToDate(cloudSyncedAt) {
+    const localSyncedAt = this.getLastSyncedAt();
+    if (!localSyncedAt) return false;
+
+    // Compare timestamps - if local >= cloud, we're up to date
+    return new Date(localSyncedAt).getTime() >= new Date(cloudSyncedAt).getTime();
+  }
+
+  /**
+   * Save lastSyncTime to settings (when WE last synced - up or down)
+   */
+  saveLastSyncTime(timestamp) {
+    try {
+      this.lastSyncTime = timestamp;
+      settings.updateSettings({ lastCloudSyncTime: timestamp });
+      console.log('📅 Saved lastSyncTime:', timestamp);
+    } catch (error) {
+      console.error('❌ Failed to save lastSyncTime:', error.message);
+    }
+  }
+
+  /**
+   * Get lastSyncTime from settings
+   */
+  getLastSyncTime() {
+    try {
+      const s = settings.getSettings();
+      return s.lastCloudSyncTime || this.lastSyncTime || null;
+    } catch {
+      return this.lastSyncTime || null;
     }
   }
 
@@ -196,16 +277,19 @@ class CloudSyncManager {
     }
 
     try {
+      const syncedAt = new Date().toISOString();
       const payload = {
         schemaVersion: Number(this.syncContext.schemaVersion || 0),
         appVersion: this.syncContext.appVersion || '0.0.0',
         deviceId: this.deviceId,
-        syncedAt: new Date().toISOString()
+        deviceName: os.hostname() || 'Desktop',
+        platform: process.platform,
+        syncedAt
       };
-      console.log('📤 Uploading sync metadata:', payload);
+      console.log('📤 Uploading sync metadata, syncedAt:', syncedAt);
 
       await this.provider.uploadJson(SYNC_PATHS.metadata, payload);
-      return { ok: true };
+      return { ok: true, syncedAt };
     } catch (error) {
       console.error('❌ Failed to upload sync metadata:', error.message);
       return { ok: false, error: error.message };
@@ -287,7 +371,7 @@ class CloudSyncManager {
       await this.provider.uploadFile(dbPath, SYNC_PATHS.database);
 
       console.log('✅ Database uploaded successfully');
-      this.lastSyncTime = new Date().toISOString();
+      this.saveLastSyncTime(new Date().toISOString());
       return { ok: true };
     } catch (error) {
       console.error('❌ Failed to upload database:', error.message);
@@ -310,13 +394,103 @@ class CloudSyncManager {
       await this.provider.downloadFile(SYNC_PATHS.database, dbPath);
 
       console.log('✅ Database downloaded successfully');
-      this.lastSyncTime = new Date().toISOString();
+      this.saveLastSyncTime(new Date().toISOString());
       return { ok: true };
     } catch (error) {
       if (error.message.includes('not found')) {
         return { ok: false, notFound: true, error: 'Database not found in cloud' };
       }
       console.error('❌ Failed to download database:', error.message);
+      return { ok: false, error: error.message };
+    }
+  }
+
+  /**
+   * Upload sync data as JSON (entity-level sync)
+   * Exports all entities and uploads as sync-data.json
+   */
+  async uploadSyncData() {
+    if (!this.isInitialized || !this.provider) {
+      throw new Error('Sync manager not initialized');
+    }
+
+    if (!this.dbContext) {
+      console.log('⚠️ Database context not set, falling back to uploadDatabase');
+      return this.uploadDatabase();
+    }
+
+    try {
+      const deviceName = os.hostname() || 'Desktop';
+      const platform = process.platform;
+
+      console.log('📤 Exporting database to sync payload...');
+      const payload = exportDatabaseToPayload(this.dbContext, this.deviceId, deviceName, platform);
+
+      console.log('📤 Uploading sync data:', {
+        books: payload.entities.books.length,
+        authors: payload.entities.authors.length,
+        collections: payload.entities.collections.length
+      });
+
+      await this.provider.uploadJson(SYNC_PATHS.syncData, payload);
+
+      console.log('✅ Sync data uploaded successfully');
+      this.saveLastSyncTime(new Date().toISOString());
+      return { ok: true, payload };
+    } catch (error) {
+      console.error('❌ Failed to upload sync data:', error.message);
+      return { ok: false, error: error.message };
+    }
+  }
+
+  /**
+   * Download and merge sync data (entity-level sync)
+   * Downloads sync-data.json and merges with local database using LWW
+   */
+  async downloadAndMergeSyncData() {
+    if (!this.isInitialized || !this.provider) {
+      throw new Error('Sync manager not initialized');
+    }
+
+    if (!this.dbContext) {
+      console.log('⚠️ Database context not set, falling back to downloadDatabase');
+      return this.downloadDatabase();
+    }
+
+    try {
+      console.log('📥 Downloading sync data...');
+
+      let remotePayload;
+      try {
+        remotePayload = await this.provider.downloadJson(SYNC_PATHS.syncData);
+      } catch (error) {
+        if (error.message.includes('not found') || error.message.includes('404')) {
+          console.log('📄 Sync data not found in cloud, trying legacy database download');
+          return this.downloadDatabase();
+        }
+        throw error;
+      }
+
+      if (!remotePayload) {
+        console.log('📄 Sync data not found, trying legacy database download');
+        return this.downloadDatabase();
+      }
+
+      console.log('📥 Remote payload received:', {
+        version: remotePayload.version,
+        schemaVersion: remotePayload.schemaVersion,
+        deviceId: remotePayload.deviceId,
+        books: remotePayload.entities?.books?.length || 0
+      });
+
+      console.log('🔀 Merging with local database...');
+      const mergeSummary = importPayloadWithMerge(this.dbContext, remotePayload);
+
+      console.log('✅ Sync data merged successfully:', mergeSummary);
+      this.saveLastSyncTime(new Date().toISOString());
+      return { ok: true, mergeSummary };
+    } catch (error) {
+      console.error('❌ Failed to download/merge sync data:', error.message);
       return { ok: false, error: error.message };
     }
   }
@@ -533,7 +707,7 @@ class CloudSyncManager {
       compatibility: null,
       remoteMetadata: null,
       metadata: null,
-      database: null,
+      syncData: null,
       settings: null,
       covers: null,
       sharedMetadata: null,
@@ -556,12 +730,12 @@ class CloudSyncManager {
       results.remoteMetadata = compatibility.data;
 
       results.metadata = await this.uploadDeviceMetadata();
-      results.database = await this.uploadDatabase();
+      results.syncData = await this.uploadSyncData();
       results.settings = await this.uploadSettings();
       results.covers = await this.uploadCovers();
 
       const allSuccessful = results.metadata.ok &&
-                           results.database.ok &&
+                           results.syncData.ok &&
                            results.settings.ok &&
                            results.covers.ok;
 
@@ -571,9 +745,11 @@ class CloudSyncManager {
 
       results.success = allSuccessful && (!results.sharedMetadata || results.sharedMetadata.ok);
 
-      if (results.success) {
+      if (results.success && results.sharedMetadata?.syncedAt) {
         console.log('✅ Cloud upload sync completed successfully');
-      } else {
+        // Save the SAME syncedAt we sent to cloud (so isUpToDate will be true)
+        this.saveLastSyncedAt(results.sharedMetadata.syncedAt);
+      } else if (!results.success) {
         console.log('⚠️ Upload sync completed with some errors');
       }
 
@@ -597,7 +773,7 @@ class CloudSyncManager {
     const results = {
       compatibility: null,
       remoteMetadata: null,
-      database: null,
+      syncData: null,
       settings: null,
       covers: null,
       blocked: false,
@@ -618,11 +794,11 @@ class CloudSyncManager {
       }
       results.remoteMetadata = compatibility.data;
 
-      results.database = await this.downloadDatabase();
+      results.syncData = await this.downloadAndMergeSyncData();
       results.settings = await this.downloadSettings();
       results.covers = await this.downloadCovers();
 
-      const allSuccessful = (results.database.ok || results.database?.notFound) &&
+      const allSuccessful = (results.syncData.ok || results.syncData?.notFound) &&
                            (results.settings.ok || results.settings?.notFound) &&
                            (results.covers && results.covers.ok);
 
@@ -630,8 +806,10 @@ class CloudSyncManager {
 
       if (allSuccessful) {
         console.log('✅ Cloud download sync completed successfully');
-        await this.uploadDeviceMetadata();
-        await this.uploadSharedMetadata();
+        // Save the cloud syncedAt locally so we know we have this data
+        if (results.remoteMetadata?.syncedAt) {
+          this.saveLastSyncedAt(results.remoteMetadata.syncedAt);
+        }
       } else {
         console.log('⚠️ Download sync completed with some errors');
       }
@@ -676,6 +854,13 @@ class CloudSyncManager {
       console.error('❌ Failed to get sync status:', error.message);
       return { ok: false, error: error.message };
     }
+  }
+
+  /**
+   * Get current device ID
+   */
+  getDeviceId() {
+    return this.deviceId;
   }
 }
 

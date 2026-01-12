@@ -389,6 +389,46 @@ async function migrate(ctx) {
     setSchemaVersion(ctx, 15);
     persist(ctx);
   }
+
+  // v16: Soft delete support for entity-level sync
+  if (getSchemaVersion(ctx) === 15) {
+    console.log('[DB] Running migration v15 -> v16: Adding deleted_at columns');
+    ctx.db.exec(`
+      ALTER TABLE books ADD COLUMN deleted_at TEXT;
+      CREATE INDEX IF NOT EXISTS idx_books_deleted_at ON books(deleted_at);
+    `);
+    ctx.db.exec(`
+      ALTER TABLE authors ADD COLUMN updatedAt TEXT;
+      ALTER TABLE authors ADD COLUMN deleted_at TEXT;
+      CREATE INDEX IF NOT EXISTS idx_authors_deleted_at ON authors(deleted_at);
+    `);
+    ctx.db.exec(`
+      ALTER TABLE collections ADD COLUMN deleted_at TEXT;
+      CREATE INDEX IF NOT EXISTS idx_collections_deleted_at ON collections(deleted_at);
+    `);
+    ctx.db.exec(`
+      ALTER TABLE storage_locations ADD COLUMN deleted_at TEXT;
+      CREATE INDEX IF NOT EXISTS idx_storage_locations_deleted_at ON storage_locations(deleted_at);
+    `);
+    ctx.db.exec(`
+      ALTER TABLE reading_sessions ADD COLUMN deleted_at TEXT;
+      CREATE INDEX IF NOT EXISTS idx_reading_sessions_deleted_at ON reading_sessions(deleted_at);
+    `);
+    ctx.db.exec(`
+      ALTER TABLE filter_presets ADD COLUMN deleted_at TEXT;
+      CREATE INDEX IF NOT EXISTS idx_filter_presets_deleted_at ON filter_presets(deleted_at);
+    `);
+    ctx.db.exec(`
+      ALTER TABLE vocab_custom ADD COLUMN deleted_at TEXT;
+      CREATE INDEX IF NOT EXISTS idx_vocab_custom_deleted_at ON vocab_custom(deleted_at);
+    `);
+    ctx.db.exec(`
+      ALTER TABLE book_storage_history ADD COLUMN deleted_at TEXT;
+    `);
+    setSchemaVersion(ctx, 16);
+    persist(ctx);
+    console.log('[DB] Migration v16 completed');
+  }
 }
 
 function ensureAuthor(ctx, name) {
@@ -463,54 +503,56 @@ function rowsToValues(res) {
 
 function listVocabulary(ctx) {
   const bucket = emptyVocabBucket();
-  // Authors
+  // Authors (exclude deleted authors and books)
   const authorsRows = rowsToValues(ctx.db.exec(`
     SELECT a.name AS value, COUNT(ba.bookId) AS usageCount
     FROM authors a
     LEFT JOIN book_authors ba ON ba.authorId = a.id
+    LEFT JOIN books b ON b.id = ba.bookId AND b.deleted_at IS NULL
+    WHERE a.deleted_at IS NULL
     GROUP BY a.id
     ORDER BY lower(a.name)
   `));
   authorsRows.forEach(([value, count]) => addVocabEntry(bucket, 'authors', value, count, 'books'));
-  // Series
+  // Series (exclude deleted books)
   const seriesRows = rowsToValues(ctx.db.exec(`
     SELECT series AS value, COUNT(*) AS usageCount
     FROM books
-    WHERE series IS NOT NULL AND TRIM(series) != ''
+    WHERE series IS NOT NULL AND TRIM(series) != '' AND deleted_at IS NULL
     GROUP BY series
     ORDER BY lower(series)
   `));
   seriesRows.forEach(([value, count]) => addVocabEntry(bucket, 'series', value, count, 'books'));
-  // Publisher
+  // Publisher (exclude deleted books)
   const publisherRows = rowsToValues(ctx.db.exec(`
     SELECT publisher AS value, COUNT(*) AS usageCount
     FROM books
-    WHERE publisher IS NOT NULL AND TRIM(publisher) != ''
+    WHERE publisher IS NOT NULL AND TRIM(publisher) != '' AND deleted_at IS NULL
     GROUP BY publisher
     ORDER BY lower(publisher)
   `));
   publisherRows.forEach(([value, count]) => addVocabEntry(bucket, 'publisher', value, count, 'books'));
-  // Genres
+  // Genres (exclude deleted books)
   const genresRows = rowsToValues(ctx.db.exec(`
     SELECT trim(json_each.value) AS value, COUNT(*) AS usageCount
     FROM books, json_each(books.genres)
-    WHERE json_valid(books.genres) = 1 AND json_type(books.genres) = 'array' AND trim(json_each.value) != ''
+    WHERE json_valid(books.genres) = 1 AND json_type(books.genres) = 'array' AND trim(json_each.value) != '' AND books.deleted_at IS NULL
     GROUP BY value
     ORDER BY lower(value)
   `));
   genresRows.forEach(([value, count]) => addVocabEntry(bucket, 'genres', value, count, 'books'));
-  // Tags
+  // Tags (exclude deleted books)
   const tagsRows = rowsToValues(ctx.db.exec(`
     SELECT trim(json_each.value) AS value, COUNT(*) AS usageCount
     FROM books, json_each(books.tags)
-    WHERE json_valid(books.tags) = 1 AND json_type(books.tags) = 'array' AND trim(json_each.value) != ''
+    WHERE json_valid(books.tags) = 1 AND json_type(books.tags) = 'array' AND trim(json_each.value) != '' AND books.deleted_at IS NULL
     GROUP BY value
     ORDER BY lower(value)
   `));
   tagsRows.forEach(([value, count]) => addVocabEntry(bucket, 'tags', value, count, 'books'));
-  // Custom entries
+  // Custom entries (exclude deleted)
   const customRows = rowsToValues(ctx.db.exec(`
-    SELECT id, domain, value FROM vocab_custom ORDER BY lower(value)
+    SELECT id, domain, value FROM vocab_custom WHERE deleted_at IS NULL ORDER BY lower(value)
   `));
   customRows.forEach(([id, domain, value]) => addVocabEntry(bucket, domain, value, 0, 'custom', { id }));
   const collator = new Intl.Collator('ru', { sensitivity: 'base', numeric: true });
@@ -536,10 +578,14 @@ function addCustomVocabularyEntry(ctx, domain, value) {
 }
 
 function deleteCustomVocabularyEntry(ctx, id) {
-  const stmt = ctx.db.prepare('DELETE FROM vocab_custom WHERE id = ?');
-  stmt.bind([id]);
+  const now = new Date().toISOString();
+
+  // Soft delete the vocab entry
+  const stmt = ctx.db.prepare('UPDATE vocab_custom SET deleted_at = ?, updatedAt = ? WHERE id = ?');
+  stmt.bind([now, now, id]);
   stmt.step();
   stmt.free();
+
   persist(ctx);
 }
 
@@ -554,8 +600,9 @@ function updateCustomEntryValue(ctx, domain, fromValue, toValue) {
     stmt.free();
     const message = String(error?.message || '').toLowerCase();
     if (message.includes('unique')) {
-      const del = ctx.db.prepare('DELETE FROM vocab_custom WHERE domain = ? AND value = ?');
-      del.bind([domain, fromValue]);
+      // Soft delete the duplicate entry
+      const del = ctx.db.prepare('UPDATE vocab_custom SET deleted_at = ?, updatedAt = ? WHERE domain = ? AND value = ?');
+      del.bind([now, now, domain, fromValue]);
       del.step();
       del.free();
     } else {
@@ -690,7 +737,7 @@ function listVocabularyBooks(ctx, domain, value, options = {}) {
         FROM books b
         JOIN book_authors ba ON ba.bookId = b.id
         JOIN authors a ON a.id = ba.authorId
-        WHERE a.name = ?
+        WHERE a.name = ? AND b.deleted_at IS NULL AND a.deleted_at IS NULL
         ORDER BY lower(b.title)
         LIMIT ?
       `);
@@ -705,7 +752,7 @@ function listVocabularyBooks(ctx, domain, value, options = {}) {
       const stmt = ctx.db.prepare(`
         SELECT id
         FROM books
-        WHERE TRIM(COALESCE(series, '')) = ?
+        WHERE TRIM(COALESCE(series, '')) = ? AND deleted_at IS NULL
         ORDER BY lower(title)
         LIMIT ?
       `);
@@ -720,7 +767,7 @@ function listVocabularyBooks(ctx, domain, value, options = {}) {
       const stmt = ctx.db.prepare(`
         SELECT id
         FROM books
-        WHERE TRIM(COALESCE(publisher, '')) = ?
+        WHERE TRIM(COALESCE(publisher, '')) = ? AND deleted_at IS NULL
         ORDER BY lower(title)
         LIMIT ?
       `);
@@ -743,6 +790,7 @@ function listVocabularyBooks(ctx, domain, value, options = {}) {
             SELECT 1 FROM json_each(${column})
             WHERE trim(json_each.value) = ?
           )
+          AND deleted_at IS NULL
         ORDER BY lower(title)
         LIMIT ?
       `);
@@ -837,7 +885,8 @@ function listBooks(ctx) {
       rs.startedAt AS readingStartedAt,
       rs.finishedAt AS readingFinishedAt
     FROM books b
-    LEFT JOIN reading_sessions rs ON rs.id = b.currentReadingSessionId
+    LEFT JOIN reading_sessions rs ON rs.id = b.currentReadingSessionId AND rs.deleted_at IS NULL
+    WHERE b.deleted_at IS NULL
     ORDER BY b.title COLLATE NOCASE
   `);
   const rows = res[0] ? res[0].values : [];
@@ -942,7 +991,7 @@ function getBookById(ctx, id) {
         LIMIT 1
       ) AS latestCreatedAt
     FROM books b
-    WHERE b.id = '${safeId}'
+    WHERE b.id = '${safeId}' AND b.deleted_at IS NULL
     LIMIT 1
   `);
   if (!res[0] || !res[0].values.length) return null;
@@ -1022,7 +1071,7 @@ function encodeJson(value) {
 }
 
 function listCollections(ctx) {
-  const res = ctx.db.exec('SELECT id, name, type, filters, created_at, updated_at FROM collections ORDER BY name COLLATE NOCASE');
+  const res = ctx.db.exec('SELECT id, name, type, filters, created_at, updated_at FROM collections WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE');
   const rows = res[0] ? res[0].values : [];
   const map = new Map();
   rows.forEach(([id, name, type, filters, createdAt, updatedAt]) => {
@@ -1037,7 +1086,8 @@ function listCollections(ctx) {
     });
   });
   if (map.size) {
-    const rel = ctx.db.exec('SELECT collectionId, bookId FROM collection_books');
+    // Only include books that aren't deleted
+    const rel = ctx.db.exec('SELECT cb.collectionId, cb.bookId FROM collection_books cb JOIN books b ON b.id = cb.bookId WHERE b.deleted_at IS NULL');
     if (rel[0]) {
       rel[0].values.forEach(([collectionId, bookId]) => {
         const col = map.get(collectionId);
@@ -1049,7 +1099,7 @@ function listCollections(ctx) {
 }
 
 function getCollectionById(ctx, id) {
-  const stmt = ctx.db.prepare('SELECT id, name, type, filters, created_at, updated_at FROM collections WHERE id = ?');
+  const stmt = ctx.db.prepare('SELECT id, name, type, filters, created_at, updated_at FROM collections WHERE id = ? AND deleted_at IS NULL');
   stmt.bind([id]);
   let row = null;
   if (stmt.step()) {
@@ -1066,7 +1116,8 @@ function getCollectionById(ctx, id) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
-  const rel = ctx.db.exec(`SELECT bookId FROM collection_books WHERE collectionId = '${String(row.id).replace(/'/g, "''")}'`);
+  // Only include books that aren't deleted
+  const rel = ctx.db.exec(`SELECT cb.bookId FROM collection_books cb JOIN books b ON b.id = cb.bookId WHERE cb.collectionId = '${String(row.id).replace(/'/g, "''")}' AND b.deleted_at IS NULL`);
   if (rel[0]) {
     collection.books = rel[0].values.map(v => v[0]);
   }
@@ -1074,7 +1125,7 @@ function getCollectionById(ctx, id) {
 }
 
 function getCollectionByName(ctx, name) {
-  const stmt = ctx.db.prepare('SELECT id FROM collections WHERE name = ?');
+  const stmt = ctx.db.prepare('SELECT id FROM collections WHERE name = ? AND deleted_at IS NULL');
   stmt.bind([name]);
   let id = null;
   if (stmt.step()) {
@@ -1139,14 +1190,14 @@ function updateCollection(ctx, { id, name = null, type = null, filters = undefin
 }
 
 function deleteCollection(ctx, id) {
-  const delBooks = ctx.db.prepare('DELETE FROM collection_books WHERE collectionId = ?');
-  delBooks.bind([id]);
-  delBooks.step();
-  delBooks.free();
-  const del = ctx.db.prepare('DELETE FROM collections WHERE id = ?');
-  del.bind([id]);
-  del.step();
-  del.free();
+  const now = new Date().toISOString();
+
+  // Soft delete the collection
+  const stmt = ctx.db.prepare('UPDATE collections SET deleted_at = ?, updated_at = ? WHERE id = ?');
+  stmt.bind([now, now, id]);
+  stmt.step();
+  stmt.free();
+
   persist(ctx);
   return true;
 }
@@ -1227,7 +1278,7 @@ function removeBookFromAllCollections(ctx, bookId) {
 }
 
 function listFilterPresets(ctx) {
-  const res = ctx.db.exec('SELECT id, name, slug, filters, created_at, updated_at FROM filter_presets ORDER BY created_at DESC');
+  const res = ctx.db.exec('SELECT id, name, slug, filters, created_at, updated_at FROM filter_presets WHERE deleted_at IS NULL ORDER BY created_at DESC');
   if (!res[0]) return [];
   return res[0].values.map(([id, name, slug, filters, createdAt, updatedAt]) => ({
     id,
@@ -1240,7 +1291,7 @@ function listFilterPresets(ctx) {
 }
 
 function getFilterPresetById(ctx, id) {
-  const stmt = ctx.db.prepare('SELECT id, name, slug, filters, created_at, updated_at FROM filter_presets WHERE id = ?');
+  const stmt = ctx.db.prepare('SELECT id, name, slug, filters, created_at, updated_at FROM filter_presets WHERE id = ? AND deleted_at IS NULL');
   stmt.bind([id]);
   let row = null;
   if (stmt.step()) {
@@ -1260,7 +1311,7 @@ function getFilterPresetById(ctx, id) {
 
 function getFilterPresetBySlug(ctx, slug) {
   if (!slug) return null;
-  const stmt = ctx.db.prepare('SELECT id, name, slug, filters, created_at, updated_at FROM filter_presets WHERE slug = ?');
+  const stmt = ctx.db.prepare('SELECT id, name, slug, filters, created_at, updated_at FROM filter_presets WHERE slug = ? AND deleted_at IS NULL');
   stmt.bind([slug]);
   let row = null;
   if (stmt.step()) {
@@ -1317,10 +1368,14 @@ function updateFilterPreset(ctx, { id, name = undefined, filters = undefined, sl
 }
 
 function deleteFilterPreset(ctx, id) {
-  const stmt = ctx.db.prepare('DELETE FROM filter_presets WHERE id = ?');
-  stmt.bind([id]);
+  const now = new Date().toISOString();
+
+  // Soft delete the filter preset
+  const stmt = ctx.db.prepare('UPDATE filter_presets SET deleted_at = ?, updated_at = ? WHERE id = ?');
+  stmt.bind([now, now, id]);
   stmt.step();
   stmt.free();
+
   persist(ctx);
   return true;
 }
@@ -1427,7 +1482,7 @@ function createBook(ctx, { title, authors = [], coverPath = null, series=null, s
 }
 
 function listStorageLocations(ctx) {
-  const res = ctx.db.exec('SELECT id, code, title, note, is_active, sort_order, created_at, updated_at FROM storage_locations ORDER BY is_active DESC, sort_order ASC, code COLLATE NOCASE');
+  const res = ctx.db.exec('SELECT id, code, title, note, is_active, sort_order, created_at, updated_at FROM storage_locations WHERE deleted_at IS NULL ORDER BY is_active DESC, sort_order ASC, code COLLATE NOCASE');
   const rows = res[0] ? res[0].values : [];
   return rows.map(([id, code, title, note, isActive, sortOrder, createdAt, updatedAt]) => ({
     id,
@@ -1643,14 +1698,14 @@ function setBookStorageLocation(ctx, bookId, storageLocationId) {
 
 function deleteBook(ctx, id) {
   const bookId = String(id);
-  const delCollections = ctx.db.prepare('DELETE FROM collection_books WHERE bookId = ?');
-  delCollections.bind([bookId]);
-  delCollections.step();
-  delCollections.free();
-  const del = ctx.db.prepare('DELETE FROM books WHERE id = ?');
-  del.bind([bookId]);
-  del.step();
-  del.free();
+  const now = new Date().toISOString();
+
+  // Soft delete the book
+  const stmt = ctx.db.prepare('UPDATE books SET deleted_at = ?, updatedAt = ? WHERE id = ?');
+  stmt.bind([now, now, bookId]);
+  stmt.step();
+  stmt.free();
+
   persist(ctx);
   return true;
 }
@@ -2170,6 +2225,46 @@ function importReadingSession(ctx, session) {
   stmt.free();
 }
 
+/**
+ * Get count of local changes since last sync
+ * @param {Object} ctx - Database context
+ * @param {string|null} lastSyncedAt - ISO timestamp of last sync, null if never synced
+ * @returns {Object} Pending changes by entity type
+ */
+function getPendingLocalChanges(ctx, lastSyncedAt) {
+  const countQuery = (table, updatedAtColumn = 'updatedAt') => {
+    const cond = lastSyncedAt
+      ? `${updatedAtColumn} > '${lastSyncedAt.replace(/'/g, "''")}' AND deleted_at IS NULL`
+      : 'deleted_at IS NULL';
+    const res = ctx.db.exec(`SELECT COUNT(*) as count FROM ${table} WHERE ${cond}`);
+    if (!res[0] || !res[0].values[0]) return 0;
+    return res[0].values[0][0] || 0;
+  };
+
+  const books = countQuery('books', 'updatedAt');
+  const authors = countQuery('authors', 'updatedAt');
+  const collections = countQuery('collections', 'updated_at');
+  const readingSessions = countQuery('reading_sessions', 'updatedAt');
+  const storageLocations = countQuery('storage_locations', 'updated_at');
+  const filterPresets = countQuery('filter_presets', 'updated_at');
+  const vocabCustom = countQuery('vocab_custom', 'updatedAt');
+
+  const total =
+    books + authors + collections + readingSessions + storageLocations + filterPresets + vocabCustom;
+
+  return {
+    books,
+    authors,
+    collections,
+    readingSessions,
+    storageLocations,
+    filterPresets,
+    vocabCustom,
+    total,
+    hasChanges: total > 0,
+  };
+}
+
 module.exports = {
   openDb,
   migrate,
@@ -2234,4 +2329,5 @@ module.exports = {
   importFilterPreset,
   importCustomVocabulary,
   importReadingSession,
+  getPendingLocalChanges,
 };
