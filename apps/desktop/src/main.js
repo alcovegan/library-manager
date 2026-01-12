@@ -1999,6 +1999,54 @@ ipcMain.handle('cloud:testConnection', async (_event, providerType) => {
   }
 });
 
+ipcMain.handle('cloud:getRemoteSyncInfo', async (_event, providerType) => {
+  try {
+    console.log('[cloud:getRemoteSyncInfo] Starting for provider:', providerType);
+
+    // Load tokens if not already loaded
+    const tokensLoaded = syncSettings.loadProviderTokens(providerType);
+    console.log('[cloud:getRemoteSyncInfo] Tokens loaded:', tokensLoaded);
+
+    // Initialize cloud sync manager if needed
+    if (!cloudSyncManager.isInitialized) {
+      console.log('[cloud:getRemoteSyncInfo] Initializing cloudSyncManager...');
+      await cloudSyncManager.initialize(app.getPath('userData'), providerType);
+    } else {
+      console.log('[cloud:getRemoteSyncInfo] cloudSyncManager already initialized');
+    }
+
+    // Get remote sync metadata
+    console.log('[cloud:getRemoteSyncInfo] Downloading shared metadata...');
+    const meta = await cloudSyncManager.downloadSharedMetadata();
+    console.log('[cloud:getRemoteSyncInfo] Metadata result:', JSON.stringify(meta));
+
+    if (!meta.ok) {
+      console.log('[cloud:getRemoteSyncInfo] Metadata fetch failed:', meta.error);
+      return { ok: false, error: meta.error };
+    }
+
+    const currentDeviceId = cloudSyncManager.getDeviceId();
+    console.log('[cloud:getRemoteSyncInfo] Current device ID:', currentDeviceId);
+    console.log('[cloud:getRemoteSyncInfo] Remote device ID:', meta.data?.deviceId);
+
+    // Check if local data is up to date with cloud
+    const info = meta.data || null;
+    if (info && info.syncedAt) {
+      info.isUpToDate = cloudSyncManager.isDataUpToDate(info.syncedAt);
+      console.log('[cloud:getRemoteSyncInfo] isUpToDate:', info.isUpToDate);
+    }
+
+    return {
+      ok: true,
+      info,
+      currentDeviceId
+    };
+  } catch (e) {
+    console.error('[cloud:getRemoteSyncInfo] Error:', e);
+    return { ok: false, error: String(e?.message || e) };
+  }
+});
+
 ipcMain.handle('cloud:syncUp', async () => {
   try {
     const activeProvider = syncSettings.getActiveProvider();
@@ -2013,6 +2061,9 @@ ipcMain.handle('cloud:syncUp', async () => {
     if (!cloudSyncManager.isInitialized) {
       await cloudSyncManager.initialize(app.getPath('userData'), activeProvider);
     }
+
+    // Set database context for entity-level sync (db is already the context object)
+    cloudSyncManager.setDbContext(db);
 
     const result = await cloudSyncManager.syncUp();
 
@@ -2045,11 +2096,15 @@ ipcMain.handle('cloud:syncDown', async () => {
       await cloudSyncManager.initialize(app.getPath('userData'), activeProvider);
     }
 
+    // Set database context for entity-level sync (db is already the context object)
+    cloudSyncManager.setDbContext(db);
+
     const result = await cloudSyncManager.syncDown();
 
-    // Reload database after successful sync
-    if (result.success && result.database && result.database.ok) {
-      console.log('🔄 Reloading database from disk after cloud sync...');
+    // For entity-level sync, database is merged in-place, no need to reload
+    // But if we fell back to legacy database download, reload it
+    if (result.success && result.syncData && !result.syncData.mergeSummary) {
+      console.log('🔄 Reloading database from disk after legacy sync...');
       db = await dbLayer.openDb(app.getPath('userData'));
       await dbLayer.migrate(db);
       console.log('✅ Database reloaded successfully');
@@ -2064,6 +2119,26 @@ ipcMain.handle('cloud:syncDown', async () => {
     });
 
     return result;
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+});
+
+ipcMain.handle('cloud:getPendingChanges', async () => {
+  try {
+    // Use the persisted lastSyncTime from cloudSyncManager
+    const lastSyncedAt = cloudSyncManager.getLastSyncTime();
+    const pending = dbLayer.getPendingLocalChanges(db, lastSyncedAt);
+    return { ok: true, pending, lastSyncedAt };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+});
+
+ipcMain.handle('cloud:getLastSyncTime', async () => {
+  try {
+    const lastSyncTime = cloudSyncManager.getLastSyncTime();
+    return { ok: true, lastSyncTime };
   } catch (e) {
     return { ok: false, error: String(e?.message || e) };
   }

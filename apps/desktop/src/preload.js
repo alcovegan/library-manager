@@ -173,8 +173,11 @@ contextBridge.exposeInMainWorld('api', {
   cloudConnect: (providerType) => ipcRenderer.invoke('cloud:connect', providerType),
   cloudDisconnect: (providerType) => ipcRenderer.invoke('cloud:disconnect', providerType),
   cloudTestConnection: (providerType) => ipcRenderer.invoke('cloud:testConnection', providerType),
+  cloudGetRemoteSyncInfo: (providerType) => ipcRenderer.invoke('cloud:getRemoteSyncInfo', providerType),
   cloudSyncUp: () => ipcRenderer.invoke('cloud:syncUp'),
   cloudSyncDown: () => ipcRenderer.invoke('cloud:syncDown'),
+  cloudGetPendingChanges: () => ipcRenderer.invoke('cloud:getPendingChanges'),
+  cloudGetLastSyncTime: () => ipcRenderer.invoke('cloud:getLastSyncTime'),
   // Reading Sessions
   getCurrentReadingSession: (bookId) => ipcRenderer.invoke('reading:getCurrentSession', { bookId }),
   getReadingSessions: (bookId) => ipcRenderer.invoke('reading:getSessions', { bookId }),

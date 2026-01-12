@@ -6803,6 +6803,8 @@ async function showSyncDialog() {
 
     let statusInfo = '';
     let connectionOk = false;
+    let remoteIsFromOtherDevice = false;
+    let remoteDeviceName = null;
 
     if (activeSyncProvider === 's3') {
       // S3 provider - use existing logic
@@ -6847,12 +6849,80 @@ async function showSyncDialog() {
         statusInfo += `\nАккаунт: ${testResult.userInfo.name}`;
       }
       statusInfo += `\nСоединение: ✅ Подключено`;
+
+      // Get remote sync info
+      try {
+        console.log('🔍 [showSyncDialog] Fetching remote sync info for:', activeSyncProvider);
+        const remoteInfoResult = await window.api.cloudGetRemoteSyncInfo(activeSyncProvider);
+        console.log('🔍 [showSyncDialog] Remote info result:', JSON.stringify(remoteInfoResult));
+
+        if (remoteInfoResult.ok && remoteInfoResult.info) {
+          const info = remoteInfoResult.info;
+          const syncDate = new Date(info.syncedAt).toLocaleString('ru-RU');
+          const isThisDevice = info.deviceId === remoteInfoResult.currentDeviceId;
+          console.log('🔍 [showSyncDialog] Remote device:', info.deviceId, 'Current device:', remoteInfoResult.currentDeviceId, 'Same?', isThisDevice);
+
+          statusInfo += `\n\n📦 Данные в облаке:`;
+          statusInfo += `\nОбновлено: ${syncDate}`;
+          statusInfo += `\nУстройство: ${info.deviceName || 'Неизвестно'}${isThisDevice ? ' (это устройство)' : ''}`;
+          statusInfo += `\nПлатформа: ${info.platform || 'Неизвестно'}`;
+
+          // Check if local data is up to date with cloud
+          if (info.isUpToDate) {
+            statusInfo += `\n\n✅ Данные актуальны`;
+          } else if (!isThisDevice) {
+            statusInfo += `\n\n⚠️ Есть новые данные с устройства "${info.deviceName || 'другого устройства'}"!`;
+            remoteIsFromOtherDevice = true;
+            remoteDeviceName = info.deviceName || 'другого устройства';
+          }
+
+          // Get pending local changes (uses persisted lastSyncTime from cloudSyncManager)
+          try {
+            const pendingResult = await window.api.cloudGetPendingChanges();
+            if (pendingResult.ok && pendingResult.pending) {
+              const pending = pendingResult.pending;
+              if (pending.hasChanges) {
+                statusInfo += `\n\n📝 Локальные изменения: ${pending.total}`;
+                const details = [];
+                if (pending.books > 0) details.push(`Книги: ${pending.books}`);
+                if (pending.authors > 0) details.push(`Авторы: ${pending.authors}`);
+                if (pending.collections > 0) details.push(`Коллекции: ${pending.collections}`);
+                if (pending.readingSessions > 0) details.push(`Сессии чтения: ${pending.readingSessions}`);
+                if (pending.storageLocations > 0) details.push(`Места хранения: ${pending.storageLocations}`);
+                if (pending.filterPresets > 0) details.push(`Пресеты фильтров: ${pending.filterPresets}`);
+                if (pending.vocabCustom > 0) details.push(`Словарь: ${pending.vocabCustom}`);
+                statusInfo += `\n${details.join(', ')}`;
+              } else {
+                statusInfo += `\n\n✅ Нет локальных изменений`;
+              }
+            }
+          } catch (e) {
+            console.warn('Failed to get pending changes:', e);
+          }
+        } else {
+          console.log('🔍 [showSyncDialog] No remote info available:', remoteInfoResult.ok, remoteInfoResult.error);
+        }
+      } catch (e) {
+        console.warn('Failed to get remote sync info:', e);
+      }
     }
 
     // Create dialog with provider info
     const choice = await showSyncChoiceDialog(statusInfo, activeSyncProviderName);
 
     if (choice === 'upload') {
+      // Check if data is from another device and inform about merge
+      if (remoteIsFromOtherDevice) {
+        const confirmMerge = confirm(
+          `ℹ️ Синхронизация\n\n` +
+          `В облаке есть данные с устройства "${remoteDeviceName}".\n\n` +
+          `Ваши изменения будут объединены с облачными данными по принципу "последнее изменение побеждает".\n\n` +
+          `Продолжить?`
+        );
+        if (!confirmMerge) {
+          return;
+        }
+      }
       await syncUp();
     } else if (choice === 'download') {
       await syncDown();

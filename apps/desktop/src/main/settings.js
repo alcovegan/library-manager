@@ -22,6 +22,8 @@ const DEFAULTS = {
   s3SecretKey: process.env.S3_SECRET_KEY || '',
   s3Bucket: process.env.S3_BUCKET || '',
   s3Region: process.env.S3_REGION || 'us-east-1',
+  // Cloud sync timestamp (persisted)
+  lastCloudSyncTime: null,
 };
 
 function init(userDataPath) {
