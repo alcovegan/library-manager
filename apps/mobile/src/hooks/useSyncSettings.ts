@@ -14,6 +14,8 @@ import {
   cloudSyncManager,
 } from '../services/sync';
 import type { CloudProviderType } from '../services/sync/providers/base';
+import type { RemoteSyncInfo } from '../services/sync/cloudSyncManager';
+import { getPendingLocalChanges, type PendingChanges } from '../services/database';
 
 // Provider client IDs from app.json extra
 const extra = Constants.expoConfig?.extra ?? {};
@@ -38,6 +40,9 @@ export interface UseSyncSettingsResult {
   isSyncing: boolean;
   lastSync: string | null;
   userInfo: { name: string; email?: string } | null;
+  remoteSyncInfo: RemoteSyncInfo | null;
+  currentDeviceId: string | null;
+  pendingChanges: PendingChanges | null;
 
   // Actions
   refresh: () => Promise<void>;
@@ -55,6 +60,9 @@ export function useSyncSettings(): UseSyncSettingsResult {
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [userInfo, setUserInfo] = useState<{ name: string; email?: string } | null>(null);
+  const [remoteSyncInfo, setRemoteSyncInfo] = useState<RemoteSyncInfo | null>(null);
+  const [currentDeviceId, setCurrentDeviceId] = useState<string | null>(null);
+  const [pendingChanges, setPendingChanges] = useState<PendingChanges | null>(null);
 
   // Initialize provider config
   useEffect(() => {
@@ -77,7 +85,7 @@ export function useSyncSettings(): UseSyncSettingsResult {
       setProviders(providerList);
       setActiveProvider(active);
 
-      // Get user info if a cloud provider is active
+      // Get user info and remote sync info if a cloud provider is active
       if (active !== 'none' && active !== 's3') {
         const loaded = await syncSettings.loadProviderTokens(active as CloudProviderType);
         if (loaded) {
@@ -86,9 +94,52 @@ export function useSyncSettings(): UseSyncSettingsResult {
           if (connection.success && connection.userInfo) {
             setUserInfo(connection.userInfo);
           }
+
+          // Initialize cloud sync manager and get remote sync info
+          try {
+            console.log('[useSyncSettings] Initializing cloudSyncManager for', active);
+            await cloudSyncManager.initialize(active as CloudProviderType);
+            const deviceId = cloudSyncManager.getDeviceId();
+            console.log('[useSyncSettings] Current device ID:', deviceId);
+            setCurrentDeviceId(deviceId);
+
+            // Get last sync timestamp from persistent storage
+            const savedLastSync = await cloudSyncManager.getLastSyncTimestamp();
+            if (savedLastSync) {
+              setLastSync(savedLastSync);
+            }
+
+            // Get pending local changes
+            try {
+              const pending = await getPendingLocalChanges(savedLastSync);
+              console.log('[useSyncSettings] Pending changes:', JSON.stringify(pending));
+              setPendingChanges(pending);
+            } catch (e) {
+              console.error('[useSyncSettings] Failed to get pending changes:', e);
+              setPendingChanges(null);
+            }
+
+            console.log('[useSyncSettings] Fetching remote sync info...');
+            const remoteInfo = await cloudSyncManager.getRemoteSyncInfo();
+            console.log('[useSyncSettings] Remote sync info result:', JSON.stringify(remoteInfo));
+
+            if (remoteInfo.ok && remoteInfo.info) {
+              console.log('[useSyncSettings] Setting remote sync info:', remoteInfo.info.deviceId, remoteInfo.info.deviceName);
+              setRemoteSyncInfo(remoteInfo.info);
+            } else {
+              console.log('[useSyncSettings] No remote sync info available, ok:', remoteInfo.ok, 'error:', remoteInfo.error);
+              setRemoteSyncInfo(null);
+            }
+          } catch (e) {
+            console.error('[useSyncSettings] Failed to get remote sync info:', e);
+            setRemoteSyncInfo(null);
+          }
         }
       } else {
         setUserInfo(null);
+        setRemoteSyncInfo(null);
+        setCurrentDeviceId(null);
+        setPendingChanges(null);
       }
     } catch (error) {
       console.error('[useSyncSettings] Failed to load:', error);
@@ -178,6 +229,37 @@ export function useSyncSettings(): UseSyncSettingsResult {
       return false;
     }
 
+    // Check if data is from another device - inform about merge
+    if (remoteSyncInfo && currentDeviceId && remoteSyncInfo.deviceId !== currentDeviceId) {
+      return new Promise((resolve) => {
+        Alert.alert(
+          'Синхронизация',
+          `В облаке есть данные с устройства "${remoteSyncInfo.deviceName}".\n\n` +
+          `Ваши изменения будут объединены с облачными данными по принципу "последнее изменение побеждает".\n\n` +
+          `Продолжить?`,
+          [
+            {
+              text: 'Отмена',
+              style: 'cancel',
+              onPress: () => resolve(false),
+            },
+            {
+              text: 'Синхронизировать',
+              style: 'default',
+              onPress: () => {
+                performSyncUp().then(resolve);
+              },
+            },
+          ]
+        );
+      });
+    }
+
+    return performSyncUp();
+  }, [activeProvider, remoteSyncInfo, currentDeviceId]);
+
+  // Actual sync up logic
+  const performSyncUp = useCallback(async (): Promise<boolean> => {
     setIsSyncing(true);
     try {
       if (activeProvider === 's3') {
@@ -193,6 +275,7 @@ export function useSyncSettings(): UseSyncSettingsResult {
 
       if (result.success) {
         setLastSync(new Date().toISOString());
+        await refresh(); // Update remote sync info
         Alert.alert('Успешно', 'Данные загружены в облако');
         return true;
       } else if (result.blocked) {
@@ -209,7 +292,7 @@ export function useSyncSettings(): UseSyncSettingsResult {
     } finally {
       setIsSyncing(false);
     }
-  }, [activeProvider]);
+  }, [activeProvider, refresh]);
 
   // Sync down (download)
   const syncDown = useCallback(async (): Promise<boolean> => {
@@ -233,6 +316,7 @@ export function useSyncSettings(): UseSyncSettingsResult {
 
       if (result.success) {
         setLastSync(new Date().toISOString());
+        await refresh(); // Update remote sync info
         Alert.alert('Успешно', 'Данные загружены из облака');
         return true;
       } else if (result.blocked) {
@@ -249,7 +333,7 @@ export function useSyncSettings(): UseSyncSettingsResult {
     } finally {
       setIsSyncing(false);
     }
-  }, [activeProvider]);
+  }, [activeProvider, refresh]);
 
   return {
     providers,
@@ -259,6 +343,9 @@ export function useSyncSettings(): UseSyncSettingsResult {
     isSyncing,
     lastSync,
     userInfo,
+    remoteSyncInfo,
+    currentDeviceId,
+    pendingChanges,
     refresh,
     connectProvider,
     disconnectProvider,

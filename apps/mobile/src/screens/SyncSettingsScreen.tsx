@@ -102,6 +102,9 @@ export default function SyncSettingsScreen() {
     isSyncing,
     lastSync,
     userInfo,
+    remoteSyncInfo,
+    currentDeviceId,
+    pendingChanges,
     refresh,
     connectProvider,
     disconnectProvider,
@@ -158,6 +161,82 @@ export default function SyncSettingsScreen() {
           </View>
         </View>
       </SettingsSection>
+
+      {/* Pending Local Changes */}
+      {hasActiveProvider && activeProvider !== 's3' && pendingChanges && (
+        <SettingsSection title="Локальные изменения">
+          <View style={styles.pendingChangesContainer}>
+            {pendingChanges.hasChanges ? (
+              <>
+                <Text style={styles.pendingChangesTitle}>
+                  Не синхронизировано: {pendingChanges.total} изменений
+                </Text>
+                <View style={styles.pendingChangesList}>
+                  {pendingChanges.books > 0 && (
+                    <Text style={styles.pendingChangesItem}>Книги: {pendingChanges.books}</Text>
+                  )}
+                  {pendingChanges.authors > 0 && (
+                    <Text style={styles.pendingChangesItem}>Авторы: {pendingChanges.authors}</Text>
+                  )}
+                  {pendingChanges.collections > 0 && (
+                    <Text style={styles.pendingChangesItem}>Коллекции: {pendingChanges.collections}</Text>
+                  )}
+                  {pendingChanges.readingSessions > 0 && (
+                    <Text style={styles.pendingChangesItem}>Сессии чтения: {pendingChanges.readingSessions}</Text>
+                  )}
+                  {pendingChanges.storageLocations > 0 && (
+                    <Text style={styles.pendingChangesItem}>Места хранения: {pendingChanges.storageLocations}</Text>
+                  )}
+                  {pendingChanges.filterPresets > 0 && (
+                    <Text style={styles.pendingChangesItem}>Пресеты фильтров: {pendingChanges.filterPresets}</Text>
+                  )}
+                  {pendingChanges.vocabCustom > 0 && (
+                    <Text style={styles.pendingChangesItem}>Словарь: {pendingChanges.vocabCustom}</Text>
+                  )}
+                </View>
+              </>
+            ) : (
+              <View style={styles.noChangesBox}>
+                <Text style={styles.noChangesText}>Все данные синхронизированы</Text>
+              </View>
+            )}
+          </View>
+        </SettingsSection>
+      )}
+
+      {/* Remote Sync Info - shows who last synced to cloud */}
+      {remoteSyncInfo && hasActiveProvider && activeProvider !== 's3' && (
+        <SettingsSection title="Данные в облаке">
+          <View style={styles.remoteInfoContainer}>
+            <View style={styles.statusRow}>
+              <Text style={styles.statusLabel}>Последнее обновление:</Text>
+              <Text style={styles.statusValue}>{formatLastSync(remoteSyncInfo.syncedAt)}</Text>
+            </View>
+            <View style={styles.statusRow}>
+              <Text style={styles.statusLabel}>Источник:</Text>
+              <Text style={styles.statusValue}>
+                {remoteSyncInfo.deviceName} ({remoteSyncInfo.platform})
+              </Text>
+            </View>
+
+            {/* Status based on whether we have this data */}
+            {remoteSyncInfo.isUpToDate ? (
+              <View style={styles.successBox}>
+                <Text style={styles.successText}>
+                  ✓ Данные актуальны
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.warningBox}>
+                <Text style={styles.warningText}>
+                  Есть новые данные с устройства "{remoteSyncInfo.deviceName}".
+                  Скачайте их, чтобы синхронизироваться.
+                </Text>
+              </View>
+            )}
+          </View>
+        </SettingsSection>
+      )}
 
       {/* Sync Actions */}
       {hasActiveProvider && activeProvider !== 's3' && (
@@ -282,6 +361,69 @@ const styles = StyleSheet.create({
   },
   statusContainer: {
     padding: 16,
+  },
+  pendingChangesContainer: {
+    padding: 16,
+  },
+  pendingChangesTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#856404',
+    marginBottom: 8,
+  },
+  pendingChangesList: {
+    backgroundColor: '#fff3cd',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#ffc107',
+  },
+  pendingChangesItem: {
+    fontSize: 13,
+    color: '#856404',
+    paddingVertical: 2,
+  },
+  noChangesBox: {
+    backgroundColor: '#d4edda',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#28a745',
+  },
+  noChangesText: {
+    fontSize: 14,
+    color: '#155724',
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  remoteInfoContainer: {
+    padding: 16,
+  },
+  warningBox: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#fff3cd',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ffc107',
+  },
+  warningText: {
+    fontSize: 13,
+    color: '#856404',
+    lineHeight: 18,
+  },
+  successBox: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#d4edda',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#28a745',
+  },
+  successText: {
+    fontSize: 14,
+    color: '#155724',
+    fontWeight: '500',
   },
   statusRow: {
     flexDirection: 'row',
