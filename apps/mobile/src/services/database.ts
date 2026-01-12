@@ -67,7 +67,24 @@ async function initializeSchema(): Promise<void> {
     if (result) {
       currentVersion = parseInt(result.value, 10);
     }
-    console.log(`[DB] Current schema version: ${currentVersion}`);
+    console.log(`[DB] Current schema version: ${currentVersion}, target: ${SCHEMA_VERSION}`);
+
+    // Debug: check if deleted_at column exists
+    let hasDeletedAt = false;
+    try {
+      await db.getFirstAsync('SELECT deleted_at FROM books LIMIT 1');
+      console.log('[DB] deleted_at column EXISTS in books');
+      hasDeletedAt = true;
+    } catch (colErr) {
+      console.log('[DB] deleted_at column MISSING in books, needs migration');
+      hasDeletedAt = false;
+    }
+
+    // Force migration if column is missing but version claims to be current
+    if (!hasDeletedAt && currentVersion >= 16) {
+      console.log('[DB] FORCING migration - schema version is 16+ but deleted_at is missing!');
+      currentVersion = 15; // Force re-run of migration 16
+    }
   } catch (e) {
     // Meta table doesn't exist, fresh database
     console.log('[DB] Fresh database, will create schema');
@@ -119,7 +136,28 @@ async function initializeSchema(): Promise<void> {
       if (migration) {
         console.log(`[DB] Running migration to version ${v}`);
         try {
-          await db.execAsync(migration);
+          // Split migration into individual statements (like schema initialization)
+          const cleanedSQL = migration
+            .split('\n')
+            .map((line: string) => {
+              const commentIndex = line.indexOf('--');
+              return commentIndex >= 0 ? line.substring(0, commentIndex) : line;
+            })
+            .join('\n');
+
+          const statements = cleanedSQL
+            .split(';')
+            .map((s: string) => s.trim())
+            .filter((s: string) => s.length > 0);
+
+          console.log(`[DB] Migration ${v}: executing ${statements.length} statements...`);
+
+          for (let i = 0; i < statements.length; i++) {
+            const stmt = statements[i];
+            const preview = stmt.replace(/\s+/g, ' ').substring(0, 60);
+            console.log(`[DB] Migration ${v} stmt ${i + 1}/${statements.length}: ${preview}...`);
+            await db.execAsync(stmt);
+          }
         } catch (error) {
           console.error(`[DB] Migration to v${v} failed:`, error);
           throw error;
@@ -151,7 +189,7 @@ async function attachAuthorsToBooks(database: SQLite.SQLiteDatabase, books: Book
     SELECT ba.bookId, a.id as authorId, a.name
     FROM book_authors ba
     JOIN authors a ON a.id = ba.authorId
-    WHERE ba.bookId IN (${placeholders})
+    WHERE ba.bookId IN (${placeholders}) AND a.deleted_at IS NULL
   `, bookIds);
 
   // Group authors by book ID
@@ -177,7 +215,7 @@ export async function getAllBooks(): Promise<BookWithAuthors[]> {
   const database = await getDatabase();
 
   const books = await database.getAllAsync<Book>(`
-    SELECT * FROM books ORDER BY updatedAt DESC
+    SELECT * FROM books WHERE deleted_at IS NULL ORDER BY updatedAt DESC
   `);
 
   return attachAuthorsToBooks(database, books);
@@ -190,7 +228,7 @@ export async function getBookById(id: string): Promise<BookWithAuthors | null> {
   const database = await getDatabase();
 
   const book = await database.getFirstAsync<Book>(
-    'SELECT * FROM books WHERE id = ?',
+    'SELECT * FROM books WHERE id = ? AND deleted_at IS NULL',
     [id]
   );
 
@@ -235,11 +273,11 @@ export async function filterBooks(filters: BookFilters): Promise<BookWithAuthors
   let sql = `
     SELECT DISTINCT b.* FROM books b
     LEFT JOIN book_authors ba ON ba.bookId = b.id
-    LEFT JOIN authors a ON a.id = ba.authorId
-    LEFT JOIN reading_sessions rs ON rs.id = b.currentReadingSessionId
+    LEFT JOIN authors a ON a.id = ba.authorId AND a.deleted_at IS NULL
+    LEFT JOIN reading_sessions rs ON rs.id = b.currentReadingSessionId AND rs.deleted_at IS NULL
   `;
 
-  const conditions: string[] = [];
+  const conditions: string[] = ['b.deleted_at IS NULL'];
   const params: (string | number)[] = [];
 
   // Author filter
@@ -295,10 +333,8 @@ export async function filterBooks(filters: BookFilters): Promise<BookWithAuthors
     params.push(filters.goodreadsMax);
   }
 
-  if (conditions.length > 0) {
-    sql += ' WHERE ' + conditions.join(' AND ');
-  }
-
+  // conditions always has at least 'b.deleted_at IS NULL'
+  sql += ' WHERE ' + conditions.join(' AND ');
   sql += ' ORDER BY b.updatedAt DESC';
 
   const books = await database.getAllAsync<Book>(sql, params);
@@ -351,7 +387,7 @@ export async function filterBooks(filters: BookFilters): Promise<BookWithAuthors
 export async function getAuthors(): Promise<string[]> {
   const database = await getDatabase();
   const result = await database.getAllAsync<{ name: string }>(
-    'SELECT DISTINCT name FROM authors ORDER BY name'
+    'SELECT DISTINCT name FROM authors WHERE deleted_at IS NULL ORDER BY name'
   );
   return result.map(r => r.name);
 }
@@ -362,7 +398,7 @@ export async function getAuthors(): Promise<string[]> {
 export async function getFormats(): Promise<string[]> {
   const database = await getDatabase();
   const result = await database.getAllAsync<{ format: string }>(
-    'SELECT DISTINCT format FROM books WHERE format IS NOT NULL ORDER BY format'
+    'SELECT DISTINCT format FROM books WHERE format IS NOT NULL AND deleted_at IS NULL ORDER BY format'
   );
   return result.map(r => r.format);
 }
@@ -373,7 +409,7 @@ export async function getFormats(): Promise<string[]> {
 export async function getLanguages(): Promise<string[]> {
   const database = await getDatabase();
   const result = await database.getAllAsync<{ language: string }>(
-    'SELECT DISTINCT language FROM books WHERE language IS NOT NULL ORDER BY language'
+    'SELECT DISTINCT language FROM books WHERE language IS NOT NULL AND deleted_at IS NULL ORDER BY language'
   );
   return result.map(r => r.language);
 }
@@ -385,7 +421,7 @@ export async function getReadingSessions(bookId: string): Promise<ReadingSession
   const database = await getDatabase();
 
   return database.getAllAsync<ReadingSession>(
-    'SELECT * FROM reading_sessions WHERE bookId = ? ORDER BY createdAt DESC',
+    'SELECT * FROM reading_sessions WHERE bookId = ? AND deleted_at IS NULL ORDER BY createdAt DESC',
     [bookId]
   );
 }
@@ -397,7 +433,7 @@ export async function getStorageLocations(): Promise<StorageLocation[]> {
   const database = await getDatabase();
 
   return database.getAllAsync<StorageLocation>(
-    'SELECT * FROM storage_locations WHERE is_active = 1 ORDER BY sort_order'
+    'SELECT * FROM storage_locations WHERE is_active = 1 AND deleted_at IS NULL ORDER BY sort_order'
   );
 }
 
@@ -407,7 +443,7 @@ export async function getStorageLocations(): Promise<StorageLocation[]> {
 export async function getBooksCount(): Promise<number> {
   const database = await getDatabase();
   const result = await database.getFirstAsync<{ count: number }>(
-    'SELECT COUNT(*) as count FROM books'
+    'SELECT COUNT(*) as count FROM books WHERE deleted_at IS NULL'
   );
   return result?.count ?? 0;
 }
@@ -448,8 +484,11 @@ export async function getAllCollections(): Promise<CollectionWithCount[]> {
 
   const collections = await database.getAllAsync<CollectionWithCount>(`
     SELECT c.*,
-      (SELECT COUNT(*) FROM collection_books cb WHERE cb.collectionId = c.id) as bookCount
+      (SELECT COUNT(*) FROM collection_books cb
+       JOIN books b ON b.id = cb.bookId
+       WHERE cb.collectionId = c.id AND b.deleted_at IS NULL) as bookCount
     FROM collections c
+    WHERE c.deleted_at IS NULL
     ORDER BY c.name COLLATE NOCASE
   `);
 
@@ -463,7 +502,7 @@ export async function getCollectionById(id: string): Promise<Collection | null> 
   const database = await getDatabase();
 
   return database.getFirstAsync<Collection>(
-    'SELECT * FROM collections WHERE id = ?',
+    'SELECT * FROM collections WHERE id = ? AND deleted_at IS NULL',
     [id]
   );
 }
@@ -492,7 +531,7 @@ export async function getCollectionBooks(collectionId: string): Promise<BookWith
   const books = await database.getAllAsync<Book>(`
     SELECT b.* FROM books b
     JOIN collection_books cb ON cb.bookId = b.id
-    WHERE cb.collectionId = ?
+    WHERE cb.collectionId = ? AND b.deleted_at IS NULL
     ORDER BY b.title COLLATE NOCASE
   `, [collectionId]);
 
@@ -505,7 +544,7 @@ export async function getCollectionBooks(collectionId: string): Promise<BookWith
 export async function getCollectionsCount(): Promise<number> {
   const database = await getDatabase();
   const result = await database.getFirstAsync<{ count: number }>(
-    'SELECT COUNT(*) as count FROM collections'
+    'SELECT COUNT(*) as count FROM collections WHERE deleted_at IS NULL'
   );
   return result?.count ?? 0;
 }
@@ -562,21 +601,16 @@ export async function updateCollection(
 }
 
 /**
- * Delete a collection
+ * Delete a collection (soft delete)
  */
 export async function deleteCollection(id: string): Promise<void> {
   const database = await getDatabase();
+  const now = new Date().toISOString();
 
-  // Delete junction table entries first
+  // Soft delete the collection
   await database.runAsync(
-    'DELETE FROM collection_books WHERE collectionId = ?',
-    [id]
-  );
-
-  // Delete the collection
-  await database.runAsync(
-    'DELETE FROM collections WHERE id = ?',
-    [id]
+    'UPDATE collections SET deleted_at = ?, updated_at = ? WHERE id = ?',
+    [now, now, id]
   );
 }
 
@@ -616,4 +650,199 @@ export async function removeBookFromCollection(
     'DELETE FROM collection_books WHERE collectionId = ? AND bookId = ?',
     [collectionId, bookId]
   );
+}
+
+// ============ Books ============
+
+/**
+ * Book update data
+ */
+export interface BookUpdateData {
+  title?: string;
+  titleAlt?: string | null;
+  year?: number | null;
+  publisher?: string | null;
+  isbn?: string | null;
+  language?: string | null;
+  format?: string | null;
+  series?: string | null;
+  seriesIndex?: number | null;
+  rating?: number | null;
+  notes?: string | null;
+  tags?: string | null;
+  genres?: string | null;
+  authors?: string[];
+}
+
+/**
+ * Update a book
+ */
+export async function updateBook(
+  bookId: string,
+  updates: BookUpdateData
+): Promise<void> {
+  const database = await getDatabase();
+  const now = new Date().toISOString();
+
+  // Build update query for book fields
+  const bookFields: string[] = ['updatedAt = ?'];
+  const bookValues: (string | number | null)[] = [now];
+
+  if (updates.title !== undefined) {
+    bookFields.push('title = ?');
+    bookValues.push(updates.title);
+  }
+  if (updates.titleAlt !== undefined) {
+    bookFields.push('titleAlt = ?');
+    bookValues.push(updates.titleAlt);
+  }
+  if (updates.year !== undefined) {
+    bookFields.push('year = ?');
+    bookValues.push(updates.year);
+  }
+  if (updates.publisher !== undefined) {
+    bookFields.push('publisher = ?');
+    bookValues.push(updates.publisher);
+  }
+  if (updates.isbn !== undefined) {
+    bookFields.push('isbn = ?');
+    bookValues.push(updates.isbn);
+  }
+  if (updates.language !== undefined) {
+    bookFields.push('language = ?');
+    bookValues.push(updates.language);
+  }
+  if (updates.format !== undefined) {
+    bookFields.push('format = ?');
+    bookValues.push(updates.format);
+  }
+  if (updates.series !== undefined) {
+    bookFields.push('series = ?');
+    bookValues.push(updates.series);
+  }
+  if (updates.seriesIndex !== undefined) {
+    bookFields.push('seriesIndex = ?');
+    bookValues.push(updates.seriesIndex);
+  }
+  if (updates.rating !== undefined) {
+    bookFields.push('rating = ?');
+    bookValues.push(updates.rating);
+  }
+  if (updates.notes !== undefined) {
+    bookFields.push('notes = ?');
+    bookValues.push(updates.notes);
+  }
+  if (updates.tags !== undefined) {
+    bookFields.push('tags = ?');
+    bookValues.push(updates.tags);
+  }
+  if (updates.genres !== undefined) {
+    bookFields.push('genres = ?');
+    bookValues.push(updates.genres);
+  }
+
+  // Update book record
+  bookValues.push(bookId);
+  await database.runAsync(
+    `UPDATE books SET ${bookFields.join(', ')} WHERE id = ?`,
+    bookValues
+  );
+
+  // Update authors if provided
+  if (updates.authors !== undefined) {
+    // Delete existing author associations
+    await database.runAsync(
+      'DELETE FROM book_authors WHERE bookId = ?',
+      [bookId]
+    );
+
+    // Insert new authors
+    for (const authorName of updates.authors) {
+      // Check if author exists
+      let author = await database.getFirstAsync<{ id: string }>(
+        'SELECT id FROM authors WHERE name = ?',
+        [authorName]
+      );
+
+      // Create author if doesn't exist
+      if (!author) {
+        const authorId = generateId();
+        await database.runAsync(
+          'INSERT INTO authors (id, name) VALUES (?, ?)',
+          [authorId, authorName]
+        );
+        author = { id: authorId };
+      }
+
+      // Create book-author association
+      await database.runAsync(
+        'INSERT INTO book_authors (bookId, authorId) VALUES (?, ?)',
+        [bookId, author.id]
+      );
+    }
+  }
+}
+
+// ============ Pending Changes Tracking ============
+
+/**
+ * Count of pending local changes by entity type
+ */
+export interface PendingChanges {
+  books: number;
+  authors: number;
+  collections: number;
+  readingSessions: number;
+  storageLocations: number;
+  filterPresets: number;
+  vocabCustom: number;
+  total: number;
+  hasChanges: boolean;
+}
+
+/**
+ * Get count of entities modified since last sync
+ * @param lastSyncedAt - ISO timestamp of last successful sync down
+ */
+export async function getPendingLocalChanges(lastSyncedAt: string | null): Promise<PendingChanges> {
+  const database = await getDatabase();
+
+  // If never synced, count all non-deleted entities as pending
+  const condition = lastSyncedAt
+    ? `updatedAt > ? AND deleted_at IS NULL`
+    : `deleted_at IS NULL`;
+  const params = lastSyncedAt ? [lastSyncedAt] : [];
+
+  const countQuery = async (table: string, updatedAtColumn = 'updatedAt'): Promise<number> => {
+    const cond = lastSyncedAt
+      ? `${updatedAtColumn} > ? AND deleted_at IS NULL`
+      : `deleted_at IS NULL`;
+    const result = await database.getFirstAsync<{ count: number }>(
+      `SELECT COUNT(*) as count FROM ${table} WHERE ${cond}`,
+      params
+    );
+    return result?.count ?? 0;
+  };
+
+  const books = await countQuery('books');
+  const authors = await countQuery('authors');
+  const collections = await countQuery('collections', 'updated_at');
+  const readingSessions = await countQuery('reading_sessions', 'updatedAt');
+  const storageLocations = await countQuery('storage_locations', 'updated_at');
+  const filterPresets = await countQuery('filter_presets', 'updated_at');
+  const vocabCustom = await countQuery('vocab_custom', 'updatedAt');
+
+  const total = books + authors + collections + readingSessions + storageLocations + filterPresets + vocabCustom;
+
+  return {
+    books,
+    authors,
+    collections,
+    readingSessions,
+    storageLocations,
+    filterPresets,
+    vocabCustom,
+    total,
+    hasChanges: total > 0,
+  };
 }

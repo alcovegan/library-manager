@@ -16,10 +16,13 @@ import {
   QuotaInfo,
 } from './providers/base';
 import { cloudProviderFactory } from './providerFactory';
+import { exportDatabaseToPayload, importPayloadWithMerge } from './syncDatabase';
+import type { SyncPayload, MergeSummary } from '../../../../packages/shared/src/sync/syncPayload';
 
 // Sync paths in cloud storage
 export const SYNC_PATHS = {
-  database: 'library.db',
+  database: 'library.db',          // Legacy: full database file
+  syncData: 'sync-data.json',      // New: entity-level JSON payload
   metadata: 'sync-metadata.json',
   settings: 'settings.json',
   covers: 'covers/',
@@ -27,6 +30,7 @@ export const SYNC_PATHS = {
 };
 
 const DEVICE_ID_KEY = 'sync_device_id';
+const LAST_SYNCED_AT_KEY = 'sync_last_synced_at';
 
 export interface SyncContext {
   schemaVersion: number;
@@ -79,6 +83,16 @@ export interface SyncStatus {
   connectionOk: boolean;
   userInfo?: { name: string; email?: string };
   quota?: QuotaInfo;
+}
+
+export interface RemoteSyncInfo {
+  schemaVersion: number;
+  appVersion: string;
+  deviceId: string;
+  deviceName: string;
+  platform: string;
+  syncedAt: string;
+  isUpToDate?: boolean; // true if we already have this data (synced at same time or later)
 }
 
 /**
@@ -161,6 +175,40 @@ class CloudSyncManager {
   }
 
   /**
+   * Save the cloud syncedAt timestamp locally (to track if we're up-to-date)
+   */
+  private async saveLastSyncedAt(syncedAt: string): Promise<void> {
+    try {
+      await SecureStore.setItemAsync(LAST_SYNCED_AT_KEY, syncedAt);
+      console.log('[CloudSync] Saved last synced at:', syncedAt);
+    } catch (error) {
+      console.error('[CloudSync] Failed to save last synced at:', error);
+    }
+  }
+
+  /**
+   * Get the last known cloud syncedAt timestamp
+   */
+  private async getLastSyncedAt(): Promise<string | null> {
+    try {
+      return await SecureStore.getItemAsync(LAST_SYNCED_AT_KEY);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Check if local data is up-to-date with cloud
+   */
+  private async isDataUpToDate(cloudSyncedAt: string): Promise<boolean> {
+    const localSyncedAt = await this.getLastSyncedAt();
+    if (!localSyncedAt) return false;
+
+    // Compare timestamps - if local >= cloud, we're up to date
+    return new Date(localSyncedAt).getTime() >= new Date(cloudSyncedAt).getTime();
+  }
+
+  /**
    * Test connection to cloud provider
    */
   async testConnection(): Promise<{ ok: boolean; error?: string; userInfo?: ConnectionResult['userInfo'] }> {
@@ -220,22 +268,25 @@ class CloudSyncManager {
   /**
    * Upload shared sync metadata
    */
-  async uploadSharedMetadata(): Promise<SyncResult> {
+  async uploadSharedMetadata(): Promise<SyncResult & { syncedAt?: string }> {
     if (!this.isInitialized || !this.provider) {
       return { ok: false, error: 'Sync manager not initialized' };
     }
 
     try {
+      const syncedAt = new Date().toISOString();
       const payload = {
         schemaVersion: Number(this.syncContext.schemaVersion || 0),
         appVersion: this.syncContext.appVersion || '0.0.0',
         deviceId: this.deviceId,
-        syncedAt: new Date().toISOString(),
+        deviceName: Device.deviceName || 'Unknown Device',
+        platform: Platform.OS,
+        syncedAt,
       };
 
-      console.log('[CloudSync] Uploading sync metadata');
+      console.log('[CloudSync] Uploading sync metadata, syncedAt:', syncedAt);
       await this.provider.uploadJson(SYNC_PATHS.metadata, payload);
-      return { ok: true };
+      return { ok: true, syncedAt };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       console.error('[CloudSync] Failed to upload sync metadata:', message);
@@ -357,6 +408,80 @@ class CloudSyncManager {
         return { ok: false, notFound: true, error: 'Database not found in cloud' };
       }
       console.error('[CloudSync] Failed to download database:', message);
+      return { ok: false, error: message };
+    }
+  }
+
+  /**
+   * Upload sync data as JSON (entity-level sync)
+   */
+  async uploadSyncData(): Promise<SyncResult & { syncedAt?: string }> {
+    if (!this.isInitialized || !this.provider) {
+      return { ok: false, error: 'Sync manager not initialized' };
+    }
+
+    try {
+      const deviceName = Device.deviceName || 'Unknown Device';
+      const payload = await exportDatabaseToPayload(
+        this.deviceId!,
+        deviceName,
+        Platform.OS
+      );
+
+      console.log('[CloudSync] Uploading sync data JSON, entities:', {
+        books: payload.entities.books.length,
+        authors: payload.entities.authors.length,
+        collections: payload.entities.collections.length,
+      });
+
+      await this.provider.uploadJson(SYNC_PATHS.syncData, payload);
+
+      console.log('[CloudSync] Sync data uploaded successfully');
+      this.lastSyncTime = payload.exportedAt;
+      return { ok: true, syncedAt: payload.exportedAt };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[CloudSync] Failed to upload sync data:', message);
+      return { ok: false, error: message };
+    }
+  }
+
+  /**
+   * Download sync data JSON and merge with local database
+   */
+  async downloadAndMergeSyncData(): Promise<SyncResult & { mergeSummary?: MergeSummary }> {
+    if (!this.isInitialized || !this.provider) {
+      return { ok: false, error: 'Sync manager not initialized' };
+    }
+
+    try {
+      console.log('[CloudSync] Downloading sync data JSON...');
+      const remotePayload = await this.provider.downloadJson<SyncPayload>(SYNC_PATHS.syncData);
+
+      if (!remotePayload) {
+        console.log('[CloudSync] No sync data found in cloud');
+        return { ok: false, notFound: true, error: 'Sync data not found in cloud' };
+      }
+
+      console.log('[CloudSync] Remote payload received, entities:', {
+        books: remotePayload.entities.books.length,
+        authors: remotePayload.entities.authors.length,
+        collections: remotePayload.entities.collections.length,
+      });
+
+      // Merge with local database
+      const mergeSummary = await importPayloadWithMerge(remotePayload);
+
+      console.log('[CloudSync] Merge completed:', mergeSummary);
+      this.lastSyncTime = new Date().toISOString();
+
+      return { ok: true, mergeSummary };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      if (message.includes('not found') || message.includes('404')) {
+        return { ok: false, notFound: true, error: 'Sync data not found in cloud' };
+      }
+      console.error('[CloudSync] Failed to download/merge sync data:', message);
       return { ok: false, error: message };
     }
   }
@@ -530,7 +655,9 @@ class CloudSyncManager {
       results.remoteMetadata = compatibility.data;
 
       results.metadata = await this.uploadDeviceMetadata();
-      results.database = await this.uploadDatabase();
+      // Use entity-level sync (JSON) instead of full database file
+      const syncDataResult = await this.uploadSyncData();
+      results.database = syncDataResult;
       results.settings = { ok: true, skipped: true }; // Settings handled separately on mobile
       results.covers = await this.uploadCovers();
 
@@ -543,9 +670,11 @@ class CloudSyncManager {
 
       results.success = allSuccessful && (!results.sharedMetadata || results.sharedMetadata.ok);
 
-      if (results.success) {
+      if (results.success && results.sharedMetadata?.syncedAt) {
         console.log('[CloudSync] Cloud upload sync completed successfully');
-      } else {
+        // Save the SAME syncedAt we sent to cloud (so isUpToDate will be true)
+        await this.saveLastSyncedAt(results.sharedMetadata.syncedAt);
+      } else if (!results.success) {
         console.log('[CloudSync] Upload sync completed with some errors');
       }
 
@@ -604,7 +733,8 @@ class CloudSyncManager {
       }
       results.remoteMetadata = compatibility.data;
 
-      results.database = await this.downloadDatabase();
+      // Use entity-level sync (JSON merge) instead of full database file
+      results.database = await this.downloadAndMergeSyncData();
       results.settings = { ok: true, skipped: true };
       results.covers = await this.downloadCovers();
 
@@ -618,8 +748,11 @@ class CloudSyncManager {
 
       if (allSuccessful) {
         console.log('[CloudSync] Cloud download sync completed successfully');
-        await this.uploadDeviceMetadata();
-        await this.uploadSharedMetadata();
+        // Save the cloud syncedAt locally so we know we have this data
+        const remoteData = results.remoteMetadata as { syncedAt?: string } | null;
+        if (remoteData?.syncedAt) {
+          await this.saveLastSyncedAt(remoteData.syncedAt);
+        }
       } else {
         console.log('[CloudSync] Download sync completed with some errors');
       }
@@ -680,6 +813,52 @@ class CloudSyncManager {
    */
   getProviderType(): CloudProviderType | null {
     return this.providerType;
+  }
+
+  /**
+   * Get remote sync info (who last synced)
+   */
+  async getRemoteSyncInfo(): Promise<{ ok: boolean; info?: RemoteSyncInfo | null; error?: string }> {
+    if (!this.provider) {
+      return { ok: false, error: 'Provider not initialized' };
+    }
+
+    try {
+      const meta = await this.downloadSharedMetadata();
+      if (!meta.ok) {
+        return { ok: false, error: meta.error };
+      }
+
+      if (!meta.data) {
+        return { ok: true, info: null };
+      }
+
+      const info = meta.data as RemoteSyncInfo;
+
+      // Check if we already have this data
+      if (info.syncedAt) {
+        info.isUpToDate = await this.isDataUpToDate(info.syncedAt);
+      }
+
+      return { ok: true, info };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      return { ok: false, error: message };
+    }
+  }
+
+  /**
+   * Get current device ID
+   */
+  getDeviceId(): string | null {
+    return this.deviceId;
+  }
+
+  /**
+   * Get last sync timestamp (public accessor)
+   */
+  async getLastSyncTimestamp(): Promise<string | null> {
+    return this.getLastSyncedAt();
   }
 }
 
