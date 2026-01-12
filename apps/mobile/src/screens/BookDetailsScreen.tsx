@@ -2,7 +2,7 @@
  * Book Details Screen
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -46,13 +46,27 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-export default function BookDetailsScreen({ route }: Props) {
+export default function BookDetailsScreen({ route, navigation }: Props) {
   const { bookId } = route.params;
   const { book, loading, error } = useBook(bookId);
   const { collections } = useCollections();
 
   const [collectionModalVisible, setCollectionModalVisible] = useState(false);
   const [savingCollection, setSavingCollection] = useState(false);
+
+  // Set up header edit button
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity
+          onPress={() => navigation.navigate('EditBook', { bookId })}
+          style={styles.headerButton}
+        >
+          <Text style={styles.headerButtonText}>Изменить</Text>
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation, bookId]);
 
   // Filter to only static collections (can't manually add to filter collections)
   const staticCollections = collections.filter(c => c.type === 'static');
@@ -448,6 +462,15 @@ const styles = StyleSheet.create({
   modalCloseButtonText: {
     fontSize: 16,
     color: '#007AFF',
+    fontWeight: '500',
+  },
+  headerButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  headerButtonText: {
+    color: '#007AFF',
+    fontSize: 17,
     fontWeight: '500',
   },
 });

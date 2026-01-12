@@ -86,6 +86,14 @@ export function useBook(bookId: string | null) {
 
   useEffect(() => {
     refresh();
+
+    // Subscribe to data changes (e.g., after edit)
+    const unsubscribe = subscribe(AppEvents.DATA_CHANGED, () => {
+      console.log('[useBook] Data changed, refreshing...');
+      refresh();
+    });
+
+    return unsubscribe;
   }, [refresh]);
 
   return { book, loading, error, refresh };

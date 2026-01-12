@@ -12,6 +12,7 @@ import LibraryScreen from '../screens/LibraryScreen';
 import SearchScreen from '../screens/SearchScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import BookDetailsScreen from '../screens/BookDetailsScreen';
+import BookEditScreen from '../screens/BookEditScreen';
 import CollectionsScreen from '../screens/CollectionsScreen';
 import CollectionDetailsScreen from '../screens/CollectionDetailsScreen';
 import SyncSettingsScreen from '../screens/SyncSettingsScreen';
@@ -94,6 +95,11 @@ export default function Navigation() {
           name="SyncSettings"
           component={SyncSettingsScreen}
           options={{ title: 'Синхронизация' }}
+        />
+        <Stack.Screen
+          name="EditBook"
+          component={BookEditScreen}
+          options={{ title: 'Редактирование' }}
         />
       </Stack.Navigator>
     </NavigationContainer>
