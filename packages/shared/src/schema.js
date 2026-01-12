@@ -1,9 +1,9 @@
 /**
  * Database schema definitions and migrations
- * Current schema version: 15
+ * Current schema version: 16
  */
 
-const SCHEMA_VERSION = 15;
+const SCHEMA_VERSION = 16;
 
 /**
  * Initial schema (v1) SQL
@@ -212,6 +212,41 @@ const MIGRATIONS = {
     ALTER TABLE books ADD COLUMN currentReadingSessionId TEXT;
     CREATE INDEX IF NOT EXISTS idx_books_reading_session ON books(currentReadingSessionId);
   `,
+
+  // v15 -> v16: Soft delete support for entity-level sync
+  16: `
+    -- Add deleted_at to books
+    ALTER TABLE books ADD COLUMN deleted_at TEXT;
+    CREATE INDEX IF NOT EXISTS idx_books_deleted_at ON books(deleted_at);
+
+    -- Add deleted_at and updatedAt to authors (authors didn't have updatedAt before)
+    ALTER TABLE authors ADD COLUMN updatedAt TEXT;
+    ALTER TABLE authors ADD COLUMN deleted_at TEXT;
+    CREATE INDEX IF NOT EXISTS idx_authors_deleted_at ON authors(deleted_at);
+
+    -- Add deleted_at to collections
+    ALTER TABLE collections ADD COLUMN deleted_at TEXT;
+    CREATE INDEX IF NOT EXISTS idx_collections_deleted_at ON collections(deleted_at);
+
+    -- Add deleted_at to storage_locations
+    ALTER TABLE storage_locations ADD COLUMN deleted_at TEXT;
+    CREATE INDEX IF NOT EXISTS idx_storage_locations_deleted_at ON storage_locations(deleted_at);
+
+    -- Add deleted_at to reading_sessions
+    ALTER TABLE reading_sessions ADD COLUMN deleted_at TEXT;
+    CREATE INDEX IF NOT EXISTS idx_reading_sessions_deleted_at ON reading_sessions(deleted_at);
+
+    -- Add deleted_at to filter_presets
+    ALTER TABLE filter_presets ADD COLUMN deleted_at TEXT;
+    CREATE INDEX IF NOT EXISTS idx_filter_presets_deleted_at ON filter_presets(deleted_at);
+
+    -- Add deleted_at to vocab_custom
+    ALTER TABLE vocab_custom ADD COLUMN deleted_at TEXT;
+    CREATE INDEX IF NOT EXISTS idx_vocab_custom_deleted_at ON vocab_custom(deleted_at);
+
+    -- Add deleted_at to book_storage_history
+    ALTER TABLE book_storage_history ADD COLUMN deleted_at TEXT;
+  `,
 };
 
 /**
@@ -228,6 +263,7 @@ const SCHEMA_SQL = `
     coverPath TEXT,
     createdAt TEXT NOT NULL,
     updatedAt TEXT NOT NULL,
+    deleted_at TEXT,
     series TEXT,
     seriesIndex INTEGER,
     year INTEGER,
@@ -255,7 +291,9 @@ const SCHEMA_SQL = `
   -- Authors table
   CREATE TABLE IF NOT EXISTS authors (
     id TEXT PRIMARY KEY,
-    name TEXT NOT NULL UNIQUE
+    name TEXT NOT NULL UNIQUE,
+    updatedAt TEXT,
+    deleted_at TEXT
   );
 
   -- Book-Authors relationship
@@ -289,7 +327,8 @@ const SCHEMA_SQL = `
     is_active INTEGER NOT NULL DEFAULT 1,
     sort_order INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL,
+    deleted_at TEXT
   );
 
   -- Book storage history
@@ -301,7 +340,8 @@ const SCHEMA_SQL = `
     action TEXT NOT NULL,
     person TEXT,
     note TEXT,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    deleted_at TEXT
   );
 
   -- Activity log
@@ -324,7 +364,8 @@ const SCHEMA_SQL = `
     type TEXT NOT NULL,
     filters TEXT,
     created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL,
+    deleted_at TEXT
   );
 
   -- Collection-Books relationship
@@ -341,7 +382,8 @@ const SCHEMA_SQL = `
     slug TEXT UNIQUE,
     filters TEXT NOT NULL,
     created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL,
+    deleted_at TEXT
   );
 
   -- Custom vocabulary
@@ -351,6 +393,7 @@ const SCHEMA_SQL = `
     value TEXT NOT NULL,
     createdAt TEXT NOT NULL,
     updatedAt TEXT NOT NULL,
+    deleted_at TEXT,
     UNIQUE(domain, value)
   );
 
@@ -364,6 +407,7 @@ const SCHEMA_SQL = `
     notes TEXT,
     createdAt TEXT NOT NULL,
     updatedAt TEXT NOT NULL,
+    deleted_at TEXT,
     FOREIGN KEY(bookId) REFERENCES books(id) ON DELETE CASCADE
   );
 
@@ -372,6 +416,8 @@ const SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_books_isbn ON books(isbn);
   CREATE INDEX IF NOT EXISTS idx_books_storageLocationId ON books(storageLocationId);
   CREATE INDEX IF NOT EXISTS idx_books_reading_session ON books(currentReadingSessionId);
+  CREATE INDEX IF NOT EXISTS idx_books_deleted_at ON books(deleted_at);
+  CREATE INDEX IF NOT EXISTS idx_authors_deleted_at ON authors(deleted_at);
   CREATE INDEX IF NOT EXISTS idx_history_bookId ON book_storage_history(bookId);
   CREATE INDEX IF NOT EXISTS idx_history_created_at ON book_storage_history(created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_activity_created_at ON activity_log(created_at DESC);
@@ -379,10 +425,15 @@ const SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_activity_entity ON activity_log(entity_type, entity_id);
   CREATE INDEX IF NOT EXISTS idx_collection_name ON collections(name COLLATE NOCASE);
   CREATE INDEX IF NOT EXISTS idx_collection_books_book ON collection_books(bookId);
+  CREATE INDEX IF NOT EXISTS idx_collections_deleted_at ON collections(deleted_at);
+  CREATE INDEX IF NOT EXISTS idx_storage_locations_deleted_at ON storage_locations(deleted_at);
   CREATE INDEX IF NOT EXISTS idx_reading_sessions_book ON reading_sessions(bookId);
   CREATE INDEX IF NOT EXISTS idx_reading_sessions_status ON reading_sessions(status);
   CREATE INDEX IF NOT EXISTS idx_reading_sessions_started ON reading_sessions(startedAt);
   CREATE INDEX IF NOT EXISTS idx_reading_sessions_finished ON reading_sessions(finishedAt);
+  CREATE INDEX IF NOT EXISTS idx_reading_sessions_deleted_at ON reading_sessions(deleted_at);
+  CREATE INDEX IF NOT EXISTS idx_filter_presets_deleted_at ON filter_presets(deleted_at);
+  CREATE INDEX IF NOT EXISTS idx_vocab_custom_deleted_at ON vocab_custom(deleted_at);
 `;
 
 module.exports = {

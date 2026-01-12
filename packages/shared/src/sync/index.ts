@@ -3,3 +3,5 @@
  */
 
 export * from './types';
+export * from './syncPayload';
+export * from './mergeUtils';
