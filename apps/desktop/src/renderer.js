@@ -6504,6 +6504,7 @@ function applyTheme(theme, paletteId) {
 
   // Apply CSS variables to :root
   const root = document.documentElement;
+  if (!root || !root.style) return; // guard for test environment
   root.style.setProperty('--bg', colors.bg);
   root.style.setProperty('--bg-gradient', colors.bgGradient);
   root.style.setProperty('--surface', colors.surface);
