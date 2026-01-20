@@ -1,9 +1,9 @@
 /**
  * Database schema definitions and migrations
- * Current schema version: 16
+ * Current schema version: 17
  */
 
-const SCHEMA_VERSION = 16;
+const SCHEMA_VERSION = 17;
 
 /**
  * Initial schema (v1) SQL
@@ -247,6 +247,12 @@ const MIGRATIONS = {
     -- Add deleted_at to book_storage_history
     ALTER TABLE book_storage_history ADD COLUMN deleted_at TEXT;
   `,
+
+  // v16 -> v17: Pin book support
+  17: `
+    ALTER TABLE books ADD COLUMN isPinned INTEGER DEFAULT 0;
+    ALTER TABLE books ADD COLUMN pinnedAt TEXT;
+  `,
 };
 
 /**
@@ -285,7 +291,9 @@ const SCHEMA_SQL = `
     originalTitleEn TEXT,
     originalAuthorsEn TEXT,
     goodreadsFetchedAt TEXT,
-    currentReadingSessionId TEXT
+    currentReadingSessionId TEXT,
+    isPinned INTEGER DEFAULT 0,
+    pinnedAt TEXT
   );
 
   -- Authors table
