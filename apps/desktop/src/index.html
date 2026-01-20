@@ -1,0 +1,1495 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Домашняя библиотека</title>
+    <link rel="icon" href="assets/icon.svg" />
+    <link rel="stylesheet" href="assets/tailwind-lite.css" />
+    <style>
+      /* Default theme (Oak Light) - colors can be overridden by JavaScript palette system */
+      :root {
+        --bg: #f5ebe0;
+        --bg-gradient: radial-gradient(1200px 800px at -10% -20%, #faf3e8 0%, #f5ebe0 60%),
+                        radial-gradient(1000px 700px at 120% 0%, #efe3d4 0%, #f5ebe0 60%);
+        --surface: #fdf8f2;
+        --muted-surface: #efe5d8;
+        --border: #ddd0be;
+        --text: #3d3224;
+        --muted: #8c7a63;
+        --accent: #b8860b;
+        --accent-strong: #9a7209;
+        --accent-glow: rgba(184, 134, 11, 0.15);
+        --accent-glow-hover: rgba(184, 134, 11, 0.25);
+        --danger: #c45a3b;
+        --danger-strong: #a84830;
+        --danger-glow: rgba(196, 90, 59, 0.15);
+        --success: #5a8a5a;
+        --success-glow: rgba(90, 138, 90, 0.15);
+        --shadow: 0 8px 24px rgba(61, 50, 36, 0.08);
+        --radius: 12px;
+      }
+
+      /* Dark theme class - colors are injected by JavaScript from palette */
+      body.theme-dark {
+        /* CSS variables are set dynamically via applyTheme() */
+      }
+
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        color: var(--text);
+        background: var(--bg);
+        background-image: var(--bg-gradient);
+        background-attachment: fixed;
+        font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      }
+
+      header {
+        position: sticky; top: 0; z-index: 2;
+        display:flex; align-items:center; justify-content:space-between;
+        padding: 14px 18px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+      }
+      header h1 { font-size: 16px; margin: 0; letter-spacing: 0.3px; }
+      /* remove legacy margin that created inner padding in segments */
+      /* header .actions button { margin-left: 8px; } */
+
+      /* Main layout: one column by default; two columns from 1024px */
+      main { display:grid; grid-template-columns: 1fr; box-sizing: border-box; padding: 18px; gap: 18px; }
+      @media (min-width: 1024px) {
+        main { grid-template-columns: 380px minmax(0, 1fr); }
+      }
+
+      /* Collapsible form on small screens */
+      .form-toggle-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        cursor: pointer;
+        user-select: none;
+      }
+      .form-toggle-header h3 { margin: 0; }
+      .form-toggle-icon {
+        transition: transform 0.2s ease;
+        color: var(--muted);
+      }
+      .form-toggle-icon.collapsed { transform: rotate(-90deg); }
+      .form-content { overflow: hidden; }
+      @media (max-width: 1023px) {
+        .form-content.collapsed {
+          display: none;
+        }
+        .form-toggle-header { padding: 4px 0; }
+      }
+      @media (min-width: 1024px) {
+        .form-toggle-header { cursor: default; }
+        .form-toggle-icon { display: none; }
+      }
+      .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; box-shadow: var(--shadow); }
+      .card h3 { margin: 0 0 6px; font-size: 15px; font-weight: 600; }
+      label { display:block; font-size: 12px; color: var(--muted); margin-top: 8px; margin-bottom: 6px; }
+      input[type="text"] {
+        width: 100%; padding: 10px 12px; border:1px solid var(--border); border-radius:10px; box-sizing: border-box;
+        background: var(--muted-surface); color: var(--text);
+        outline: none; transition: box-shadow 120ms ease, border-color 120ms ease;
+      }
+      input[type="text"]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+      textarea { width: 100%; padding: 10px 12px; border:1px solid var(--border); border-radius:10px; box-sizing: border-box;
+        background: var(--muted-surface); color: var(--text);
+        outline: none; transition: box-shadow 120ms ease, border-color 120ms ease; }
+      textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+      select { background: var(--surface); color: var(--text); border-color: var(--border); }
+      .row { display:flex; gap:8px; align-items:center; }
+      button { padding:9px 12px; border:1px solid var(--border); border-radius:10px; background: var(--muted-surface); color: var(--text); cursor:pointer; transition: filter 120ms ease, transform 60ms ease, box-shadow 120ms ease; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+      button:hover { filter: brightness(0.96); box-shadow: 0 2px 4px rgba(0,0,0,0.06); }
+      button:active { transform: translateY(1px); box-shadow: none; }
+      button.primary { background: linear-gradient(180deg, var(--accent) 0%, var(--accent-strong) 100%); border-color: var(--accent-strong); color: #fff; }
+      button.danger { background: linear-gradient(180deg, var(--danger) 0%, var(--danger-strong) 100%); border-color: var(--danger-strong); color: #fff; }
+
+      /* Palette selector buttons */
+      .palette-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        padding: 8px 4px;
+        border: 2px solid var(--border);
+        border-radius: 8px;
+        background: var(--muted-surface);
+        cursor: pointer;
+        transition: all 0.15s ease;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+      }
+      .palette-btn:hover {
+        border-color: var(--muted);
+        transform: translateY(-1px);
+        filter: brightness(0.96);
+      }
+      .palette-btn.active {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2px var(--accent-glow);
+      }
+      body.theme-dark .palette-btn { box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+      body.theme-dark .palette-btn:hover { box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
+      .palette-dot {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        border: 2px solid rgba(0,0,0,0.1);
+      }
+      .palette-name {
+        font-size: 10px;
+        font-weight: 500;
+        color: var(--muted);
+        text-align: center;
+        line-height: 1.1;
+      }
+      .palette-btn.active .palette-name {
+        color: var(--text);
+        font-weight: 600;
+      }
+
+      /* Theme mode buttons */
+      .theme-mode-btn {
+        flex: 1;
+        padding: 8px 12px;
+        border: 2px solid var(--border);
+        border-radius: 8px;
+        background: var(--muted-surface);
+        color: var(--text);
+        cursor: pointer;
+        transition: all 0.15s ease;
+        font-size: 13px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+      }
+      .theme-mode-btn:hover {
+        border-color: var(--muted);
+        filter: brightness(0.96);
+      }
+      .theme-mode-btn.active {
+        border-color: var(--accent);
+        background: var(--accent-glow);
+        color: var(--accent);
+        font-weight: 600;
+      }
+      body.theme-dark .theme-mode-btn { box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+      body.theme-dark .theme-mode-btn:hover { box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
+
+      .cover-preview { width: 100%; max-height: 220px; object-fit: contain; background: repeating-conic-gradient(from 45deg, rgba(0,0,0,0.04) 0% 25%, rgba(0,0,0,0.02) 0% 50%) 50% / 20px 20px; border:1px dashed var(--border); border-radius: 10px; display:none; }
+      .list { display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+      .list.rows { grid-template-columns: 1fr; }
+      .list.compact .book { padding:6px; gap:8px; }
+      .list.compact .thumb { width:48px; height:68px; }
+      .book { display:flex; gap:12px; background: var(--surface); border:1px solid var(--border); padding:12px; border-radius:12px; cursor: pointer; align-items:flex-start; transition: box-shadow 0.15s ease, transform 0.15s ease; }
+      .book { overflow: hidden; }
+      .book:hover { box-shadow: var(--shadow); transform: translateY(-2px); }
+      .book.selected { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+      .book.loaned { border-color: rgba(226,61,79,0.4); box-shadow: 0 10px 24px rgba(226,61,79,0.08); }
+      .book.loaned.selected { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+      .book.loaned .thumb { border-color: rgba(226,61,79,0.45); box-shadow: 0 0 0 2px rgba(226,61,79,0.16); }
+      .thumb { width:64px; height:86px; object-fit:cover; background: var(--muted-surface); border-radius:8px; border:1px solid var(--border); display:none; }
+      .thumb.loaned { border-color: rgba(226,61,79,0.45); box-shadow: 0 0 0 2px rgba(226,61,79,0.16); }
+      .loan-badge { display:inline-flex; align-items:center; gap:8px; font-size:10px; font-weight:650; letter-spacing:0.05em; text-transform:uppercase; color: var(--danger); background: rgba(226,61,79,0.12); border:1px solid rgba(226,61,79,0.35); border-radius:999px; padding:2px 6px; margin-bottom:2px; width:max-content; }
+      .loan-status { display:none; flex-direction:column; gap:6px; margin-top:10px; padding:10px 12px; background: rgba(226,61,79,0.08); border:1px solid rgba(226,61,79,0.25); border-radius:12px; color: var(--danger); }
+      .loan-status-text { font-size:12px; color: var(--muted); white-space: pre-line; }
+      .loan-status.visible { display:flex; }
+      body.theme-dark .book.loaned { border-color: rgba(255,93,108,0.35); box-shadow: 0 10px 24px rgba(255,93,108,0.16); }
+      body.theme-dark .book.loaned .thumb { border-color: rgba(255,93,108,0.45); box-shadow: 0 0 0 2px rgba(255,93,108,0.2); }
+      body.theme-dark .loan-badge { background: rgba(255,93,108,0.22); border-color: rgba(255,93,108,0.45); color: #ffe2e5; }
+      body.theme-dark .loan-status { background: rgba(255,93,108,0.22); border-color: rgba(255,93,108,0.45); color: #ffe2e5; }
+      body.theme-dark .loan-status-text { color: rgba(255,226,229,0.85); }
+      .history-view { display:flex; flex-direction:column; gap:12px; height:100%; }
+      .history-controls { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+      .history-controls .input { height:34px; }
+      .history-list-wrapper { flex:1; min-height:0; overflow-y:auto; }
+      .history-list { display:flex; flex-direction:column; gap:8px; }
+      .history-group { display:flex; flex-direction:column; gap:6px; }
+      .history-date { font-size:12px; font-weight:600; color: var(--muted); text-transform:uppercase; letter-spacing:0.04em; }
+      .history-item { border:1px solid var(--border); border-radius:10px; background: var(--surface); padding:10px 12px; }
+      .history-item > summary { list-style:none; display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:600; color: var(--text); }
+      .history-item > summary::-webkit-details-marker { display:none; }
+      .history-time { font-size:12px; color: var(--muted); min-width:46px; }
+      .history-action-tag { font-size:11px; color: var(--muted); background: var(--muted-surface); border-radius:999px; padding:2px 6px; text-transform:uppercase; letter-spacing:0.06em; }
+      .history-summary-text { flex:1; }
+      .history-details { margin-top:6px; font-size:12px; color: var(--muted); display:flex; flex-direction:column; gap:6px; }
+      .history-diff-table { width:100%; border-collapse:collapse; font-size:12px; }
+      .history-diff-table th, .history-diff-table td { text-align:left; padding:4px 6px; border-bottom:1px solid var(--border); vertical-align:top; }
+      .history-info-row { display:flex; gap:6px; }
+      .history-info-row strong { color: var(--text); }
+      .history-empty { color: var(--muted); font-size:13px; text-align:center; padding:24px 0; }
+      .history-loadmore { display:flex; justify-content:center; margin-top:12px; }
+      .meta { flex:1; min-width: 0; display:flex; flex-direction:column; gap:6px; }
+      .title { font-weight:650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .authors { color:var(--muted); font-size:12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .rating { display:inline-flex; align-items:center; gap:2px; margin-top:2px; font-size:0; }
+      .rating .star { position:relative; display:inline-block; width:16px; height:16px; }
+      .rating .star::before,
+      .rating .star::after { content:'★'; position:absolute; inset:0; font-size:16px; line-height:16px; color:var(--border); }
+      .rating .star::after { content:''; }
+      .rating .star.star--full::before { color:var(--accent); }
+      .rating .star.star--half::before { color:var(--accent); clip-path: inset(0 50% 0 0); }
+      .rating .star.star--half::after { content:'★'; color:var(--border); clip-path: inset(0 0 0 50%); }
+      .rating .star.star--empty::before { color:var(--border); }
+      .meta .collections-badges { margin-top: 2px; }
+      .meta .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:4px; }
+      .empty { color:var(--muted); padding:16px; }
+      .dropzone { border: 1px dashed var(--border); border-radius: 10px; }
+      .dropzone.active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+      .actions { display:flex; gap:8px; align-items:center; }
+      .icon-btn { width:36px; height:36px; padding:0; border:1px solid var(--border); border-radius:8px; background:var(--surface); cursor:pointer; display:flex; align-items:center; justify-content:center; }
+      .icon-btn:hover { background:var(--muted-surface); }
+      .icon-btn svg { width:16px; height:16px; color:var(--text); }
+      /* Theme toggle icons - show/hide based on theme */
+      #themeToggle .icon-sun { display: none; }
+      #themeToggle .icon-moon { display: block; }
+      body.theme-dark #themeToggle .icon-sun { display: block; }
+      body.theme-dark #themeToggle .icon-moon { display: none; }
+
+      /* Theme toggle glow effects */
+      #themeToggle {
+        position: relative;
+        overflow: visible;
+      }
+      /* Moon glow in light theme - cool blue/purple */
+      #themeToggle .icon-moon {
+        color: #6366f1;
+        filter: drop-shadow(0 0 3px rgba(99, 102, 241, 0.5)) drop-shadow(0 0 6px rgba(99, 102, 241, 0.3));
+      }
+      #themeToggle:hover .icon-moon {
+        filter: drop-shadow(0 0 4px rgba(99, 102, 241, 0.7)) drop-shadow(0 0 10px rgba(99, 102, 241, 0.4));
+      }
+      /* Sun glow in dark theme - warm yellow/orange */
+      body.theme-dark #themeToggle .icon-sun {
+        color: #fbbf24;
+        filter: drop-shadow(0 0 4px rgba(251, 191, 36, 0.6)) drop-shadow(0 0 8px rgba(251, 191, 36, 0.4));
+        animation: sun-pulse 3s ease-in-out infinite;
+      }
+      body.theme-dark #themeToggle:hover .icon-sun {
+        filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.8)) drop-shadow(0 0 14px rgba(251, 191, 36, 0.5));
+      }
+      @keyframes sun-pulse {
+        0%, 100% { filter: drop-shadow(0 0 4px rgba(251, 191, 36, 0.6)) drop-shadow(0 0 8px rgba(251, 191, 36, 0.4)); }
+        50% { filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.8)) drop-shadow(0 0 12px rgba(251, 191, 36, 0.5)); }
+      }
+      /* Active state for icon buttons (e.g., Enrichment toggle) */
+      .icon-btn.active { background: var(--accent-glow); border-color: var(--accent); }
+      .icon-btn.active svg { color: var(--accent); }
+      /* Bookmarked state for collection icons - filled with theme accent */
+      .icon-btn.bookmarked { border-color: var(--accent); background: var(--accent-glow); }
+      .icon-btn.bookmarked svg { color: var(--accent); fill: var(--accent); }
+      /* Pinned state for pin button */
+      .icon-btn.pinned { border-color: var(--accent); background: var(--accent-glow); }
+      .icon-btn.pinned svg { color: var(--accent); fill: var(--accent); }
+
+      body.theme-dark .seg > button.active { background: rgba(255,255,255,0.08); }
+      body.theme-dark button, body.theme-dark .btn { box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+      body.theme-dark button:hover, body.theme-dark .btn:hover { box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
+      .btn.secondary.active {
+        background: var(--accent-glow);
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+      /* Unified badge styles */
+      .badge-gr, .reading-status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 8px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--accent);
+        background: var(--accent-glow);
+        border: 1px solid var(--accent);
+        border-radius: 6px;
+      }
+      .reading-status-badge svg {
+        flex-shrink: 0;
+      }
+      /* Pinned badge */
+      .badge-pinned {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 8px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--accent);
+        background: var(--accent-glow);
+        border: 1px solid var(--accent);
+        border-radius: 6px;
+      }
+      .badge-pinned svg {
+        flex-shrink: 0;
+      }
+      /* Collection badges - gradient with theme colors */
+      .collections-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 6px;
+      }
+      .badge-collection {
+        background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+        color: #fff;
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-weight: 500;
+        white-space: nowrap;
+      }
+      /* layout + unified controls */
+      html, body { height: 100%; }
+      body { margin: 0; display: flex; flex-direction: column; }
+      main { flex: 1; min-height: 0; }
+      .input { height:36px; padding:0 12px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--text); font-size:14px; box-sizing:border-box; }
+      .input:focus { outline:none; box-shadow:0 0 0 2px var(--accent-glow-hover); }
+      select.input {
+        appearance: none; -webkit-appearance: none; -moz-appearance: none;
+        padding-right: 32px;
+        background-image: url("data:image/svg+xml,%3Csvg width='14' height='14' viewBox='0 0 14 14' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0.5 3.85L6.65 10C6.695 10.048 6.749 10.086 6.809 10.112C6.87 10.138 6.934 10.152 7 10.152C7.066 10.152 7.13 10.138 7.191 10.112C7.251 10.086 7.305 10.048 7.35 10L13.5 3.85' stroke='%236b728e' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        background-size: 12px;
+        cursor: pointer;
+      }
+      body.theme-dark select.input {
+        background-image: url("data:image/svg+xml,%3Csvg width='14' height='14' viewBox='0 0 14 14' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0.5 3.85L6.65 10C6.695 10.048 6.749 10.086 6.809 10.112C6.87 10.138 6.934 10.152 7 10.152C7.066 10.152 7.13 10.138 7.191 10.112C7.251 10.086 7.305 10.048 7.35 10L13.5 3.85' stroke='%23a6add6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      }
+      .btn { height:36px; padding:0 12px; border:1px solid var(--border); border-radius:8px; background:var(--muted-surface); color:var(--text); font-size:14px; cursor:pointer; box-sizing:border-box; box-shadow: 0 1px 2px rgba(0,0,0,0.04); transition: filter 120ms ease, box-shadow 120ms ease; }
+      .btn:hover { filter: brightness(0.96); box-shadow: 0 2px 4px rgba(0,0,0,0.06); }
+      .btn.icon-btn { width:36px; padding:0; display:flex; align-items:center; justify-content:center; }
+      .range-input { background:transparent; border:1px solid transparent; }
+      .range-input:hover { border-color:var(--border); }
+      .range-input:focus { border-color:var(--accent); background:var(--surface); }
+      /* Filter toolbar - first row (view toggle, collections, saved searches, sort) */
+      #listSection > .row:first-child { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:6px; }
+      .filter-group { border:1px solid var(--border); border-radius:8px; padding:3px; background:var(--surface); display:flex; align-items:center; gap:3px; }
+      .filter-group .input { height:28px; font-size:13px; border-radius:5px; }
+      .filter-group .btn.icon-btn { width:28px; height:28px; border-radius:5px; }
+      .filter-group .btn.icon-btn svg { width:12px; height:12px; }
+      .filter-group label { margin:0; padding:0 6px; color:var(--muted); font-size:12px; white-space:nowrap; }
+      /* Filters bar - second row */
+      #filtersBar { display:flex; align-items:center; gap:6px; margin-bottom:8px; flex-wrap:wrap; }
+      #filtersBar .input { height:32px; font-size:13px; border-radius:6px; }
+      #filtersBar .btn { height:32px; font-size:13px; border-radius:6px; padding:0 10px; display:flex; align-items:center; gap:6px; }
+      #filtersBar .btn.icon-btn { width:32px; padding:0; }
+      #filtersBar .filters-actions { margin-left:auto; display:flex; align-items:center; gap:4px; }
+      .filter-range { display:flex; align-items:center; gap:3px; background:var(--muted-surface); padding:4px 8px; border-radius:6px; border:1px solid var(--border); height:32px; box-sizing:border-box; }
+      .filter-range .range-input { width:3rem; height:22px; font-size:11px; padding:0 4px; border-radius:4px; }
+      .filter-range span { font-size:11px; color:var(--muted); }
+      .filter-range span:first-child { font-weight:500; }
+      .btn.primary { background: linear-gradient(180deg, var(--accent) 0%, var(--accent-strong) 100%); color:#fff; border-color: var(--accent-strong); }
+      .btn.primary:hover { filter: brightness(1.1); }
+      .btn.primary svg { stroke: #fff; }
+      .btn.secondary { background: var(--accent-glow); border-color: var(--accent); color: var(--accent); }
+      .btn.secondary:hover { background: var(--accent-glow-hover); }
+      .seg { display:inline-flex; border:1px solid var(--border); border-radius:8px; padding:3px; background:var(--surface); gap:3px; }
+      .seg > button { height:28px; width:28px; padding:0; margin:0; border:0; border-radius:5px; background:transparent; cursor:pointer; display:flex; align-items:center; justify-content:center; transition: background 0.1s ease; }
+      .seg > button:hover { background:var(--muted-surface); }
+      .seg > button.active { background:var(--muted-surface); }
+      .seg > button svg { width:14px; height:14px; }
+      .search-help-section { margin-top: 14px; }
+      .search-help-section:first-of-type { margin-top: 0; }
+      .search-help-section strong { display:block; font-size:13px; margin-bottom:6px; }
+      .search-help-list { margin:0; padding-left:18px; line-height:1.5; }
+      .search-help-list li { margin:4px 0; }
+      .search-help-fields { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:6px 16px; font-size:13px; }
+      .search-help-note { font-size:12px; color:var(--muted); margin-top:6px; }
+      .bulk-toolbar { display:none; margin-bottom:12px; padding:10px 12px; border:1px dashed var(--accent); border-radius:10px; background:var(--accent-glow); gap:12px; flex-wrap:wrap; align-items:center; }
+      .bulk-toolbar.active { display:flex; }
+      .bulk-toolbar .bulk-summary { font-weight:600; color:var(--accent); }
+      .bulk-toolbar .bulk-actions { display:flex; gap:8px; flex-wrap:wrap; }
+      .book { position:relative; }
+      .book.bulk-selectable { cursor:pointer; padding-left: 48px; transition: padding 0.16s ease; }
+      .book.bulk-selected { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+      .book .bulk-checkbox { position:absolute; left:16px; transform:none; width:18px; height:18px; accent-color: var(--accent); display:none; background:var(--surface); border-radius:4px; box-shadow:0 1px 2px rgba(15,23,42,0.12); }
+      .book.bulk-selectable .bulk-checkbox { display:block; }
+      details.goodreads-panel {
+        border:1px solid var(--border);
+        border-radius:12px;
+        padding:8px 12px 12px;
+        background:var(--surface);
+        margin-top:12px;
+      }
+      details.goodreads-panel summary {
+        font-weight:600;
+        cursor:pointer;
+        outline:none;
+      }
+      .goodreads-grid {
+        display:grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap:8px 12px;
+        margin-top:8px;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="sticky top-0 z-10 backdrop-blur" style="background: color-mix(in srgb, var(--surface) 70%, transparent); border-bottom: 1px solid var(--border);">
+      <h1 class="flex items-center justify-center p-2">
+        <img id="appIcon" src="" alt="Домашняя библиотека" data-i18n="app.title" data-i18n-attr="alt" width="48" height="48" style="display: none;" />
+        <div id="iconFallback" style="width: 48px; height: 48px; background: linear-gradient(135deg, #4f46e5, #7c3aed, #f43f5e); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 20px;">📚</div>
+      </h1>
+      <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div class="actions flex items-center gap-2">
+          <input id="searchInput" type="text" placeholder="Поиск по названию или автору…" data-i18n="header.search" data-i18n-attr="placeholder" class="input" style="width:16rem;" />
+          <button id="searchHelpBtn" class="icon-btn" title="Подсказки по поиску" data-i18n="header.searchHelp" data-i18n-attr="title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="6.5"/><path d="M5.5 5.5C5.5 5.20333 5.58797 4.91332 5.7528 4.66665C5.91762 4.41997 6.15189 4.22771 6.42597 4.11418C6.70006 4.00065 7.00166 3.97094 7.29264 4.02882C7.58361 4.0867 7.85088 4.22956 8.06066 4.43934C8.27044 4.64912 8.4133 4.91639 8.47118 5.20737C8.52906 5.49834 8.49935 5.79994 8.38582 6.07403C8.27229 6.34812 8.08003 6.58238 7.83336 6.74721C7.58668 6.91203 7.29667 7 7 7V8"/><circle cx="7" cy="10.25" r="0.5" fill="currentColor"/></svg>
+          </button>
+          <button id="themeToggle" class="icon-btn" title="Тёмная тема" data-i18n="header.darkTheme" data-i18n-attr="title">
+            <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 10.48C10.8383 10.4729 9.69946 10.157 8.70014 9.56463C7.70083 8.97228 6.87703 8.12482 6.31321 7.10913C5.7494 6.09345 5.46585 4.94609 5.49164 3.78469C5.51743 2.6233 5.85164 1.48965 6.45999 0.5C4.85717 0.781382 3.41649 1.64934 2.41859 2.9348C1.42069 4.22026 0.937035 5.83116 1.06185 7.4537C1.18666 9.07624 1.91099 10.5942 3.09375 11.7119C4.27651 12.8297 5.83299 13.4671 7.45999 13.5C8.57312 13.5028 9.66809 13.218 10.6387 12.6731C11.6094 12.1282 12.4228 11.3418 13 10.39C12.6693 10.4446 12.3351 10.4747 12 10.48V10.48Z"/></svg>
+            <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="3.25"/><path d="M7 0.5V1.5"/><path d="M7 12.5V13.5"/><path d="M13.5 7H12.5"/><path d="M1.5 7H0.5"/><path d="M11.6 2.3999L10.89 3.1099"/><path d="M3.10999 10.8899L2.39999 11.5999"/><path d="M11.6 11.5999L10.89 10.8899"/><path d="M3.10999 3.1099L2.39999 2.3999"/></svg>
+          </button>
+          <button id="exportBtn" class="icon-btn" title="Бэкап" data-i18n="header.backup" data-i18n-attr="title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7L7 10.5L10 7"/><path d="M7 10.5V3.5"/><circle cx="7" cy="7" r="6.5"/></svg>
+          </button>
+          <button id="importBtn" class="icon-btn" title="Импорт резервной копии" data-i18n="header.importBackup" data-i18n-attr="title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7L7 3.5L10 7"/><path d="M7 3.5V10.5"/><circle cx="7" cy="7" r="6.5"/></svg>
+          </button>
+          <button id="csvImportBtn" class="icon-btn" title="Импорт CSV/TSV" data-i18n="header.importCsv" data-i18n-attr="title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13.5H1.5C1.23478 13.5 0.98043 13.3946 0.792893 13.2071C0.605357 13.0196 0.5 12.7652 0.5 12.5V1.5C0.5 1.23478 0.605357 0.98043 0.792893 0.792893C0.98043 0.605357 1.23478 0.5 1.5 0.5H12.5C12.7652 0.5 13.0196 0.605357 13.2071 0.792893C13.3946 0.98043 13.5 1.23478 13.5 1.5V12.5C13.5 12.7652 13.3946 13.0196 13.2071 13.2071C13.0196 13.3946 12.7652 13.5 12.5 13.5H10.5"/><path d="M0.5 3.5H13.5"/><path d="M7 13.5V7"/><path d="M4.5 9.5L7 7L9.5 9.5"/></svg>
+          </button>
+          <button id="storageManagerBtn" class="icon-btn" title="Места хранения" data-i18n="header.storage" data-i18n-attr="title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="0.55" y="0.5" width="3" height="13" rx="0.5"/><rect x="4.05" y="2.5" width="3" height="11" rx="0.5"/><path d="M10.3965 2.22633L8.45636 2.71187C8.18847 2.77891 8.02566 3.05041 8.0927 3.31829L10.5204 13.0191C10.5874 13.287 10.8589 13.4498 11.1268 13.3828L13.067 12.8973C13.3349 12.8302 13.4977 12.5587 13.4306 12.2908L11.003 2.58999C10.9359 2.32211 10.6644 2.15929 10.3965 2.22633Z"/><path d="M0.55 10H4.05"/><path d="M4.05 9H7.55"/><path d="M10.05 11L12.93 10.28"/></svg>
+          </button>
+          <button id="syncBtn" class="icon-btn" title="Синхронизация" data-i18n="header.sync" data-i18n-attr="title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 0.5L11.5 3L9 5.5"/><path d="M0.5 6V4C0.5 3.73478 0.605357 3.48043 0.792893 3.29289C0.98043 3.10536 1.23478 3 1.5 3H11.5"/><path d="M5 13.5L2.5 11L5 8.5"/><path d="M13.5 8V10C13.5 10.2652 13.3946 10.5196 13.2071 10.7071C13.0196 10.8946 12.7652 11 12.5 11H2.5"/></svg>
+          </button>
+          <button id="openVocabManagerBtn" class="icon-btn" title="Справочники автодополнения" data-i18n="header.vocabs" data-i18n-attr="title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="1" cy="2.5" r="0.5" fill="currentColor"/><path d="M4.5 2.5H13.5"/><circle cx="1" cy="7" r="0.5" fill="currentColor"/><path d="M4.5 7H13.5"/><circle cx="1" cy="11.5" r="0.5" fill="currentColor"/><path d="M4.5 11.5H13.5"/></svg>
+          </button>
+          <button id="checkUpdatesBtn" class="icon-btn" title="Проверить обновления" data-i18n="header.checkUpdates" data-i18n-attr="title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M11 9L13 8.5L13.5 10.5"/><path d="M13 8.5C12.5558 9.75861 11.749 10.8576 10.6813 11.6584C9.61353 12.4592 8.33262 12.926 6.99999 13C5.7681 13.0002 4.566 12.6213 3.55697 11.9146C2.54794 11.2079 1.78088 10.2078 1.35999 9.05"/><path d="M3 5L1 5.5L0.5 3.5"/><path d="M1 5.5C1.84 3.2 4.42 1 7 1C8.23789 1.00348 9.4444 1.38976 10.4541 2.10588C11.4639 2.822 12.2274 3.8329 12.64 5"/></svg>
+          </button>
+          <button id="openHistoryBtn" class="icon-btn" title="История изменений" data-i18n="header.history" data-i18n-attr="title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M0.5 7C0.5 8.28558 0.881218 9.54229 1.59545 10.6112C2.30968 11.6801 3.32484 12.5133 4.51256 13.0052C5.70028 13.4972 7.00721 13.6259 8.26809 13.3751C9.52896 13.1243 10.6872 12.5052 11.5962 11.5962C12.5052 10.6872 13.1243 9.52897 13.3751 8.26809C13.6259 7.00722 13.4972 5.70028 13.0052 4.51256C12.5132 3.32484 11.6801 2.30968 10.6112 1.59545C9.54229 0.881223 8.28558 0.500004 7 0.500004C5.13797 0.497944 3.34694 1.21436 2 2.5"/><path d="M2.5 0.5L2 2.5L4 3"/><path d="M7.00002 3.5V7.5L4.40002 8.8"/></svg>
+          </button>
+          <button id="openStatsBtn" class="icon-btn" title="Статистика чтения" data-i18n="header.stats" data-i18n-attr="title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M0.5 13.5H13.5"/><path d="M4.5 13.5V0.5H0.5V13.5"/><path d="M8.5 13.5V6.5H4.5V13.5"/><path d="M12.5 13.5V3.5H8.5V13.5"/></svg>
+          </button>
+          <button id="openEnrichBtn" class="icon-btn" title="Обогащение" data-i18n="header.enrich" data-i18n-attr="title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12.64 1.8699L11.8 4.3499C11.771 4.40726 11.7559 4.47063 11.7559 4.5349C11.7559 4.59917 11.771 4.66255 11.8 4.7199L13.37 6.8199C13.4151 6.88001 13.4424 6.95161 13.4487 7.0265C13.455 7.1014 13.4401 7.17655 13.4056 7.24335C13.3712 7.31015 13.3186 7.36589 13.254 7.40419C13.1893 7.44249 13.1152 7.4618 13.04 7.4599H10.42C10.3558 7.46179 10.2928 7.47804 10.2357 7.50746C10.1786 7.53688 10.1288 7.57872 10.09 7.6299L8.63003 9.7299C8.5872 9.79129 8.52802 9.83943 8.4592 9.86885C8.39038 9.89827 8.31468 9.90779 8.24072 9.89633C8.16676 9.88488 8.09749 9.85289 8.0408 9.80403C7.98411 9.75516 7.94226 9.69137 7.92003 9.6199L7.14002 7.1199C7.12223 7.05811 7.08904 7.00184 7.04357 6.95636C6.99809 6.91089 6.94182 6.8777 6.88003 6.8599L4.38003 6.0799C4.30856 6.05766 4.24477 6.01582 4.1959 5.95913C4.14703 5.90244 4.11505 5.83317 4.10359 5.75921C4.09213 5.68525 4.10166 5.60955 4.13108 5.54073C4.1605 5.47191 4.20864 5.41272 4.27003 5.3699L6.41002 3.8599C6.46121 3.82109 6.50305 3.7713 6.53247 3.71419C6.56189 3.65709 6.57814 3.59411 6.58002 3.5299V0.909903C6.58282 0.841088 6.60333 0.77416 6.63958 0.715598C6.67583 0.657037 6.72658 0.608827 6.78693 0.575637C6.84728 0.542446 6.91517 0.525399 6.98404 0.526147C7.0529 0.526894 7.12041 0.54541 7.18002 0.579903L9.28003 2.1499C9.33334 2.18693 9.39468 2.21077 9.459 2.21946C9.52333 2.22816 9.5888 2.22145 9.65002 2.1999L12.13 1.3599C12.2011 1.33491 12.2779 1.33052 12.3514 1.34724C12.4249 1.36397 12.4922 1.40113 12.5455 1.45443C12.5988 1.50774 12.636 1.57503 12.6527 1.64853C12.6694 1.72204 12.665 1.79878 12.64 1.8699V1.8699Z"/><path d="M7.04 6.95996L0.5 13.5"/></svg>
+          </button>
+          <button id="reloadBtn" class="icon-btn" title="Перезагрузить без кэша" data-i18n="header.reload" data-i18n-attr="title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M11 9L13 8.5L13.5 10.5"/><path d="M13 8.5C12.5558 9.75861 11.749 10.8576 10.6813 11.6584C9.61353 12.4592 8.33262 12.926 6.99999 13C5.7681 13.0002 4.566 12.6213 3.55697 11.9146C2.54794 11.2079 1.78088 10.2078 1.35999 9.05"/><path d="M3 5L1 5.5L0.5 3.5"/><path d="M1 5.5C1.84 3.2 4.42 1 7 1C8.23789 1.00348 9.4444 1.38976 10.4541 2.10588C11.4639 2.822 12.2274 3.8329 12.64 5"/></svg>
+          </button>
+          <button id="openSettingsBtn" class="icon-btn" title="Настройки" data-i18n="header.settings" data-i18n-attr="title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="2" cy="2" r="1.5"/><path d="M3.5 2H13.5"/><circle cx="7" cy="7" r="1.5"/><path d="M0.5 7H5.5"/><path d="M8.5 7H13.5"/><circle cx="12" cy="12" r="1.5"/><path d="M10.5 12H0.5"/></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+    <main class="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-[380px,1fr] gap-5">
+      <section id="libraryView" class="card">
+        <div class="form-toggle-header" id="formToggleHeader">
+          <h3 id="formTitle" data-i18n="form.addBook">Добавить книгу</h3>
+          <svg class="form-toggle-icon collapsed" id="formToggleIcon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 5.25L7 8.75L10.5 5.25"/></svg>
+        </div>
+        <div class="form-content collapsed" id="formContent">
+        <label data-i18n="form.title">Название</label>
+        <input id="titleInput" type="text" placeholder="Например, Война и мир" data-i18n="form.titlePlaceholder" data-i18n-attr="placeholder" class="input w-full" />
+        <label data-i18n="form.authors">Авторы (через запятую)</label>
+        <input id="authorsInput" type="text" placeholder="Автор1, Автор2" data-i18n="form.authorsPlaceholder" data-i18n-attr="placeholder" class="input w-full" />
+        <label data-i18n="form.cover">Обложка</label>
+        <div class="row" style="gap:8px; align-items:center;">
+          <button id="chooseCoverBtn" class="btn secondary" style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="0.51" y="0.5" width="13" height="13" rx="1"/><circle cx="9.25" cy="4.75" r="1.75"/><path d="M9.4 13.4999C9.07801 11.7849 8.15715 10.2401 6.80173 9.14113C5.44632 8.04214 3.74452 7.46048 2 7.49993C1.49668 7.49858 0.994381 7.54546 0.5 7.63993"/><path d="M13.5 9.91002C12.6946 9.63803 11.8501 9.49954 11 9.50002C9.92394 9.49768 8.85877 9.71548 7.87 10.14"/></svg>
+            <span data-i18n="form.chooseFile">Выбрать файл…</span>
+          </button>
+          <button id="coverSearchBtn" class="btn secondary" type="button" style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="6.5"/><path d="M0.5 7H13.5"/><path d="M9.5 7C9.3772 9.37699 8.50168 11.6533 7 13.5C5.49832 11.6533 4.6228 9.37699 4.5 7C4.6228 4.62301 5.49832 2.34665 7 0.5C8.50168 2.34665 9.3772 4.62301 9.5 7V7Z"/></svg>
+            <span data-i18n="form.findOnline">Найти онлайн…</span>
+          </button>
+        </div>
+        <span id="coverFileLabel" class="text-xs" style="display:none; margin-top:4px; color: var(--muted);"></span>
+        <div class="row" style="margin-top:8px; gap:8px;">
+          <input id="coverUrlInput" type="url" placeholder="https://example.com/cover.jpg" data-i18n="form.coverUrlPlaceholder" data-i18n-attr="placeholder" class="input" style="flex:1;" />
+          <button id="loadCoverBtn" class="btn" data-i18n="form.loadCover">Загрузить</button>
+        </div>
+        <img id="coverPreview" class="cover-preview dropzone" alt="предпросмотр" />
+        <label style="margin-top:12px;" data-i18n="form.storage">Место хранения</label>
+        <div class="row" style="gap:8px; align-items:center;">
+          <select id="storageSelect" class="input" style="flex:1; min-width:0;">
+            <option value="">—</option>
+          </select>
+          <button id="storageQuickAddBtn" type="button" class="btn secondary" style="white-space:nowrap; display:flex; align-items:center; gap:8px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M7 0.540039V13.54"/><path d="M0.5 7H13.5"/></svg>
+            <span data-i18n="form.addStorage">Добавить…</span>
+          </button>
+        </div>
+        <div class="row" style="margin-top:12px; gap:8px;">
+          <button id="saveBtn" class="btn primary" style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8L6.05 9.64C6.10506 9.68534 6.16952 9.71784 6.23872 9.73514C6.30791 9.75244 6.38009 9.7541 6.45 9.74C6.52058 9.72676 6.58749 9.69847 6.64616 9.65706C6.70483 9.61564 6.75389 9.56207 6.79 9.5L10 4"/><circle cx="7" cy="7" r="6.5"/></svg>
+            <span data-i18n="form.save">Сохранить</span>
+          </button>
+          <button id="resetBtn" class="btn" style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="6.5"/><path d="M9.5 4.5L4.5 9.5"/><path d="M4.5 4.5L9.5 9.5"/></svg>
+            <span data-i18n="form.reset">Сбросить</span>
+          </button>
+        </div>
+        <div style="margin-top:8px;">
+          <button id="openCreateModalBtn" class="btn secondary" style="width:100%; display:flex; align-items:center; justify-content:center; gap:6px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="6.5"/><path d="M7 7V10.5"/><circle cx="7" cy="4.5" r="0.5" fill="currentColor"/></svg>
+            <span data-i18n="form.advancedForm">Расширенная форма</span>
+          </button>
+        </div>
+        </div><!-- /form-content -->
+      </section>
+
+      <section id="listSection" class="card" style="min-height:0; min-width:0; display:flex; flex-direction:column;">
+        <!-- Row 1: View toggle, Collections, Saved searches, Sort -->
+        <div class="row">
+          <div class="seg" role="group" aria-label="Вид">
+            <button id="btnViewGrid" type="button" class="active" aria-pressed="true" title="Сетка" data-i18n="list.grid" data-i18n-attr="title">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="0.5" y="0.5" width="13" height="13" rx="1"/><path d="M7 0.5V13.5"/><path d="M0.5 7H13.5"/></svg>
+            </button>
+            <button id="btnViewList" type="button" aria-pressed="false" title="Список" data-i18n="list.listView" data-i18n-attr="title">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="1" cy="2.5" r="0.5" fill="currentColor"/><path d="M4.5 2.5H13.5"/><circle cx="1" cy="7" r="0.5" fill="currentColor"/><path d="M4.5 7H13.5"/><circle cx="1" cy="11.5" r="0.5" fill="currentColor"/><path d="M4.5 11.5H13.5"/></svg>
+            </button>
+          </div>
+          <!-- Collections group -->
+          <div class="filter-group">
+            <select id="collectionSelect" class="input" style="width:auto; min-width:7rem;">
+              <option value="" data-i18n="filters.collections">Коллекции…</option>
+            </select>
+            <button id="createCollectionBtn" type="button" class="btn icon-btn" title="Создать коллекцию" data-i18n="filters.createCollectionTitle" data-i18n-attr="title">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M7 0.540039V13.54"/><path d="M0.5 7H13.5"/></svg>
+            </button>
+            <button id="renameCollectionBtn" type="button" class="btn icon-btn" title="Переименовать коллекцию" data-i18n="filters.renameCollectionTitle" data-i18n-attr="title">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 1.5L12.5 3.5L4.5 11.5L1.5 12.5L2.5 9.5L10.5 1.5Z"/></svg>
+            </button>
+            <button id="deleteCollectionBtn" type="button" class="btn icon-btn" title="Удалить коллекцию" data-i18n="filters.deleteCollectionTitle" data-i18n-attr="title">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M1 3.5H13"/><path d="M2.5 3.5H11.5V12.5C11.5 12.7652 11.3946 13.0196 11.2071 13.2071C11.0196 13.3946 10.7652 13.5 10.5 13.5H3.5C3.23478 13.5 2.98043 13.3946 2.79289 13.2071C2.60536 13.0196 2.5 12.7652 2.5 12.5V3.5Z"/><path d="M4.5 3.5V3C4.5 2.33696 4.76339 1.70107 5.23223 1.23223C5.70107 0.763392 6.33696 0.5 7 0.5C7.66304 0.5 8.29893 0.763392 8.76777 1.23223C9.23661 1.70107 9.5 2.33696 9.5 3V3.5"/><path d="M5.5 5.5V11"/><path d="M8.5 5.5V11"/></svg>
+            </button>
+          </div>
+          <!-- Saved searches group -->
+          <div class="filter-group">
+            <select id="filterPresetSelect" class="input" style="width:auto; min-width:8rem;">
+              <option value="" data-i18n="filters.savedSearches">Поиски…</option>
+            </select>
+            <button id="savePresetBtn" type="button" class="btn icon-btn" title="Сохранить текущий поиск" data-i18n="filters.savePresetTitle" data-i18n-attr="title">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 12.5C13.5 12.7652 13.3946 13.0196 13.2071 13.2071C13.0196 13.3946 12.7652 13.5 12.5 13.5H1.5C1.23478 13.5 0.98043 13.3946 0.792893 13.2071C0.605357 13.0196 0.5 12.7652 0.5 12.5V3.5L3.5 0.5H12.5C12.7652 0.5 13.0196 0.605357 13.2071 0.792893C13.3946 0.98043 13.5 1.23478 13.5 1.5V12.5Z"/><rect x="3.5" y="8.5" width="7" height="5"/><rect x="4.5" y="0.5" width="6" height="4"/></svg>
+            </button>
+            <button id="deletePresetBtn" type="button" class="btn icon-btn" title="Удалить выбранный поиск" data-i18n="filters.deletePresetTitle" data-i18n-attr="title">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M1 3.5H13"/><path d="M2.5 3.5H11.5V12.5C11.5 12.7652 11.3946 13.0196 11.2071 13.2071C11.0196 13.3946 10.7652 13.5 10.5 13.5H3.5C3.23478 13.5 2.98043 13.3946 2.79289 13.2071C2.60536 13.0196 2.5 12.7652 2.5 12.5V3.5Z"/><path d="M4.5 3.5V3C4.5 2.33696 4.76339 1.70107 5.23223 1.23223C5.70107 0.763392 6.33696 0.5 7 0.5C7.66304 0.5 8.29893 0.763392 8.76777 1.23223C9.23661 1.70107 9.5 2.33696 9.5 3V3.5"/><path d="M5.5 5.5V11"/><path d="M8.5 5.5V11"/></svg>
+            </button>
+          </div>
+          <!-- Spacer -->
+          <div style="flex:1;"></div>
+          <!-- Sort -->
+          <div class="filter-group">
+            <label for="sortSelect" data-i18n="list.sort">Сортировка</label>
+            <select id="sortSelect" class="input" style="width:auto;">
+              <option value="title" data-i18n="list.sortTitle">Название</option>
+              <option value="author" data-i18n="list.sortAuthor">Автор</option>
+              <option value="date" data-i18n="list.sortDate">Дата добавления</option>
+              <option value="goodreads" data-i18n="list.sortGoodreads">Рейтинг Goodreads</option>
+              <option value="series" data-i18n="list.sortSeries">Серия</option>
+            </select>
+          </div>
+        </div>
+        <!-- Inline save input (appears when saving) -->
+        <div id="collectionSaveInline" class="row" style="display:none; align-items:center; gap:6px; width:100%; margin-bottom:6px;">
+          <input id="collectionNameInput" class="input" type="text" placeholder="Название коллекции" data-i18n="filters.collectionName" data-i18n-attr="placeholder" style="width:18rem;" />
+          <button id="collectionSaveConfirmBtn" type="button" class="btn" data-i18n="actions.ok">Ок</button>
+          <button id="collectionSaveCancelBtn" type="button" class="btn" data-i18n="actions.cancel">Отмена</button>
+        </div>
+        <!-- Row 2: Filters and actions -->
+        <div id="filtersBar">
+            <select id="filterAuthor" class="input" style="width:auto; min-width:6rem; max-width:7rem;">
+              <option value="">Автор…</option>
+            </select>
+            <input id="filterGenres" class="input" type="text" placeholder="Жанры" data-i18n="filters.genresShort" data-i18n-attr="placeholder" style="width:5rem;" />
+            <input id="filterTags" class="input" type="text" placeholder="Теги" data-i18n="filters.tagsShort" data-i18n-attr="placeholder" style="width:5rem;" />
+            <select id="filterFormat" class="input" style="width:auto; max-width:6rem;">
+              <option value="" data-i18n="filters.format">Формат…</option>
+              <option value="paper" data-i18n="format.paper">Бумажная</option>
+              <option value="ebook" data-i18n="format.ebook">Электронная</option>
+              <option value="audiobook" data-i18n="format.audiobook">Аудио</option>
+            </select>
+            <select id="filterReadingStatus" class="input" style="width:auto; max-width:8rem;">
+              <option value="" data-i18n="filters.readingStatus">Статус…</option>
+              <option value="want_to_read" data-i18n="readingStatus.wantToRead">🔖 Хочу прочитать</option>
+              <option value="reading" data-i18n="readingStatus.reading">📖 Читаю</option>
+              <option value="finished" data-i18n="readingStatus.finished">✅ Прочитано</option>
+              <option value="re_reading" data-i18n="readingStatus.reReading">🔁 Перечитываю</option>
+              <option value="abandoned" data-i18n="readingStatus.abandoned">❌ Брошено</option>
+              <option value="on_hold" data-i18n="readingStatus.onHold">⏸️ Отложено</option>
+              <option value="no_status" data-i18n="readingStatus.noStatus">—  Без статуса</option>
+            </select>
+            <!-- Year range group -->
+            <div class="filter-range">
+              <span data-i18n="filters.yearLabel">Год</span>
+              <input id="filterYearFrom" class="range-input" type="number" placeholder="1900" />
+              <span>—</span>
+              <input id="filterYearTo" class="range-input" type="number" placeholder="2025" />
+            </div>
+            <!-- GR range group -->
+            <div class="filter-range">
+              <span>GR</span>
+              <input id="filterGoodreadsFrom" class="range-input" type="number" step="0.1" placeholder="0" style="width:2.5rem;" />
+              <span>—</span>
+              <input id="filterGoodreadsTo" class="range-input" type="number" step="0.1" placeholder="5" style="width:2.5rem;" />
+            </div>
+            <!-- Right side actions -->
+            <div class="filters-actions">
+              <button id="btnClearFilters" class="btn" type="button" title="Сбросить фильтры" data-i18n="filters.clearTitle" data-i18n-attr="title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 0.5L0.5 13.5"/><path d="M0.5 0.5L13.5 13.5"/></svg>
+                <span data-i18n="filters.clear">Сбросить</span>
+              </button>
+              <button id="bulkEditToggle" class="btn icon-btn" type="button" title="Массовое редактирование" data-i18n="filters.bulkEdit" data-i18n-attr="title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M7.47003 6.90008C7.3217 6.96449 7.16173 6.99772 7.00003 6.99772C6.83832 6.99772 6.67835 6.96449 6.53003 6.90008L0.830026 4.26008C0.737468 4.2134 0.659684 4.14194 0.605338 4.05366C0.550992 3.96538 0.522217 3.86375 0.522217 3.76008C0.522217 3.65642 0.550992 3.55479 0.605338 3.46651C0.659684 3.37823 0.737468 3.30677 0.830026 3.26008L6.53003 0.600083C6.67835 0.535676 6.83832 0.502441 7.00003 0.502441C7.16173 0.502441 7.3217 0.535676 7.47003 0.600083L13.17 3.24008C13.2626 3.28677 13.3404 3.35823 13.3947 3.44651C13.4491 3.53479 13.4778 3.63642 13.4778 3.74008C13.4778 3.84375 13.4491 3.94538 13.3947 4.03366C13.3404 4.12194 13.2626 4.1934 13.17 4.24008L7.47003 6.90008Z"/>
+                  <path d="M13.5 7.3501L7.4 10.1601C7.26972 10.2195 7.12819 10.2503 6.985 10.2503C6.84181 10.2503 6.70028 10.2195 6.57 10.1601L0.5 7.3501"/>
+                  <path d="M13.5 10.6001L7.4 13.4101C7.26972 13.4695 7.12819 13.5003 6.985 13.5003C6.84181 13.5003 6.70028 13.4695 6.57 13.4101L0.5 10.6001"/>
+                </svg>
+              </button>
+            </div>
+        </div>
+        <div id="bulkToolbar" class="bulk-toolbar">
+          <span id="bulkSelectedCounter" class="bulk-summary" data-i18n-template="bulk.selected">Выбрано: 0</span>
+          <div class="bulk-actions">
+            <button id="bulkAddTagsBtn" type="button" class="btn secondary" style="display:flex; align-items:center; gap:8px;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M13.25 9.35994L9.36 13.2499C9.21937 13.3904 9.02875 13.4693 8.83 13.4693C8.63125 13.4693 8.44062 13.3904 8.3 13.2499L1.79 6.73994C1.75121 6.70286 1.7212 6.65757 1.70217 6.6074C1.68313 6.55722 1.67556 6.50343 1.68 6.44994L2.27 2.60994C2.27688 2.52206 2.31491 2.43952 2.37724 2.37719C2.43957 2.31485 2.52211 2.27682 2.61 2.26994L6.45 1.67994C6.50348 1.67551 6.55728 1.68308 6.60745 1.70211C6.65763 1.72114 6.70291 1.75115 6.74 1.78994L13.25 8.29994C13.3904 8.44057 13.4693 8.63119 13.4693 8.82994C13.4693 9.0287 13.3904 9.21932 13.25 9.35994V9.35994Z"/><path d="M4.03 4.03003L0.529999 0.530029"/></svg>
+              <span data-i18n="bulk.addTags">Добавить теги</span>
+            </button>
+            <button id="bulkRemoveTagsBtn" type="button" class="btn" style="display:flex; align-items:center; gap:8px;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M13.25 9.35994L9.36 13.2499C9.21937 13.3904 9.02875 13.4693 8.83 13.4693C8.63125 13.4693 8.44062 13.3904 8.3 13.2499L1.79 6.73994C1.75121 6.70286 1.7212 6.65757 1.70217 6.6074C1.68313 6.55722 1.67556 6.50343 1.68 6.44994L2.27 2.60994C2.27688 2.52206 2.31491 2.43952 2.37724 2.37719C2.43957 2.31485 2.52211 2.27682 2.61 2.26994L6.45 1.67994C6.50348 1.67551 6.55728 1.68308 6.60745 1.70211C6.65763 1.72114 6.70291 1.75115 6.74 1.78994L13.25 8.29994C13.3904 8.44057 13.4693 8.63119 13.4693 8.82994C13.4693 9.0287 13.3904 9.21932 13.25 9.35994V9.35994Z"/><path d="M4.03 4.03003L0.529999 0.530029"/></svg>
+              <span data-i18n="bulk.removeTags">Удалить теги</span>
+            </button>
+            <button id="bulkAddToCollectionsBtn" type="button" class="btn secondary" style="display:flex; align-items:center; gap:8px;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M11 13.5L7 9.5L3 13.5V1.5C3 1.23478 3.10536 0.98043 3.29289 0.792893C3.48043 0.605357 3.73478 0.5 4 0.5H10C10.2652 0.5 10.5196 0.605357 10.7071 0.792893C10.8946 0.98043 11 1.23478 11 1.5V13.5Z"/></svg>
+              <span data-i18n="bulk.addToCollections">Добавить в коллекции…</span>
+            </button>
+            <button id="bulkRemoveFromCollectionsBtn" type="button" class="btn" style="display:flex; align-items:center; gap:8px;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M11 13.5L7 9.5L3 13.5V1.5C3 1.23478 3.10536 0.98043 3.29289 0.792893C3.48043 0.605357 3.73478 0.5 4 0.5H10C10.2652 0.5 10.5196 0.605357 10.7071 0.792893C10.8946 0.98043 11 1.23478 11 1.5V13.5Z"/></svg>
+              <span data-i18n="bulk.removeFromCollections">Убрать из коллекций…</span>
+            </button>
+            <button id="bulkSetStorageBtn" type="button" class="btn secondary" style="display:flex; align-items:center; gap:8px;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="0.55" y="0.5" width="3" height="13" rx="0.5"/><rect x="4.05" y="2.5" width="3" height="11" rx="0.5"/><path d="M10.3965 2.22633L8.45636 2.71187C8.18847 2.77891 8.02566 3.05041 8.0927 3.31829L10.5204 13.0191C10.5874 13.287 10.8589 13.4498 11.1268 13.3828L13.067 12.8973C13.3349 12.8302 13.4977 12.5587 13.4306 12.2908L11.003 2.58999C10.9359 2.32211 10.6644 2.15929 10.3965 2.22633Z"/><path d="M0.55 10H4.05"/><path d="M4.05 9H7.55"/><path d="M10.05 11L12.93 10.28"/></svg>
+              <span data-i18n="bulk.setStorage">Назначить место…</span>
+            </button>
+            <button id="bulkClearSelectionBtn" type="button" class="btn" style="display:flex; align-items:center; gap:8px;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 0.5L0.5 13.5"/><path d="M0.5 0.5L13.5 13.5"/></svg>
+              <span data-i18n="bulk.clearSelection">Очистить выбор</span>
+            </button>
+            <button id="bulkExitBtn" type="button" class="btn" style="display:flex; align-items:center; gap:8px;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 0.5L0.5 13.5"/><path d="M0.5 0.5L13.5 13.5"/></svg>
+              <span data-i18n="bulk.exit">Выйти</span>
+            </button>
+          </div>
+        </div>
+        <div id="listViewport" style="flex:1; min-height:0; overflow-y: auto; padding-right: 8px;">
+          <div id="list" class="list"></div>
+        </div>
+        <div id="empty" class="empty" style="display:none;" data-i18n="app.noBooks">Пока нет книг. Добавьте первую!</div>
+      </section>
+      <section id="enrichView" class="card" style="display:none;">
+        <h3 data-i18n="enrich.title">Обогащение ISBN (CSV → OpenAI → проверка)</h3>
+        <div class="row" style="margin:8px 0; gap:8px; align-items:flex-end;">
+          <div>
+            <label data-i18n="enrich.csvFile">CSV файл</label>
+            <input id="csvInput" type="file" accept=".csv,text/csv" />
+          </div>
+          <button id="parseCsvBtn" class="btn" data-i18n="enrich.load">Загрузить</button>
+        </div>
+        <div id="mappingArea" style="display:none; margin:8px 0;">
+          <div style="font-size:12px; color:var(--muted); margin-bottom:6px;" data-i18n="enrich.mapColumns">Сопоставьте колонки</div>
+          <div class="row" style="gap:8px;">
+            <div><label data-i18n="enrich.mapTitle">Название</label><select id="mapTitle"></select></div>
+            <div><label data-i18n="enrich.mapAuthors">Авторы</label><select id="mapAuthors"></select></div>
+            <div><label data-i18n="enrich.mapPublisher">Издательство</label><select id="mapPublisher"></select></div>
+            <div><label data-i18n="enrich.mapYear">Год</label><select id="mapYear"></select></div>
+          </div>
+          <div class="row" style="gap:8px; align-items:center; margin-top:6px;">
+            <input id="csvHeaderless" type="checkbox" />
+            <label for="csvHeaderless" style="margin:0;" data-i18n="enrich.noHeader">CSV без заголовка (первая строка — данные)</label>
+          </div>
+          <div class="row" style="margin-top:8px;">
+            <button id="startEnrichBtn" class="btn primary" data-i18n="enrich.start">Начать</button>
+            <button id="stopEnrichBtn" class="btn" data-i18n="enrich.pause">Пауза</button>
+            <label style="display:flex; align-items:center; gap:6px; margin-left:8px;">
+              <input id="enrichIgnoreCache" type="checkbox" /> <span data-i18n="enrich.ignoreCache">Игнорировать кэш (OpenAI)</span>
+            </label>
+            <button id="clearAiCacheBtn" class="btn" title="Очистить кэш OpenAI результатов" style="margin-left:auto;" data-i18n="enrich.clearCache">Очистить кэш</button>
+          </div>
+        </div>
+        <div id="enrichList" style="margin-top:10px; display:flex; flex-direction:column; gap:8px;"></div>
+        <div class="row" style="margin-top:10px;">
+          <button id="exportCsvBtn" class="btn" data-i18n="enrich.exportCsv">Экспорт CSV</button>
+        </div>
+      </section>
+      <section id="historyView" class="card" style="display:none; grid-column: 1 / -1;">
+        <div class="history-view">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h3 style="margin:0;" data-i18n="history.title">История изменений</h3>
+            <div style="display:flex; gap:8px;">
+              <button id="historyReloadBtn" class="btn secondary" type="button" data-i18n="history.reload">Обновить</button>
+              <button id="historyExportBtn" class="btn secondary" type="button" data-i18n="history.export">Экспорт</button>
+            </div>
+          </div>
+          <div class="history-controls">
+            <select id="historyActionFilter" class="input" style="width:auto; min-width:12rem;">
+              <option value="all" data-i18n="history.all">Все события</option>
+              <option value="book" data-i18n="history.books">Книги</option>
+              <option value="storage" data-i18n="history.storages">Места хранения</option>
+              <option value="sync" data-i18n="history.sync">Синхронизация</option>
+              <option value="backup" data-i18n="history.backups">Бэкапы</option>
+              <option value="activity" data-i18n="history.activity">Журнал</option>
+            </select>
+            <input id="historySearchInput" class="input" type="search" placeholder="Поиск по журналу" data-i18n="history.searchPlaceholder" data-i18n-attr="placeholder" style="flex:1 1 240px; min-width:14rem;" />
+          </div>
+          <div class="history-list-wrapper">
+            <div id="historyEmpty" class="history-empty" style="display:none;" data-i18n="history.empty">Записей журнала пока нет.</div>
+            <div id="historyList" class="history-list"></div>
+            <div class="history-loadmore">
+              <button id="historyLoadMoreBtn" class="btn secondary" type="button" style="display:none;" data-i18n="history.loadMore">Загрузить ещё</button>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section id="statsView" class="card" style="display:none; grid-column: 1 / -1;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <h3 style="margin:0;" data-i18n="stats.title">📊 Статистика чтения</h3>
+        </div>
+        <!-- Stats by Status -->
+        <div style="border:1px solid var(--border); border-radius:12px; padding:16px; background:var(--surface); margin-bottom:16px;">
+          <h4 style="margin:0 0 12px 0; font-size:15px; font-weight:600;" data-i18n="stats.byStatus">По статусам</h4>
+          <div style="font-size:12px; color:var(--muted); margin-bottom:12px;" data-i18n="stats.clickToExpand">Нажмите на статус, чтобы увидеть книги</div>
+          <div id="statsByStatus" style="display:flex; flex-direction:column; gap:8px;"></div>
+        </div>
+        <!-- Stats by Year (collapsible) -->
+        <details style="border:1px solid var(--border); border-radius:12px; background:var(--surface);">
+          <summary style="padding:16px; cursor:pointer; font-size:15px; font-weight:600; display:flex; align-items:center; gap:8px;">
+            <span data-i18n="stats.byYear">Прочитано по годам</span>
+          </summary>
+          <div style="padding:0 16px 16px 16px;">
+            <div id="statsByYear" style="display:flex; flex-direction:column; gap:8px;"></div>
+          </div>
+        </details>
+      </section>
+    </main>
+
+    <!-- search help modal -->
+    <div id="searchHelpModal" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:60; padding:24px 12px; box-sizing:border-box;">
+      <div class="modal-backdrop" style="position:absolute; inset:0; background:rgba(0,0,0,0.35);"></div>
+      <div class="modal-card" style="position:relative; width:min(620px, 96vw); max-height:100%; overflow:auto; background: var(--surface); border:1px solid var(--border); border-radius:14px; box-shadow: var(--shadow); padding:18px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+          <h3 style="margin:0;" data-i18n="searchHelp.title">Подсказки по поиску</h3>
+          <button id="searchHelpCloseBtn" class="btn" data-i18n="modal.close">Закрыть</button>
+        </div>
+        <div class="search-help-content" style="margin-top:12px; font-size:13px;">
+          <div class="search-help-section">
+            <strong data-i18n="searchHelp.quickSearch">Быстрый поиск</strong>
+            <ul class="search-help-list">
+              <li data-i18n="searchHelp.quickSearchDesc">По умолчанию запрос ищет совпадения в названии, авторах, тегах, жанрах, заметках, издателе, серии, формате и языке.</li>
+              <li><span data-i18n="searchHelp.caseNote">Регистры не важны. Чтобы искать точную фразу, используйте кавычки:</span> <code data-i18n="searchHelp.codeQuote">"война и мир"</code></li>
+            </ul>
+          </div>
+          <div class="search-help-section">
+            <strong data-i18n="searchHelp.logicalOps">Логические операторы</strong>
+            <ul class="search-help-list">
+              <li><code data-i18n="searchHelp.codeWords">слово1 слово2</code> <span data-i18n="searchHelp.logicalAnd">— сначала ищет фразу, а если точного совпадения нет, оба слова должны встретиться (неявный AND).</span></li>
+              <li><code>term1 AND term2</code> <span data-i18n="searchHelp.logicalAndExplicit">— найти записи, где есть оба условия.</span></li>
+              <li><code>term1 OR term2</code> <span data-i18n="searchHelp.logicalOr">— достаточно совпадения хотя бы с одним условием.</span></li>
+              <li><code>NOT term</code> <span data-i18n="searchHelp.logicalNot">— исключить книги, где встречается термин.</span></li>
+              <li><span data-i18n="searchHelp.logicalBrackets">Скобки управляют приоритетом:</span> <code data-i18n="searchHelp.codeBrackets">(фантастика OR космос) AND NOT tag:прочитано</code></li>
+            </ul>
+          </div>
+          <div class="search-help-section">
+            <strong data-i18n="searchHelp.fieldFilters">Фильтры по полям</strong>
+            <div class="search-help-fields">
+              <div><code>title:</code> <span data-i18n="searchHelp.fieldTitle">название</span></div>
+              <div><code>author:</code>, <code>authors:</code> <span data-i18n="searchHelp.fieldAuthor">авторы</span></div>
+              <div><code>tag:</code>, <code>tags:</code> <span data-i18n="searchHelp.fieldTag">теги</span></div>
+              <div><code>genre:</code>, <code>genres:</code> <span data-i18n="searchHelp.fieldGenre">жанры</span></div>
+              <div><code>series:</code> <span data-i18n="searchHelp.fieldSeries">серия</span></div>
+              <div><code>publisher:</code> <span data-i18n="searchHelp.fieldPublisher">издатель</span></div>
+              <div><code>notes:</code> <span data-i18n="searchHelp.fieldNotes">заметки</span></div>
+              <div><code>format:</code> <span data-i18n="searchHelp.fieldFormat">формат</span></div>
+              <div><code>language:</code> <span data-i18n="searchHelp.fieldLanguage">язык</span></div>
+              <div><code>year:</code> <span data-i18n="searchHelp.fieldYear">год издания</span></div>
+              <div><code>rating:</code> <span data-i18n="searchHelp.fieldRating">оценка</span></div>
+              <div><code>original:</code> <span data-i18n="searchHelp.fieldOriginal">оригинальное название (EN)</span></div>
+              <div><code>originalauthors:</code> <span data-i18n="searchHelp.fieldOriginalAuthors">авторы на английском</span></div>
+              <div><code>goodreads:</code>, <code>gr:</code> <span data-i18n="searchHelp.fieldGoodreads">рейтинг Goodreads</span></div>
+            </div>
+            <div class="search-help-note"><span data-i18n="searchHelp.numericNote">Для числовых полей доступны сравнения:</span> <code>year:&gt;=2000</code>, <code>rating:&lt;4.5</code>, <code>goodreads:&gt;=4</code>.</div>
+          </div>
+          <div class="search-help-section">
+            <strong data-i18n="searchHelp.examples">Примеры</strong>
+            <ul class="search-help-list">
+              <li><code data-i18n="searchHelp.codeExample1">author:лем AND NOT tag:прочитано</code> <span data-i18n="searchHelp.example1">— книги Лема, которые ещё не отмечены как прочитанные.</span></li>
+              <li><code data-i18n="searchHelp.codeExample2">(genre:фантастика OR tag:космос) AND year:&gt;=2000</code> <span data-i18n="searchHelp.example2">— фантастика или книги о космосе, изданные после 2000 года.</span></li>
+              <li><code data-i18n="searchHelp.codeExample3">"гарри поттер" OR series:"hogwarts"</code> <span data-i18n="searchHelp.example3">— точное совпадение фразы или книги из серии «hogwarts».</span></li>
+              <li><code>goodreads:&gt;=4.2</code> <span data-i18n="searchHelp.example4">— книги с рейтингом Goodreads 4.2 и выше.</span></li>
+              <li><code>original:"anna: the biography"</code> <span data-i18n="searchHelp.example5">— поиск по оригинальному названию на английском.</span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- details modal -->
+    <div id="detailsModal" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:50; padding:24px 12px; box-sizing:border-box;">
+      <div class="modal-backdrop" style="position:absolute; inset:0; background:rgba(0,0,0,0.35);"></div>
+      <div class="modal-card" style="position:relative; width: min(820px, 96vw); max-height: 100%; overflow:auto; background: var(--surface); border:1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); padding: 16px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+          <h3 style="margin:0;" data-i18n="modal.bookCard">Карточка книги</h3>
+          <button id="closeModalBtn" class="btn" data-i18n="modal.close">Закрыть</button>
+        </div>
+        <div style="display:grid; grid-template-columns: 220px 1fr; gap: 14px; margin-top: 12px;">
+          <div>
+            <img id="modalCoverPreview" class="cover-preview dropzone" alt="обложка" style="display:block; width:100%; height: auto; max-height: 280px;" />
+            <div class="row" style="margin-top:8px; gap:8px; align-items:center;">
+              <button id="modalChooseCoverBtn" class="btn" style="flex:1; font-size:12px; display:flex; align-items:center; justify-content:center; gap:8px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="0.51" y="0.5" width="13" height="13" rx="1"/><circle cx="9.25" cy="4.75" r="1.75"/><path d="M9.4 13.4999C9.07801 11.7849 8.15715 10.2401 6.80173 9.14113C5.44632 8.04214 3.74452 7.46048 2 7.49993C1.49668 7.49858 0.994381 7.54546 0.5 7.63993"/><path d="M13.5 9.91002C12.6946 9.63803 11.8501 9.49954 11 9.50002C9.92394 9.49768 8.85877 9.71548 7.87 10.14"/></svg>
+                <span data-i18n="modal.coverLabel">Обложка…</span>
+              </button>
+              <button id="modalCoverSearchBtn" type="button" class="btn secondary" style="flex:1; font-size:12px; display:flex; align-items:center; justify-content:center; gap:8px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="6.5"/><path d="M0.5 7H13.5"/><path d="M9.5 7C9.3772 9.37699 8.50168 11.6533 7 13.5C5.49832 11.6533 4.6228 9.37699 4.5 7C4.6228 4.62301 5.49832 2.34665 7 0.5C8.50168 2.34665 9.3772 4.62301 9.5 7V7Z"/></svg>
+                <span data-i18n="modal.findCover">Найти…</span>
+              </button>
+            </div>
+            <div style="margin-top:6px; font-size:12px; color:var(--muted);" id="modalCoverLabel"></div>
+            <div style="margin-top:8px;">
+              <input id="modalCoverUrlInput" type="url" placeholder="https://example.com/cover.jpg" class="input" style="width:100%; font-size:12px;" />
+              <button id="modalLoadCoverBtn" class="btn" style="width:100%; margin-top:4px; font-size:12px;" data-i18n="form.loadByUrl">Загрузить по URL</button>
+            </div>
+            <label style="margin-top:12px;" data-i18n="form.storage">Место хранения</label>
+            <div class="row" style="gap:8px; align-items:center;">
+              <select id="modalStorageSelect" class="input" style="flex:1; min-width:0;">
+                <option value="">—</option>
+              </select>
+              <button id="modalStorageQuickAddBtn" type="button" class="btn secondary" style="font-size:12px; white-space:nowrap; display:flex; align-items:center; gap:8px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M7 0.540039V13.54"/><path d="M0.5 7H13.5"/></svg>
+              </button>
+            </div>
+            <div class="row" style="margin-top:6px; display:flex; flex-wrap:wrap; gap:8px;">
+              <button id="modalStorageHistoryBtn" type="button" class="btn secondary" style="flex:1 1 30%; min-width:110px; font-size:12px; display:flex; align-items:center; justify-content:center; gap:8px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12.5 13.54H3C2.60218 13.54 2.22064 13.382 1.93934 13.1007C1.65804 12.8194 1.5 12.4379 1.5 12.04C1.5 11.6422 1.65804 11.2607 1.93934 10.9794C2.22064 10.6981 2.60218 10.54 3 10.54H11.5C11.7652 10.54 12.0196 10.4347 12.2071 10.2471C12.3946 10.0596 12.5 9.80526 12.5 9.54004V1.54004C12.5 1.27482 12.3946 1.02047 12.2071 0.832932C12.0196 0.645396 11.7652 0.540039 11.5 0.540039H3C2.60901 0.5399 2.23342 0.692433 1.95324 0.965144C1.67305 1.23785 1.51043 1.60919 1.5 2.00004V12"/><path d="M11.5 10.54V13.54"/></svg>
+                <span data-i18n="modal.storageHistory">История…</span>
+              </button>
+              <button id="modalLendBtn" type="button" class="btn" style="flex:1 1 30%; min-width:110px; font-size:12px; display:flex; align-items:center; justify-content:center; gap:8px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 10.5V12.5C13.5 12.7652 13.3946 13.0196 13.2071 13.2071C13.0196 13.3946 12.7652 13.5 12.5 13.5H10.5"/><path d="M10.5 0.5H12.5C12.7652 0.5 13.0196 0.605357 13.2071 0.792893C13.3946 0.98043 13.5 1.23478 13.5 1.5V3.5"/><path d="M0.5 3.5V1.5C0.5 1.23478 0.605357 0.98043 0.792893 0.792893C0.98043 0.605357 1.23478 0.5 1.5 0.5H3.5"/><path d="M3.5 13.5H1.5C1.23478 13.5 0.98043 13.3946 0.792893 13.2071C0.605357 13.0196 0.5 12.7652 0.5 12.5V10.5"/><circle cx="7" cy="4.5" r="2"/><path d="M10.16 10.5001C9.87562 9.90292 9.42786 9.39855 8.86858 9.04543C8.30931 8.6923 7.66142 8.50488 7 8.50488C6.33857 8.50488 5.69068 8.6923 5.13141 9.04543C4.57214 9.39855 4.12437 9.90292 3.84 10.5001"/></svg>
+                <span data-i18n="modal.lend">Отдать…</span>
+              </button>
+              <button id="modalReturnBtn" type="button" class="btn" style="flex:1 1 30%; min-width:110px; font-size:12px; display:flex; align-items:center; justify-content:center; gap:8px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8L6.05 9.64C6.10506 9.68534 6.16952 9.71784 6.23872 9.73514C6.30791 9.75244 6.38009 9.7541 6.45 9.74C6.52058 9.72676 6.58749 9.69847 6.64616 9.65706C6.70483 9.61564 6.75389 9.56207 6.79 9.5L10 4"/><circle cx="7" cy="7" r="6.5"/></svg>
+                <span data-i18n="modal.return">Вернуть…</span>
+              </button>
+            </div>
+            <div id="modalLoanStatus" class="loan-status" style="display:none;">
+              <span class="loan-badge" data-i18n="modal.lent">Отдана</span>
+              <div id="modalLoanDetails" class="loan-status-text"></div>
+            </div>
+
+            <!-- Custom Order -->
+            <label style="margin-top:12px;">Порядок сортировки</label>
+            <input id="modalCustomOrder" type="number" class="input" min="1" placeholder="—" title="Книги с меньшим номером показываются первыми" style="width:100%;" />
+
+            <!-- Reading Status Section -->
+            <details id="readingStatusPanel" style="border:1px solid var(--border); border-radius:12px; padding:8px 12px 12px; background:var(--surface); margin-top:12px;">
+              <summary style="font-weight:600; cursor:pointer; outline:none; user-select:none;" data-i18n="readingStatus.title">📚 Статус чтения</summary>
+              <div style="margin-top:12px; display:flex; flex-direction:column; gap:12px;">
+                <div>
+                  <label data-i18n="readingStatus.status">Статус</label>
+                  <select id="modalReadingStatus" class="input" style="height:36px;">
+                    <option value="" data-i18n="readingStatus.notSet">— Не указан —</option>
+                    <option value="want_to_read" data-i18n="readingStatus.wantToRead">🔖 Хочу прочитать</option>
+                    <option value="reading" data-i18n="readingStatus.reading">📖 Читаю</option>
+                    <option value="finished" data-i18n="readingStatus.finished">✅ Прочитано</option>
+                    <option value="re_reading" data-i18n="readingStatus.reReading">🔁 Перечитываю</option>
+                    <option value="abandoned" data-i18n="readingStatus.abandoned">❌ Брошено</option>
+                    <option value="on_hold" data-i18n="readingStatus.onHold">⏸️ Отложено</option>
+                  </select>
+                </div>
+                <div>
+                  <label data-i18n="readingStatus.startDate">Дата начала</label>
+                  <input id="modalReadingStartedAt" type="date" class="input" />
+                </div>
+                <div>
+                  <label data-i18n="readingStatus.endDate">Дата окончания</label>
+                  <input id="modalReadingFinishedAt" type="date" class="input" />
+                </div>
+                <div id="readingHistorySection" style="display:none; border-top:1px solid var(--border); padding-top:12px;">
+                  <div style="font-size:12px; font-weight:600; color:var(--muted); margin-bottom:8px;" data-i18n="readingStatus.readingHistory">История чтения</div>
+                  <div id="readingHistoryList" style="display:flex; flex-direction:column; gap:6px;"></div>
+                </div>
+              </div>
+            </details>
+          </div>
+          <div>
+            <label data-i18n="form.title">Название</label>
+            <input id="modalTitle" type="text" />
+            <label data-i18n="form.authors">Авторы (через запятую)</label>
+            <input id="modalAuthors" type="text" />
+            <div class="row" style="gap:10px;">
+              <div style="flex:1;">
+                <label data-i18n="form.series">Серия</label>
+                <input id="modalSeries" type="text" />
+              </div>
+              <div style="width:140px;">
+                <label data-i18n="form.seriesIndex">№ в серии</label>
+                <input id="modalSeriesIndex" type="text" />
+              </div>
+            </div>
+            <div class="row" style="gap:10px;">
+              <div style="width:140px;">
+                <label data-i18n="form.year">Год</label>
+                <input id="modalYear" type="text" />
+              </div>
+              <div style="flex:1;">
+                <label data-i18n="form.publisher">Издательство</label>
+                <div class="row">
+                  <input id="modalPublisher" type="text" />
+                  <button id="publisherCyrBtn" class="btn" title="Сконвертировать в кириллицу" data-i18n="form.toCyrillic">Кириллицей</button>
+                </div>
+              </div>
+            </div>
+            <div>
+              <label data-i18n="form.isbn">ISBN</label>
+              <div class="row" style="gap:8px;">
+                <input id="modalIsbn" type="text" style="flex:1;" />
+                <button id="aiIsbnSearchBtn" class="btn" title="Найти ISBN через AI по названию и автору" style="display:flex; align-items:center; gap:8px;">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12.64 1.8699L11.8 4.3499C11.771 4.40726 11.7559 4.47063 11.7559 4.5349C11.7559 4.59917 11.771 4.66255 11.8 4.7199L13.37 6.8199C13.4151 6.88001 13.4424 6.95161 13.4487 7.0265C13.455 7.1014 13.4401 7.17655 13.4056 7.24335C13.3712 7.31015 13.3186 7.36589 13.254 7.40419C13.1893 7.44249 13.1152 7.4618 13.04 7.4599H10.42C10.3558 7.46179 10.2928 7.47804 10.2357 7.50746C10.1786 7.53688 10.1288 7.57872 10.09 7.6299L8.63003 9.7299C8.5872 9.79129 8.52802 9.83943 8.4592 9.86885C8.39038 9.89827 8.31468 9.90779 8.24072 9.89633C8.16676 9.88488 8.09749 9.85289 8.0408 9.80403C7.98411 9.75516 7.94226 9.69137 7.92003 9.6199L7.14002 7.1199C7.12223 7.05811 7.08904 7.00184 7.04357 6.95636C6.99809 6.91089 6.94182 6.8777 6.88003 6.8599L4.38003 6.0799C4.30856 6.05766 4.24477 6.01582 4.1959 5.95913C4.14703 5.90244 4.11505 5.83317 4.10359 5.75921C4.09213 5.68525 4.10166 5.60955 4.13108 5.54073C4.1605 5.47191 4.20864 5.41272 4.27003 5.3699L6.41002 3.8599C6.46121 3.82109 6.50305 3.7713 6.53247 3.71419C6.56189 3.65709 6.57814 3.59411 6.58002 3.5299V0.909903C6.58282 0.841088 6.60333 0.77416 6.63958 0.715598C6.67583 0.657037 6.72658 0.608827 6.78693 0.575637C6.84728 0.542446 6.91517 0.525399 6.98404 0.526147C7.0529 0.526894 7.12041 0.54541 7.18002 0.579903L9.28003 2.1499C9.33334 2.18693 9.39468 2.21077 9.459 2.21946C9.52333 2.22816 9.5888 2.22145 9.65002 2.1999L12.13 1.3599C12.2011 1.33491 12.2779 1.33052 12.3514 1.34724C12.4249 1.36397 12.4922 1.40113 12.5455 1.45443C12.5988 1.50774 12.636 1.57503 12.6527 1.64853C12.6694 1.72204 12.665 1.79878 12.64 1.8699V1.8699Z"/><path d="M7.04 6.95996L0.5 13.5"/></svg>
+                  <span data-i18n="form.findIsbn">Найти ISBN</span>
+                </button>
+                <button id="isbnSearchBtn" class="btn" style="display:flex; align-items:center; gap:8px;">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.92" cy="5.92" r="5.42"/><path d="M13.5 13.5L9.75 9.75"/></svg>
+                  <span data-i18n="form.searchByIsbn">По ISBN</span>
+                </button>
+                <button id="isbnRefreshBtn" class="btn" title="Игнорировать кеш и обновить" style="display:flex; align-items:center; gap:8px;">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M11 9L13 8.5L13.5 10.5"/><path d="M13 8.5C12.5558 9.75861 11.749 10.8576 10.6813 11.6584C9.61353 12.4592 8.33262 12.926 6.99999 13C5.7681 13.0002 4.566 12.6213 3.55697 11.9146C2.54794 11.2079 1.78088 10.2078 1.35999 9.05"/><path d="M3 5L1 5.5L0.5 3.5"/><path d="M1 5.5C1.84 3.2 4.42 1 7 1C8.23789 1.00348 9.4444 1.38976 10.4541 2.10588C11.4639 2.822 12.2274 3.8329 12.64 5"/></svg>
+                  <span data-i18n="form.refresh">Обновить</span>
+                </button>
+              </div>
+            </div>
+            <div class="row" style="gap:10px; flex-wrap:wrap;">
+              <div style="width:180px;">
+                <label data-i18n="form.language">Язык</label>
+                <input id="modalLanguage" type="text" />
+              </div>
+              <div style="width:160px;">
+                <label data-i18n="form.format">Формат</label>
+                <select id="modalFormat" class="input" style="height:36px;">
+                  <option value="" data-i18n="format.none">—</option>
+                  <option value="paper" data-i18n="format.paper">Бумажная</option>
+                  <option value="ebook" data-i18n="format.ebook">Электронная</option>
+                  <option value="audiobook" data-i18n="format.audiobook">Аудио</option>
+                </select>
+              </div>
+              <div style="width:140px;">
+                <label data-i18n="form.rating">Рейтинг (0–5)</label>
+                <input id="modalRating" type="text" placeholder="напр. 4.5" data-i18n="form.ratingPlaceholder" data-i18n-attr="placeholder" />
+              </div>
+              <div style="flex:1; min-width:180px;">
+                <label data-i18n="form.genres">Жанры (через запятую)</label>
+                <input id="modalGenres" type="text" />
+              </div>
+              <div style="flex:1; min-width:180px;">
+                <label data-i18n="form.tags">Теги (через запятую)</label>
+                <input id="modalTags" type="text" />
+              </div>
+            </div>
+            <div class="row" style="margin-top:8px; gap:8px; align-items:center;">
+              <button id="goodreadsLookupBtn" type="button" class="btn secondary" style="display:flex; align-items:center; gap:8px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12.64 1.8699L11.8 4.3499C11.771 4.40726 11.7559 4.47063 11.7559 4.5349C11.7559 4.59917 11.771 4.66255 11.8 4.7199L13.37 6.8199C13.4151 6.88001 13.4424 6.95161 13.4487 7.0265C13.455 7.1014 13.4401 7.17655 13.4056 7.24335C13.3712 7.31015 13.3186 7.36589 13.254 7.40419C13.1893 7.44249 13.1152 7.4618 13.04 7.4599H10.42C10.3558 7.46179 10.2928 7.47804 10.2357 7.50746C10.1786 7.53688 10.1288 7.57872 10.09 7.6299L8.63003 9.7299C8.5872 9.79129 8.52802 9.83943 8.4592 9.86885C8.39038 9.89827 8.31468 9.90779 8.24072 9.89633C8.16676 9.88488 8.09749 9.85289 8.0408 9.80403C7.98411 9.75516 7.94226 9.69137 7.92003 9.6199L7.14002 7.1199C7.12223 7.05811 7.08904 7.00184 7.04357 6.95636C6.99809 6.91089 6.94182 6.8777 6.88003 6.8599L4.38003 6.0799C4.30856 6.05766 4.24477 6.01582 4.1959 5.95913C4.14703 5.90244 4.11505 5.83317 4.10359 5.75921C4.09213 5.68525 4.10166 5.60955 4.13108 5.54073C4.1605 5.47191 4.20864 5.41272 4.27003 5.3699L6.41002 3.8599C6.46121 3.82109 6.50305 3.7713 6.53247 3.71419C6.56189 3.65709 6.57814 3.59411 6.58002 3.5299V0.909903C6.58282 0.841088 6.60333 0.77416 6.63958 0.715598C6.67583 0.657037 6.72658 0.608827 6.78693 0.575637C6.84728 0.542446 6.91517 0.525399 6.98404 0.526147C7.0529 0.526894 7.12041 0.54541 7.18002 0.579903L9.28003 2.1499C9.33334 2.18693 9.39468 2.21077 9.459 2.21946C9.52333 2.22816 9.5888 2.22145 9.65002 2.1999L12.13 1.3599C12.2011 1.33491 12.2779 1.33052 12.3514 1.34724C12.4249 1.36397 12.4922 1.40113 12.5455 1.45443C12.5988 1.50774 12.636 1.57503 12.6527 1.64853C12.6694 1.72204 12.665 1.79878 12.64 1.8699V1.8699Z"/><path d="M7.04 6.95996L0.5 13.5"/></svg>
+                <span data-i18n="goodreads.searchGr">Найти на Goodreads</span>
+              </button>
+              <button id="goodreadsRefreshBtn" type="button" class="btn" disabled style="display:flex; align-items:center; gap:8px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M11 9L13 8.5L13.5 10.5"/><path d="M13 8.5C12.5558 9.75861 11.749 10.8576 10.6813 11.6584C9.61353 12.4592 8.33262 12.926 6.99999 13C5.7681 13.0002 4.566 12.6213 3.55697 11.9146C2.54794 11.2079 1.78088 10.2078 1.35999 9.05"/><path d="M3 5L1 5.5L0.5 3.5"/><path d="M1 5.5C1.84 3.2 4.42 1 7 1C8.23789 1.00348 9.4444 1.38976 10.4541 2.10588C11.4639 2.822 12.2274 3.8329 12.64 5"/></svg>
+                <span data-i18n="goodreads.refreshGr">Обновить данные</span>
+              </button>
+              <span id="goodreadsStatus" style="font-size:12px; color:var(--muted); display:none;"></span>
+            </div>
+            <details id="goodreadsPanel" class="goodreads-panel">
+              <summary data-i18n="goodreads.title">Оригинал и данные Goodreads</summary>
+              <div class="goodreads-grid">
+                <div>
+                  <label data-i18n="form.originalTitle">Оригинальное название (EN)</label>
+                  <input id="modalOriginalTitleEn" type="text" placeholder="Например, Anna: The Biography" />
+                </div>
+                <div>
+                  <label data-i18n="form.originalAuthors">Авторы (EN, через запятую)</label>
+                  <input id="modalOriginalAuthorsEn" type="text" placeholder="Amy Odell" />
+                </div>
+                <div>
+                  <label data-i18n="goodreads.grRating">Оценка Goodreads</label>
+                  <input id="modalGoodreadsRating" type="text" placeholder="—" readonly />
+                </div>
+                <div>
+                  <label data-i18n="goodreads.grRatingsCount">Количество оценок</label>
+                  <input id="modalGoodreadsRatingsCount" type="text" placeholder="—" readonly />
+                </div>
+                <div>
+                  <label data-i18n="goodreads.grReviewsCount">Количество отзывов</label>
+                  <input id="modalGoodreadsReviewsCount" type="text" placeholder="—" readonly />
+                </div>
+                <div>
+                  <label data-i18n="goodreads.grLink">Ссылка на Goodreads</label>
+                  <input id="modalGoodreadsUrl" type="text" placeholder="https://www.goodreads.com/..." style="text-transform:none;" />
+                </div>
+              </div>
+              <div id="goodreadsFetchedLabel" style="margin-top:8px; font-size:12px; color:var(--muted);"></div>
+            </details>
+            <div id="goodreadsResultBox" class="card" style="display:none; margin-top:8px;">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:4px;">Найдено на Goodreads</div>
+              <div id="goodreadsResultContent" style="display:flex; flex-direction:column; gap:8px; font-size:13px;"></div>
+            </div>
+            <label data-i18n="form.notes">Заметки</label>
+            <textarea id="modalNotes" rows="3" style="resize:vertical;"></textarea>
+
+            <div id="isbnResults" class="card" style="margin-top:12px; display:none;">
+              <div style="font-size:12px; color:var(--muted); margin-bottom:6px;">Результаты</div>
+              <div id="isbnResultsList" style="display:flex; flex-direction:column; gap:8px;"></div>
+            </div>
+            <div class="row" style="margin-top:12px; gap:8px;">
+              <button id="modalSaveBtn" class="btn primary" style="display:flex; align-items:center; gap:6px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8L6.05 9.64C6.10506 9.68534 6.16952 9.71784 6.23872 9.73514C6.30791 9.75244 6.38009 9.7541 6.45 9.74C6.52058 9.72676 6.58749 9.69847 6.64616 9.65706C6.70483 9.61564 6.75389 9.56207 6.79 9.5L10 4"/><circle cx="7" cy="7" r="6.5"/></svg>
+                <span data-i18n="form.save">Сохранить</span>
+              </button>
+              <button id="modalCollectionsBtn" class="btn secondary" style="display:flex; align-items:center; gap:6px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M11 13.5L7 9.5L3 13.5V1.5C3 1.23478 3.10536 0.98043 3.29289 0.792893C3.48043 0.605357 3.73478 0.5 4 0.5H10C10.2652 0.5 10.5196 0.605357 10.7071 0.792893C10.8946 0.98043 11 1.23478 11 1.5V13.5Z"/></svg>
+                <span data-i18n="modal.collections">Коллекции</span>
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- CSV import modal -->
+    <div id="csvImportModal" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:55; padding:24px 12px; box-sizing:border-box;">
+      <div class="modal-backdrop" style="position:absolute; inset:0; background:rgba(0,0,0,0.35);"></div>
+      <div class="modal-card" style="position:relative; width:min(860px, 96vw); max-height:100%; overflow:auto; background:var(--surface); border:1px solid var(--border); border-radius:14px; box-shadow:var(--shadow); padding:18px; display:flex; flex-direction:column; gap:12px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+          <h3 style="margin:0;" data-i18n="csvImport.title">Импорт книг из CSV / TSV</h3>
+          <button id="csvImportCloseBtn" class="icon-btn" title="Закрыть" data-i18n="modal.close" data-i18n-attr="title" style="width:32px; height:32px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 0.5L0.5 13.5"/><path d="M0.5 0.5L13.5 13.5"/></svg>
+          </button>
+        </div>
+        <div style="font-size:13px; color:var(--muted);" data-i18n="csvImport.description">
+          Загрузите CSV/TSV файл, сопоставьте колонки с полями книги и импортируйте записи. Авторы, теги и жанры разделяйте запятыми или точкой с запятой.
+        </div>
+        <div class="row" style="gap:12px; align-items:flex-end; flex-wrap:wrap;">
+          <div>
+            <label data-i18n="csvImport.file">Файл CSV/TSV</label>
+            <input id="csvImportFile" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values" />
+          </div>
+          <div class="row" style="gap:6px; align-items:center;">
+            <input id="csvImportHeaderless" type="checkbox" />
+            <label for="csvImportHeaderless" style="margin:0;" data-i18n="csvImport.noHeader">Нет заголовков (первая строка — данные)</label>
+          </div>
+          <button id="csvImportParseBtn" class="btn" data-i18n="csvImport.load">Загрузить</button>
+        </div>
+        <div id="csvImportMapping" style="display:none; border:1px solid var(--border); border-radius:12px; padding:12px; background:var(--muted-surface);">
+          <div style="font-size:12px; color:var(--muted); margin-bottom:8px;" data-i18n="csvImport.mapColumns">Сопоставьте колонки файла с полями книги</div>
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:10px;">
+            <div><label data-i18n="csvImport.mapTitle">Название</label><select id="csvMapTitle" class="input"></select></div>
+            <div><label data-i18n="csvImport.mapAuthors">Авторы</label><select id="csvMapAuthors" class="input"></select></div>
+            <div><label data-i18n="csvImport.mapIsbn">ISBN</label><select id="csvMapIsbn" class="input"></select></div>
+            <div><label data-i18n="csvImport.mapPublisher">Издательство</label><select id="csvMapPublisher" class="input"></select></div>
+            <div><label data-i18n="csvImport.mapYear">Год</label><select id="csvMapYear" class="input"></select></div>
+            <div><label data-i18n="csvImport.mapLanguage">Язык</label><select id="csvMapLanguage" class="input"></select></div>
+            <div><label data-i18n="csvImport.mapSeries">Серия</label><select id="csvMapSeries" class="input"></select></div>
+            <div><label data-i18n="csvImport.mapSeriesIndex">№ в серии</label><select id="csvMapSeriesIndex" class="input"></select></div>
+            <div><label data-i18n="csvImport.mapFormat">Формат</label><select id="csvMapFormat" class="input"></select></div>
+            <div><label data-i18n="csvImport.mapGenres">Жанры</label><select id="csvMapGenres" class="input"></select></div>
+            <div><label data-i18n="csvImport.mapTags">Теги</label><select id="csvMapTags" class="input"></select></div>
+            <div><label data-i18n="csvImport.mapRating">Рейтинг</label><select id="csvMapRating" class="input"></select></div>
+            <div><label data-i18n="csvImport.mapNotes">Заметки</label><select id="csvMapNotes" class="input"></select></div>
+            <div><label data-i18n="csvImport.mapCover">Обложка (URL)</label><select id="csvMapCover" class="input"></select></div>
+          </div>
+        </div>
+        <div id="csvImportPreview" style="display:none;">
+          <div style="font-weight:600; margin-bottom:6px;" data-i18n="csvImport.preview">Предпросмотр (первые 5 записей)</div>
+          <div id="csvImportPreviewList" style="display:flex; flex-direction:column; gap:8px;"></div>
+        </div>
+        <div id="csvImportSummary" style="font-size:12px; color:var(--muted); display:none;"></div>
+        <div class="row" style="justify-content:flex-end; gap:8px;">
+          <button id="csvImportCancelBtn" class="btn" data-i18n="actions.cancel">Отмена</button>
+          <button id="csvImportConfirmBtn" class="btn primary" disabled data-i18n="csvImport.import">Импортировать</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="storageManagerModal" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:56; padding:24px 12px; box-sizing:border-box;">
+      <div class="modal-backdrop" style="position:absolute; inset:0; background:rgba(0,0,0,0.35);"></div>
+      <div class="modal-card" style="position:relative; width:min(900px,96vw); max-height:100%; overflow:auto; background:var(--surface); border:1px solid var(--border); border-radius:14px; box-shadow:var(--shadow); padding:18px; display:flex; flex-direction:column; gap:12px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+          <h3 style="margin:0;" data-i18n="storage.title">Места хранения</h3>
+          <button id="storageManagerCloseBtn" class="icon-btn" title="Закрыть" data-i18n="modal.close" data-i18n-attr="title" style="width:32px; height:32px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 0.5L0.5 13.5"/><path d="M0.5 0.5L13.5 13.5"/></svg>
+          </button>
+        </div>
+        <div style="font-size:12px; color:var(--muted);" data-i18n="storage.description">Создавайте коды для шкафов, полок и особых статусов (например, RN — «читаю сейчас»).</div>
+        <div style="display:flex; gap:16px; flex-wrap:wrap;">
+          <div style="flex:2 1 360px; min-width:320px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <h4 style="margin:0; font-size:14px;" data-i18n="storage.list">Список</h4>
+              <button id="storageCreateBtn" class="btn secondary" type="button" data-i18n="storage.add">Добавить</button>
+            </div>
+            <div id="storageList" style="display:flex; flex-direction:column; gap:8px;"></div>
+          </div>
+          <div style="flex:1 1 260px; min-width:260px; border:1px solid var(--border); border-radius:12px; padding:12px; background:var(--muted-surface);">
+            <h4 style="margin:0 0 8px 0; font-size:14px;" data-i18n="storage.editing">Редактирование</h4>
+            <div class="form-grid" style="display:flex; flex-direction:column; gap:8px;">
+              <label data-i18n="storage.code">Код</label>
+              <input id="storageFormCode" type="text" class="input" placeholder="Например, R1-A1-S7" data-i18n="storage.codePlaceholder" data-i18n-attr="placeholder" />
+              <label data-i18n="storage.descriptionLabel">Описание</label>
+              <input id="storageFormTitle" type="text" class="input" placeholder="Комната/стеллаж/полка" data-i18n="storage.descPlaceholder" data-i18n-attr="placeholder" />
+              <label data-i18n="storage.note">Примечание</label>
+              <textarea id="storageFormNote" rows="2" class="input" style="resize:vertical;"></textarea>
+              <label style="display:flex; align-items:center; gap:6px;">
+                <input id="storageFormActive" type="checkbox" checked /> <span data-i18n="storage.active">Активно</span>
+              </label>
+              <label data-i18n="storage.sortOrder">Порядок сортировки</label>
+              <input id="storageFormSort" type="number" class="input" value="0" />
+              <div class="row" style="justify-content:flex-end; gap:8px;">
+                <button id="storageFormCancel" type="button" class="btn" data-i18n="actions.cancel">Отмена</button>
+                <button id="storageFormSave" type="button" class="btn primary" data-i18n="form.save">Сохранить</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="storageHistoryModal" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:57; padding:24px 12px; box-sizing:border-box;">
+      <div class="modal-backdrop" style="position:absolute; inset:0; background:rgba(0,0,0,0.35);"></div>
+      <div class="modal-card" style="position:relative; width:min(720px,92vw); max-height:100%; overflow:auto; background:var(--surface); border:1px solid var(--border); border-radius:14px; box-shadow:var(--shadow); padding:18px; display:flex; flex-direction:column; gap:12px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+          <h3 style="margin:0;" data-i18n="storage.movementHistory">История перемещений</h3>
+          <button id="storageHistoryCloseBtn" class="icon-btn" title="Закрыть" data-i18n="modal.close" data-i18n-attr="title" style="width:32px; height:32px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 0.5L0.5 13.5"/><path d="M0.5 0.5L13.5 13.5"/></svg>
+          </button>
+        </div>
+        <div id="storageHistoryList" style="display:flex; flex-direction:column; gap:10px;"></div>
+      </div>
+    </div>
+
+    <div id="storageLoanModal" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:58; padding:24px 12px; box-sizing:border-box;">
+      <div class="modal-backdrop" style="position:absolute; inset:0; background:rgba(0,0,0,0.35);"></div>
+      <div class="modal-card" style="position:relative; width:min(420px,90vw); max-height:100%; overflow:auto; background:var(--surface); border:1px solid var(--border); border-radius:14px; box-shadow:var(--shadow); padding:18px; display:flex; flex-direction:column; gap:12px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+          <h3 id="storageLoanTitle" style="margin:0;" data-i18n="storage.lendBook">Выдача книги</h3>
+          <button id="storageLoanCloseBtn" class="icon-btn" title="Закрыть" data-i18n="modal.close" data-i18n-attr="title" style="width:32px; height:32px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 0.5L0.5 13.5"/><path d="M0.5 0.5L13.5 13.5"/></svg>
+          </button>
+        </div>
+        <div id="storageLoanContext" style="font-size:12px; color:var(--muted);"></div>
+        <div id="storageLoanPersonRow" style="display:flex; flex-direction:column; gap:6px;">
+          <label data-i18n="storage.lendTo">Кому передаём</label>
+          <input id="storageLoanPerson" type="text" class="input" placeholder="Имя / получатель" data-i18n="storage.recipientPlaceholder" data-i18n-attr="placeholder" />
+        </div>
+        <div id="storageLoanLocationRow" style="display:flex; flex-direction:column; gap:6px;">
+          <label data-i18n="form.storage">Место хранения</label>
+          <select id="storageLoanLocation" class="input">
+            <option value="">—</option>
+          </select>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          <label data-i18n="storage.note">Примечание</label>
+          <textarea id="storageLoanNote" rows="2" class="input" style="resize:vertical;"></textarea>
+        </div>
+        <div class="row" style="justify-content:flex-end; gap:8px;">
+          <button id="storageLoanCancel" class="btn" data-i18n="actions.cancel">Отмена</button>
+          <button id="storageLoanSave" class="btn primary" data-i18n="form.save">Сохранить</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="coverSearchModal" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:56; padding:24px 12px; box-sizing:border-box;">
+      <div class="modal-backdrop" style="position:absolute; inset:0; background:rgba(0,0,0,0.35);"></div>
+      <div class="modal-card" style="position:relative; width:min(900px,96vw); max-height:100%; overflow:auto; background:var(--surface); border:1px solid var(--border); border-radius:14px; box-shadow:var(--shadow); padding:18px; display:flex; flex-direction:column; gap:12px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+          <h3 style="margin:0;" data-i18n="coverSearch.title">Поиск обложки онлайн</h3>
+          <button id="coverSearchCloseBtn" class="icon-btn" title="Закрыть" data-i18n="modal.close" data-i18n-attr="title" style="width:32px; height:32px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 0.5L0.5 13.5"/><path d="M0.5 0.5L13.5 13.5"/></svg>
+          </button>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <input id="coverSearchQuery" type="text" class="input" placeholder="Например, Философия панка обложка" data-i18n="coverSearch.placeholder" data-i18n-attr="placeholder" style="flex:1; min-width:240px;" />
+          <button id="coverSearchSubmit" class="btn primary" type="button" data-i18n="coverSearch.find">Найти</button>
+          <span id="coverSearchInfo" style="font-size:12px; color:var(--muted);"></span>
+        </div>
+        <div id="coverSearchStatus" style="font-size:13px; color:var(--muted);"></div>
+        <div id="coverSearchResults" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:12px;"></div>
+      </div>
+    </div>
+
+    <!-- info modal (read-only) -->
+    <div id="infoModal" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:50; padding:24px 12px; box-sizing:border-box;">
+      <div class="modal-backdrop" style="position:absolute; inset:0; background:rgba(0,0,0,0.35);"></div>
+      <div class="modal-card" style="position:relative; width: min(820px, 96vw); max-height: 100%; overflow:auto; background: var(--surface); border:1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); padding: 16px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+          <h3 style="margin:0;" data-i18n="infoModal.title">Информация о книге</h3>
+          <button id="closeInfoBtn" class="btn" data-i18n="modal.close">Закрыть</button>
+        </div>
+        <div style="display:grid; grid-template-columns: 220px 1fr; gap: 14px; margin-top: 12px;">
+          <div>
+            <img id="infoCover" alt="обложка" style="display:none; width:100%; height:auto; max-height: 320px; object-fit:contain; border:1px solid var(--border); border-radius:10px; background: var(--muted-surface);" />
+          </div>
+          <div id="infoContent" style="display:flex; flex-direction:column; gap:8px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- settings modal -->
+    <div id="settingsModal" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:50; padding:24px 12px; box-sizing:border-box;">
+      <div class="modal-backdrop" style="position:absolute; inset:0; background:rgba(0,0,0,0.35);"></div>
+      <div class="modal-card" style="position:relative; width: min(560px, 96vw); max-height: 100%; overflow:auto; background: var(--surface); border:1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); padding: 16px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+          <h3 style="margin:0;" data-i18n="header.settings">Настройки</h3>
+          <button id="closeSettingsBtn" class="btn" data-i18n="modal.close">Закрыть</button>
+        </div>
+        <div style="margin-top: 12px; display:flex; flex-direction:column; gap:10px;">
+          <div>
+            <label data-i18n="settings.language">Язык / Language</label>
+            <select id="settingsLanguage" class="input">
+              <option value="ru">🇷🇺 Русский</option>
+              <option value="en">🇬🇧 English</option>
+            </select>
+          </div>
+
+          <!-- Appearance Section -->
+          <div style="margin-top:12px; padding:12px; background:var(--muted-surface); border-radius:8px;">
+            <h4 style="margin:0 0 10px 0; font-size:14px; font-weight:600;" data-i18n="settings.appearance">🎨 Оформление</h4>
+            <label data-i18n="settings.colorPalette" style="margin-bottom:8px;">Цветовая палитра</label>
+            <div id="paletteSelector" style="display:grid; grid-template-columns:repeat(5, 1fr); gap:6px; margin-bottom:12px;"></div>
+            <label data-i18n="settings.themeMode" style="margin-bottom:6px;">Тема</label>
+            <div style="display:flex; gap:6px;">
+              <button id="themeLightBtn" type="button" class="theme-mode-btn">☀️ Светлая</button>
+              <button id="themeDarkBtn" type="button" class="theme-mode-btn">🌙 Тёмная</button>
+              <button id="themeSystemBtn" type="button" class="theme-mode-btn">💻 Системная</button>
+            </div>
+          </div>
+
+          <div>
+            <label>ISBNdb API Key</label>
+            <input id="settingsIsbndbKey" type="text" placeholder="sk_xxx" />
+            <div style="font-size:12px; color:var(--muted);" data-i18n="settings.storedLocally">Хранится локально в userData/settings.json</div>
+          </div>
+          <div>
+            <label data-i18n="settings.googleBooksKey">Google Books API Key (опционально)</label>
+            <input id="settingsGoogleKey" type="text" placeholder="AIza..." />
+          </div>
+          <div>
+            <label data-i18n="settings.aiProvider">AI провайдер для поиска ISBN</label>
+            <select id="settingsAiProvider" class="input">
+              <option value="openai" data-i18n="settings.openaiProvider">OpenAI (GPT-5, o1-preview)</option>
+              <option value="perplexity" data-i18n="settings.perplexityProvider">Perplexity (дешевле, с поиском) 💰</option>
+            </select>
+          </div>
+          <div id="openaiSettings">
+            <label data-i18n="settings.openaiKey">OpenAI API Key</label>
+            <input id="settingsOpenAIKey" type="text" placeholder="sk-..." />
+          </div>
+          <div id="perplexitySettings" style="display:none;">
+            <label data-i18n="settings.perplexityKey">Perplexity API Key</label>
+            <input id="settingsPerplexityKey" type="text" placeholder="pplx-..." />
+          </div>
+          <div id="openaiExtraSettings">
+            <div>
+              <label data-i18n="settings.openaiBaseUrl">OpenAI API Base URL (опционально)</label>
+              <input id="settingsOpenAIBase" type="text" placeholder="https://api.openai.com/v1" />
+            </div>
+            <div>
+              <label data-i18n="settings.openaiModel">OpenAI Model (опционально)</label>
+              <select id="settingsOpenAIModel" class="input">
+                <option value="gpt-5" data-i18n="settings.modelGpt5">GPT-5 (новейшая) 🚀</option>
+                <option value="o1-preview" data-i18n="settings.modelO1Preview">o1-preview (reasoning) 🧠</option>
+                <option value="gpt-4o" data-i18n="settings.modelGpt4o">gpt-4o (стабильная)</option>
+                <option value="o1-mini" data-i18n="settings.modelO1Mini">o1-mini (reasoning, быстрая) ⚡</option>
+                <option value="gpt-4o-mini" data-i18n="settings.modelGpt4oMini">gpt-4o-mini (быстрая, дешевая) 💰</option>
+                <option value="gpt-4-turbo" data-i18n="settings.modelGpt4Turbo">gpt-4-turbo</option>
+                <option value="gpt-4" data-i18n="settings.modelGpt4">gpt-4 (классическая)</option>
+              </select>
+            </div>
+          </div>
+          <div id="perplexityExtraSettings" style="display:none;">
+            <div>
+              <label data-i18n="settings.perplexityModel">Perplexity Model</label>
+              <select id="settingsPerplexityModel" class="input">
+                <option value="sonar" data-i18n="settings.perplexitySonar">Sonar ($1/$1) - дешево, быстро 💰</option>
+                <option value="sonar-reasoning" data-i18n="settings.perplexitySonarReasoning">Sonar Reasoning ($1/$5) - с логикой</option>
+                <option value="sonar-reasoning-pro" data-i18n="settings.perplexitySonarReasoningPro">Sonar Reasoning Pro ($2/$8) - умное рассуждение</option>
+                <option value="sonar-pro" data-i18n="settings.perplexitySonarPro">Sonar Pro ($3/$15) - продвинутый поиск</option>
+              </select>
+            </div>
+            <div style="margin-top:8px;">
+              <button id="checkPerplexityBalance" type="button" class="btn secondary" data-i18n="settings.openPerplexityBilling">
+                💰 Открыть биллинг Perplexity
+              </button>
+            </div>
+          </div>
+          <div style="margin-top:8px;">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+              <input id="settingsOpenAIDisableCache" type="checkbox" />
+              <span data-i18n="settings.disableAiCache">Отключить кэширование AI запросов (для тестирования)</span>
+            </label>
+          </div>
+          <div style="margin-top:8px;">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+              <input id="settingsAiStrictMode" type="checkbox" />
+              <span data-i18n="settings.aiStrictMode">🎯 Строгий режим AI поиска (меньше результатов, но точнее)</span>
+            </label>
+          </div>
+
+          <div style="margin-top:16px; padding:12px; background:var(--muted-surface); border-radius:8px;">
+            <h4 style="margin:0 0 8px 0; font-size:14px; font-weight:600;" data-i18n="settings.sync">🔄 Синхронизация</h4>
+
+            <!-- Provider Selection -->
+            <div style="margin-bottom:12px;">
+              <label style="display:block; margin-bottom:4px; font-size:12px; color:var(--muted);">Выберите провайдер:</label>
+              <select id="settingsSyncProvider" class="input" style="width:100%;">
+                <option value="none">Отключено</option>
+                <option value="s3">S3 / S3-совместимое хранилище</option>
+                <option value="yandex">Yandex Disk (10 ГБ бесплатно)</option>
+                <option value="googledrive">Google Drive (15 ГБ бесплатно)</option>
+                <option value="dropbox">Dropbox (2 ГБ бесплатно)</option>
+              </select>
+            </div>
+
+            <!-- S3 Settings (shown when s3 is selected) -->
+            <div id="syncSettingsS3" style="display:none; flex-direction:column; gap:8px;">
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                <div>
+                  <label>S3 Endpoint</label>
+                  <input id="settingsS3Endpoint" type="url" placeholder="https://s3.amazonaws.com" class="input" style="width:100%;" />
+                </div>
+                <div>
+                  <label>S3 Region</label>
+                  <input id="settingsS3Region" type="text" placeholder="us-east-1" class="input" style="width:100%;" />
+                </div>
+              </div>
+              <div>
+                <label>S3 Bucket</label>
+                <input id="settingsS3Bucket" type="text" placeholder="my-library-sync" class="input" style="width:100%;" />
+              </div>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                <div>
+                  <label>Access Key ID</label>
+                  <input id="settingsS3AccessKey" type="text" placeholder="AKIA..." class="input" style="width:100%;" />
+                </div>
+                <div>
+                  <label>Secret Access Key</label>
+                  <input id="settingsS3SecretKey" type="password" placeholder="••••••••" class="input" style="width:100%;" />
+                </div>
+              </div>
+              <div style="margin-top:8px;">
+                <button id="testSyncBtn" type="button" class="btn" data-i18n="settings.testS3">
+                  🔗 Проверить подключение к S3
+                </button>
+              </div>
+            </div>
+
+            <!-- Cloud Provider Settings (shown when cloud provider is selected) -->
+            <div id="syncSettingsCloud" style="display:none; flex-direction:column; gap:8px;">
+              <div id="cloudProviderStatus" style="padding:8px; background:var(--surface); border-radius:6px; font-size:12px;">
+                <span id="cloudProviderStatusText">Не подключено</span>
+              </div>
+              <div style="display:flex; gap:8px;">
+                <button id="cloudConnectBtn" type="button" class="btn primary" style="flex:1;">
+                  🔗 Подключить
+                </button>
+                <button id="cloudDisconnectBtn" type="button" class="btn secondary" style="flex:1; display:none;">
+                  ❌ Отключить
+                </button>
+              </div>
+              <div style="margin-top:8px;">
+                <button id="testCloudSyncBtn" type="button" class="btn" style="display:none;">
+                  🔗 Проверить подключение
+                </button>
+              </div>
+            </div>
+
+            <!-- Common settings for all providers -->
+            <div id="syncSettingsCommon" style="display:none; margin-top:12px; padding-top:12px; border-top:1px solid var(--border);">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                <input id="settingsAutoSync" type="checkbox" />
+                <span data-i18n="settings.autoSync">Автоматическая синхронизация при запуске</span>
+              </label>
+              <div style="font-size:11px; color:var(--muted); margin-left:24px;" data-i18n="settings.autoSyncHint">
+                💡 При включении будет автоматически скачивать обновления с сервера
+              </div>
+              <div style="margin-top:8px;">
+                <button id="cleanupCoversBtn" type="button" class="btn secondary" data-i18n="settings.cleanupCovers">
+                  🧹 Очистить неиспользуемые обложки
+                </button>
+                <div style="font-size:11px; color:var(--muted); margin-top:4px;" data-i18n="settings.cleanupCoversHint">
+                  💡 Удаляет с сервера обложки удалённых книг
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top:16px; padding:12px; background:var(--muted-surface); border-radius:8px;">
+            <h4 style="margin:0 0 8px 0; font-size:14px; font-weight:600;" data-i18n="settings.hotkeys">⌨️ Горячие клавиши</h4>
+            <div style="font-size:12px; color:var(--muted); line-height:1.4;">
+              <div style="display:grid; grid-template-columns:auto 1fr; gap:8px 12px; align-items:baseline;">
+                <code style="background:var(--surface); padding:2px 6px; border-radius:4px; font-size:11px;">Escape</code>
+                <span data-i18n="settings.hotkeyEscape">Закрыть модальные окна</span>
+
+                <code style="background:var(--surface); padding:2px 6px; border-radius:4px; font-size:11px;">/</code>
+                <span data-i18n="settings.hotkeySearch">Фокус на поиск</span>
+
+                <code style="background:var(--surface); padding:2px 6px; border-radius:4px; font-size:11px;">N</code>
+                <span data-i18n="settings.hotkeyNewBook">Новая книга</span>
+
+                <code style="background:var(--surface); padding:2px 6px; border-radius:4px; font-size:11px;">Enter</code>
+                <span data-i18n="settings.hotkeySave">Сохранить форму</span>
+
+                <code style="background:var(--surface); padding:2px 6px; border-radius:4px; font-size:11px;">Delete</code>
+                <span data-i18n="settings.hotkeyDelete">Удалить выбранную книгу</span>
+              </div>
+              <div style="margin-top:8px; font-size:11px; opacity:0.7;" data-i18n="settings.hotkeysNote">
+                💡 Горячие клавиши не работают при вводе в поля
+              </div>
+            </div>
+          </div>
+
+          <div class="row" style="margin-top:12px;">
+            <button id="saveSettingsBtn" class="btn primary">Сохранить</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="vocabManagerModal" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:60; padding:24px 12px; box-sizing:border-box;">
+      <div class="modal-backdrop" style="position:absolute; inset:0; background:rgba(0,0,0,0.45); backdrop-filter:blur(2px);"></div>
+      <div class="modal-card" style="position:relative; width:min(720px,96vw); max-height:100%; overflow:hidden; background:var(--surface); border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow); display:flex; flex-direction:column;">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:16px; border-bottom:1px solid var(--border);">
+          <div>
+            <h3 style="margin:0;" data-i18n="vocab.title">Справочники автодополнения</h3>
+            <div style="font-size:12px; color:var(--muted); margin-top:4px;" data-i18n="vocab.description">Управляйте жанрами, тегами, издательствами, авторами и сериями</div>
+          </div>
+          <button id="vocabManagerCloseBtn" class="btn" data-i18n="modal.close">Закрыть</button>
+        </div>
+        <div style="padding:16px; display:flex; flex-direction:column; gap:12px; overflow:auto;">
+          <div style="display:flex; flex-wrap:wrap; gap:8px;" id="vocabTabs">
+            <button type="button" class="btn secondary active" data-vocab-tab="genres" data-i18n="vocab.genres">Жанры</button>
+            <button type="button" class="btn secondary" data-vocab-tab="tags" data-i18n="vocab.tags">Теги</button>
+            <button type="button" class="btn secondary" data-vocab-tab="publisher" data-i18n="vocab.publishers">Издательства</button>
+            <button type="button" class="btn secondary" data-vocab-tab="series" data-i18n="vocab.series">Серии</button>
+            <button type="button" class="btn secondary" data-vocab-tab="authors" data-i18n="vocab.authors">Авторы</button>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <button id="vocabAddBtn" type="button" class="btn primary" data-i18n="vocab.addValue">Добавить значение</button>
+            <span style="font-size:12px; color:var(--muted);" data-i18n="vocab.addHint">Добавьте новый вариант или переименуйте существующие значения, чтобы исправить опечатки.</span>
+          </div>
+          <div id="vocabList" style="display:flex; flex-direction:column; gap:8px; max-height:55vh; overflow:auto;"></div>
+        </div>
+      </div>
+    </div>
+
+    <script src="renderer/utils.js"></script>
+    <script src="renderer/state.js"></script>
+    <script src="renderer/vocab_manager.js"></script>
+    <script src="renderer.js"></script>
+  </body>
+  </html>
