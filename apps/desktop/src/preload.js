@@ -1,5 +1,19 @@
 const { contextBridge, ipcRenderer } = require('electron');
 const { pathToFileURL } = require('url');
+
+// Palettes - try to load from shared, fallback to null
+let PALETTES = null;
+let PALETTE_IDS = null;
+let DEFAULT_PALETTE = 'oak';
+try {
+  const shared = require('@library-manager/shared');
+  PALETTES = shared.PALETTES;
+  PALETTE_IDS = shared.PALETTE_IDS;
+  DEFAULT_PALETTE = shared.DEFAULT_PALETTE;
+} catch (e) {
+  console.warn('Failed to load palettes from shared package:', e.message);
+}
+
 let Fuse = null;
 let Papa = null;
 try {
@@ -185,6 +199,10 @@ contextBridge.exposeInMainWorld('api', {
   clearReadingStatus: (bookId) => ipcRenderer.invoke('reading:clearStatus', { bookId }),
   getReadingStats: () => ipcRenderer.invoke('reading:getStats'),
   getReadingConstants: () => ipcRenderer.invoke('reading:getConstants'),
+  // Theme palettes from shared package (as functions for contextBridge compatibility)
+  getPalettes: () => PALETTES ? JSON.parse(JSON.stringify(PALETTES)) : null,
+  getPaletteIds: () => PALETTE_IDS ? [...PALETTE_IDS] : null,
+  getDefaultPalette: () => DEFAULT_PALETTE,
 });
 
 contextBridge.exposeInMainWorld('search', {

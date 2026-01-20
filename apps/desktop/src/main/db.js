@@ -429,6 +429,35 @@ async function migrate(ctx) {
     persist(ctx);
     console.log('[DB] Migration v16 completed');
   }
+
+  // v17: Pin book and custom order support
+  if (getSchemaVersion(ctx) === 16) {
+    console.log('[DB] Running migration v16 -> v17: Adding pin and custom order columns');
+    ctx.db.exec(`
+      ALTER TABLE books ADD COLUMN isPinned INTEGER DEFAULT 0;
+      ALTER TABLE books ADD COLUMN pinnedAt TEXT;
+      ALTER TABLE books ADD COLUMN customOrder INTEGER;
+    `);
+    setSchemaVersion(ctx, 17);
+    persist(ctx);
+    console.log('[DB] Migration v17 completed');
+  }
+
+  // v18: Cleanup soft-deleted collections (now using hard delete)
+  if (getSchemaVersion(ctx) === 17) {
+    console.log('[DB] Running migration v17 -> v18: Cleaning up soft-deleted collections');
+    // Delete collection_books entries for soft-deleted collections
+    ctx.db.exec(`
+      DELETE FROM collection_books WHERE collectionId IN (
+        SELECT id FROM collections WHERE deleted_at IS NOT NULL
+      );
+    `);
+    // Hard delete soft-deleted collections
+    ctx.db.exec(`DELETE FROM collections WHERE deleted_at IS NOT NULL;`);
+    setSchemaVersion(ctx, 18);
+    persist(ctx);
+    console.log('[DB] Migration v18 completed');
+  }
 }
 
 function ensureAuthor(ctx, name) {
@@ -853,6 +882,9 @@ function listBooks(ctx) {
       b.originalTitleEn,
       b.originalAuthorsEn,
       b.goodreadsFetchedAt,
+      b.isPinned,
+      b.pinnedAt,
+      b.customOrder,
       (
         SELECT h.action
         FROM book_storage_history h
@@ -890,7 +922,7 @@ function listBooks(ctx) {
     ORDER BY b.title COLLATE NOCASE
   `);
   const rows = res[0] ? res[0].values : [];
-  return rows.map(([id, title, coverPath, createdAt, updatedAt, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres, storageLocationId, goodreadsRating, goodreadsRatingsCount, goodreadsReviewsCount, goodreadsUrl, originalTitleEn, originalAuthorsEn, goodreadsFetchedAt, latestAction, latestPerson, latestNote, latestCreatedAt, readingStatus, readingStartedAt, readingFinishedAt]) => {
+  return rows.map(([id, title, coverPath, createdAt, updatedAt, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres, storageLocationId, goodreadsRating, goodreadsRatingsCount, goodreadsReviewsCount, goodreadsUrl, originalTitleEn, originalAuthorsEn, goodreadsFetchedAt, isPinned, pinnedAt, customOrder, latestAction, latestPerson, latestNote, latestCreatedAt, readingStatus, readingStartedAt, readingFinishedAt]) => {
     const latestActionNorm = normStr(latestAction);
     return {
       id,
@@ -919,6 +951,9 @@ function listBooks(ctx) {
       originalTitleEn: normStr(originalTitleEn),
       originalAuthorsEn: parseJsonArray(originalAuthorsEn),
       goodreadsFetchedAt: normStr(goodreadsFetchedAt),
+      isPinned: isPinned ? 1 : 0,
+      pinnedAt: normStr(pinnedAt),
+      customOrder: normInt(customOrder),
       storageLatestAction: latestActionNorm,
       storageLatestPerson: normStr(latestPerson),
       storageLatestNote: normStr(latestNote),
@@ -962,6 +997,9 @@ function getBookById(ctx, id) {
       b.originalTitleEn,
       b.originalAuthorsEn,
       b.goodreadsFetchedAt,
+      b.isPinned,
+      b.pinnedAt,
+      b.customOrder,
       (
         SELECT h.action
         FROM book_storage_history h
@@ -1023,6 +1061,9 @@ function getBookById(ctx, id) {
     originalTitleEn,
     originalAuthorsEn,
     goodreadsFetchedAt,
+    isPinned,
+    pinnedAt,
+    customOrder,
     latestAction,
     latestPerson,
     latestNote,
@@ -1056,6 +1097,9 @@ function getBookById(ctx, id) {
     originalTitleEn: normStr(originalTitleEn),
     originalAuthorsEn: parseJsonArray(originalAuthorsEn),
     goodreadsFetchedAt: normStr(goodreadsFetchedAt),
+    isPinned: isPinned ? 1 : 0,
+    pinnedAt: normStr(pinnedAt),
+    customOrder: normInt(customOrder),
     storageLatestAction: latestActionNorm,
     storageLatestPerson: normStr(latestPerson),
     storageLatestNote: normStr(latestNote),
@@ -1190,11 +1234,15 @@ function updateCollection(ctx, { id, name = null, type = null, filters = undefin
 }
 
 function deleteCollection(ctx, id) {
-  const now = new Date().toISOString();
+  // Delete related collection_books entries first
+  const delBooks = ctx.db.prepare('DELETE FROM collection_books WHERE collectionId = ?');
+  delBooks.bind([id]);
+  delBooks.step();
+  delBooks.free();
 
-  // Soft delete the collection
-  const stmt = ctx.db.prepare('UPDATE collections SET deleted_at = ?, updated_at = ? WHERE id = ?');
-  stmt.bind([now, now, id]);
+  // Hard delete the collection
+  const stmt = ctx.db.prepare('DELETE FROM collections WHERE id = ?');
+  stmt.bind([id]);
   stmt.step();
   stmt.free();
 
@@ -1406,11 +1454,11 @@ function parseJsonArray(v) { try { const a = JSON.parse(v || '[]'); return Array
 function strArray(arr) { try { return JSON.stringify(Array.isArray(arr) ? arr : []); } catch { return '[]'; } }
 function parseJsonSafe(v, fallback = null) { if (v === undefined || v === null || v === '') return fallback; try { return JSON.parse(v); } catch { return fallback; } }
 
-function createBook(ctx, { title, authors = [], coverPath = null, series=null, seriesIndex=null, year=null, publisher=null, isbn=null, language=null, rating=null, notes=null, tags=[], titleAlt=null, authorsAlt=[], format=null, genres=[], storageLocationId=null, goodreadsRating=null, goodreadsRatingsCount=null, goodreadsReviewsCount=null, goodreadsUrl=null, originalTitleEn=null, originalAuthorsEn=[], goodreadsFetchedAt=null }) {
+function createBook(ctx, { title, authors = [], coverPath = null, series=null, seriesIndex=null, year=null, publisher=null, isbn=null, language=null, rating=null, notes=null, tags=[], titleAlt=null, authorsAlt=[], format=null, genres=[], storageLocationId=null, goodreadsRating=null, goodreadsRatingsCount=null, goodreadsReviewsCount=null, goodreadsUrl=null, originalTitleEn=null, originalAuthorsEn=[], goodreadsFetchedAt=null, customOrder=null }) {
   const now = new Date().toISOString();
   const id = randomUUID();
   const storedCoverPath = toStoredCoverPath(ctx, coverPath);
-  const insBook = ctx.db.prepare('INSERT INTO books(id, title, coverPath, createdAt, updatedAt, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres, storageLocationId, goodreadsRating, goodreadsRatingsCount, goodreadsReviewsCount, goodreadsUrl, originalTitleEn, originalAuthorsEn, goodreadsFetchedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+  const insBook = ctx.db.prepare('INSERT INTO books(id, title, coverPath, createdAt, updatedAt, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres, storageLocationId, goodreadsRating, goodreadsRatingsCount, goodreadsReviewsCount, goodreadsUrl, originalTitleEn, originalAuthorsEn, goodreadsFetchedAt, customOrder) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
   insBook.bind([
     id,
     title,
@@ -1438,6 +1486,7 @@ function createBook(ctx, { title, authors = [], coverPath = null, series=null, s
     normStr(originalTitleEn),
     strArray(originalAuthorsEn),
     normStr(goodreadsFetchedAt),
+    normInt(customOrder),
   ]);
   insBook.step();
   insBook.free();
@@ -1478,6 +1527,7 @@ function createBook(ctx, { title, authors = [], coverPath = null, series=null, s
     originalTitleEn: normStr(originalTitleEn),
     originalAuthorsEn: strArray(originalAuthorsEn),
     goodreadsFetchedAt: normStr(goodreadsFetchedAt),
+    customOrder: normInt(customOrder),
   };
 }
 
@@ -1609,11 +1659,14 @@ function getBookStorageId(ctx, bookId) {
   return value ? String(value) : null;
 }
 
-function updateBook(ctx, { id, title, authors = [], coverPath = null, series=null, seriesIndex=null, year=null, publisher=null, isbn=null, language=null, rating=null, notes=null, tags=[], titleAlt=null, authorsAlt=[], format=null, genres=[], storageLocationId=null, goodreadsRating=null, goodreadsRatingsCount=null, goodreadsReviewsCount=null, goodreadsUrl=null, originalTitleEn=null, originalAuthorsEn=[], goodreadsFetchedAt=null }) {
+function updateBook(ctx, { id, title, authors = [], coverPath = null, series=null, seriesIndex=null, year=null, publisher=null, isbn=null, language=null, rating=null, notes=null, tags=[], titleAlt=null, authorsAlt=[], format=null, genres=[], storageLocationId=null, goodreadsRating=null, goodreadsRatingsCount=null, goodreadsReviewsCount=null, goodreadsUrl=null, originalTitleEn=null, originalAuthorsEn=[], goodreadsFetchedAt=null, isPinned=undefined, pinnedAt=undefined, customOrder=undefined }) {
   const now = new Date().toISOString();
   const storedCoverPath = toStoredCoverPath(ctx, coverPath);
-  const upd = ctx.db.prepare('UPDATE books SET title = ?, coverPath = ?, updatedAt = ?, series = ?, seriesIndex = ?, year = ?, publisher = ?, isbn = ?, language = ?, rating = ?, notes = ?, tags = ?, titleAlt = ?, authorsAlt = ?, format = ?, genres = ?, storageLocationId = ?, goodreadsRating = ?, goodreadsRatingsCount = ?, goodreadsReviewsCount = ?, goodreadsUrl = ?, originalTitleEn = ?, originalAuthorsEn = ?, goodreadsFetchedAt = ? WHERE id = ?');
-  upd.bind([
+
+  // Build dynamic update query based on what's provided
+  // isPinned, pinnedAt, customOrder are only updated if explicitly provided (not undefined)
+  let sql = 'UPDATE books SET title = ?, coverPath = ?, updatedAt = ?, series = ?, seriesIndex = ?, year = ?, publisher = ?, isbn = ?, language = ?, rating = ?, notes = ?, tags = ?, titleAlt = ?, authorsAlt = ?, format = ?, genres = ?, storageLocationId = ?, goodreadsRating = ?, goodreadsRatingsCount = ?, goodreadsReviewsCount = ?, goodreadsUrl = ?, originalTitleEn = ?, originalAuthorsEn = ?, goodreadsFetchedAt = ?';
+  const params = [
     title,
     storedCoverPath,
     now,
@@ -1638,8 +1691,26 @@ function updateBook(ctx, { id, title, authors = [], coverPath = null, series=nul
     normStr(originalTitleEn),
     strArray(originalAuthorsEn),
     normStr(goodreadsFetchedAt),
-    id,
-  ]);
+  ];
+
+  if (isPinned !== undefined) {
+    sql += ', isPinned = ?';
+    params.push(isPinned ? 1 : 0);
+  }
+  if (pinnedAt !== undefined) {
+    sql += ', pinnedAt = ?';
+    params.push(normStr(pinnedAt));
+  }
+  if (customOrder !== undefined) {
+    sql += ', customOrder = ?';
+    params.push(normInt(customOrder));
+  }
+
+  sql += ' WHERE id = ?';
+  params.push(id);
+
+  const upd = ctx.db.prepare(sql);
+  upd.bind(params);
   upd.step();
   upd.free();
   ctx.db.exec(`DELETE FROM book_authors WHERE bookId = '${id.replace(/'/g, "''")}'`);
@@ -1679,6 +1750,9 @@ function updateBook(ctx, { id, title, authors = [], coverPath = null, series=nul
     originalTitleEn: normStr(originalTitleEn),
     originalAuthorsEn: strArray(originalAuthorsEn),
     goodreadsFetchedAt: normStr(goodreadsFetchedAt),
+    isPinned: isPinned !== undefined ? (isPinned ? 1 : 0) : undefined,
+    pinnedAt: pinnedAt !== undefined ? normStr(pinnedAt) : undefined,
+    customOrder: customOrder !== undefined ? normInt(customOrder) : undefined,
   };
 }
 

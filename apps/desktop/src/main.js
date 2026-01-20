@@ -612,7 +612,7 @@ function registerIpc(channel, handler) {
 registerIpc('books:list', async () => dbLayer.listBooks(db));
 
 registerIpc('books:add', async (event, payload) => {
-  const { title, authors, coverSourcePath, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres, storageLocationId, storageNote, goodreadsRating, goodreadsRatingsCount, goodreadsReviewsCount, goodreadsUrl, originalTitleEn, originalAuthorsEn, goodreadsFetchedAt } = payload;
+  const { title, authors, coverSourcePath, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres, storageLocationId, storageNote, goodreadsRating, goodreadsRatingsCount, goodreadsReviewsCount, goodreadsUrl, originalTitleEn, originalAuthorsEn, goodreadsFetchedAt, customOrder } = payload;
   let storageId = storageLocationId ? String(storageLocationId).trim() || null : null;
   if (storageId) {
     const loc = dbLayer.getStorageLocation(db, storageId);
@@ -636,6 +636,7 @@ registerIpc('books:add', async (event, payload) => {
     originalTitleEn: originalTitleEn ? String(originalTitleEn).trim() || null : null,
     originalAuthorsEn: Array.isArray(originalAuthorsEn) ? originalAuthorsEn.map((a) => String(a).trim()).filter(Boolean) : [],
     goodreadsFetchedAt: goodreadsFetchedAt ? String(goodreadsFetchedAt) : null,
+    customOrder: typeof customOrder === 'number' ? customOrder : (customOrder != null ? Number(customOrder) : null),
   });
   if (storageId) {
     dbLayer.insertStorageHistory(db, { bookId: book.id, fromLocationId: null, toLocationId: storageId, action: 'move', note: storageNote || null });
@@ -667,7 +668,7 @@ registerIpc('books:add', async (event, payload) => {
 });
 
 ipcMain.handle('books:update', async (event, payload) => {
-  const { id, title, authors, coverSourcePath, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres, storageLocationId, storageNote, goodreadsRating, goodreadsRatingsCount, goodreadsReviewsCount, goodreadsUrl, originalTitleEn, originalAuthorsEn, goodreadsFetchedAt } = payload;
+  const { id, title, authors, coverSourcePath, series, seriesIndex, year, publisher, isbn, language, rating, notes, tags, titleAlt, authorsAlt, format, genres, storageLocationId, storageNote, goodreadsRating, goodreadsRatingsCount, goodreadsReviewsCount, goodreadsUrl, originalTitleEn, originalAuthorsEn, goodreadsFetchedAt, isPinned, pinnedAt, customOrder } = payload;
   const beforeSnapshot = getBookSnapshot(id);
   const row = db.db.exec(`SELECT id, coverPath, storageLocationId FROM books WHERE id = '${String(id).replace(/'/g, "''")}'`);
   const current = row[0] && row[0].values[0]
@@ -706,6 +707,9 @@ ipcMain.handle('books:update', async (event, payload) => {
     originalTitleEn: originalTitleEn ? String(originalTitleEn).trim() || null : null,
     originalAuthorsEn: Array.isArray(originalAuthorsEn) ? originalAuthorsEn.map((a) => String(a).trim()).filter(Boolean) : [],
     goodreadsFetchedAt: goodreadsFetchedAt ? String(goodreadsFetchedAt) : null,
+    isPinned: isPinned !== undefined ? (isPinned ? 1 : 0) : undefined,
+    pinnedAt: pinnedAt !== undefined ? (pinnedAt ? String(pinnedAt) : null) : undefined,
+    customOrder: customOrder !== undefined ? (typeof customOrder === 'number' ? customOrder : (customOrder != null ? Number(customOrder) : null)) : undefined,
   });
   const prevStorage = current.storageLocationId ? String(current.storageLocationId) : null;
   if (prevStorage !== storageId) {

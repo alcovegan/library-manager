@@ -7,35 +7,32 @@
     <link rel="icon" href="assets/icon.svg" />
     <link rel="stylesheet" href="assets/tailwind-lite.css" />
     <style>
+      /* Default theme (Oak Light) - colors can be overridden by JavaScript palette system */
       :root {
-        --bg: #f6f7fb;
-        --bg-gradient: radial-gradient(1200px 800px at -10% -20%, #ffffff 0%, #f6f7fb 60%),
-                        radial-gradient(1000px 700px at 120% 0%, #f0f2f9 0%, #f6f7fb 60%);
-        --surface: #ffffff;
-        --muted-surface: #f2f4f8;
-        --border: #e5e8f0;
-        --text: #161827;
-        --muted: #6b728e;
-        --accent: #3b6fff;
-        --accent-strong: #2b59ff;
-        --danger: #e23d4f;
-        --shadow: 0 8px 24px rgba(17, 24, 39, 0.08);
+        --bg: #f5ebe0;
+        --bg-gradient: radial-gradient(1200px 800px at -10% -20%, #faf3e8 0%, #f5ebe0 60%),
+                        radial-gradient(1000px 700px at 120% 0%, #efe3d4 0%, #f5ebe0 60%);
+        --surface: #fdf8f2;
+        --muted-surface: #efe5d8;
+        --border: #ddd0be;
+        --text: #3d3224;
+        --muted: #8c7a63;
+        --accent: #b8860b;
+        --accent-strong: #9a7209;
+        --accent-glow: rgba(184, 134, 11, 0.15);
+        --accent-glow-hover: rgba(184, 134, 11, 0.25);
+        --danger: #c45a3b;
+        --danger-strong: #a84830;
+        --danger-glow: rgba(196, 90, 59, 0.15);
+        --success: #5a8a5a;
+        --success-glow: rgba(90, 138, 90, 0.15);
+        --shadow: 0 8px 24px rgba(61, 50, 36, 0.08);
         --radius: 12px;
       }
 
+      /* Dark theme class - colors are injected by JavaScript from palette */
       body.theme-dark {
-        --bg: #0f1220;
-        --bg-gradient: radial-gradient(1200px 800px at -10% -20%, #1d2240 0%, #0f1220 60%),
-                        radial-gradient(1000px 700px at 120% 0%, #181d36 0%, #0f1220 60%);
-        --surface: #161a2b;
-        --muted-surface: #1b2035;
-        --border: #242a44;
-        --text: #e8ecff;
-        --muted: #a6add6;
-        --accent: #6c8cff;
-        --accent-strong: #5274ff;
-        --danger: #ff5d6c;
-        --shadow: 0 8px 24px rgba(0,0,0,0.35);
+        /* CSS variables are set dynamically via applyTheme() */
       }
 
       html, body { height: 100%; }
@@ -46,7 +43,6 @@
         background-image: var(--bg-gradient);
         background-attachment: fixed;
         font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-        /* No transition on body - gradients can't be animated smoothly */
       }
 
       header {
@@ -97,30 +93,101 @@
       input[type="text"] {
         width: 100%; padding: 10px 12px; border:1px solid var(--border); border-radius:10px; box-sizing: border-box;
         background: var(--muted-surface); color: var(--text);
-        outline: none; transition: box-shadow 120ms ease;
+        outline: none; transition: box-shadow 120ms ease, border-color 120ms ease;
       }
-      input[type="text"]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,111,255,0.25); }
+      input[type="text"]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
       textarea { width: 100%; padding: 10px 12px; border:1px solid var(--border); border-radius:10px; box-sizing: border-box;
         background: var(--muted-surface); color: var(--text);
-        outline: none; transition: box-shadow 120ms ease; }
-      textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,111,255,0.25); }
+        outline: none; transition: box-shadow 120ms ease, border-color 120ms ease; }
+      textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
       select { background: var(--surface); color: var(--text); border-color: var(--border); }
       .row { display:flex; gap:8px; align-items:center; }
-      button { padding:9px 12px; border:1px solid var(--border); border-radius:10px; background: var(--muted-surface); color: var(--text); cursor:pointer; transition: transform 60ms ease; }
-      button:active { transform: translateY(1px); }
-      button.primary { background: linear-gradient(180deg, var(--accent) 0%, var(--accent-strong) 100%); border-color: rgba(43,89,255,0.6); color: #fff; }
-      button.danger { background: linear-gradient(180deg, var(--danger) 0%, #cc4753 100%); border-color: #a43b45; color: #fff; }
+      button { padding:9px 12px; border:1px solid var(--border); border-radius:10px; background: var(--muted-surface); color: var(--text); cursor:pointer; transition: filter 120ms ease, transform 60ms ease, box-shadow 120ms ease; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+      button:hover { filter: brightness(0.96); box-shadow: 0 2px 4px rgba(0,0,0,0.06); }
+      button:active { transform: translateY(1px); box-shadow: none; }
+      button.primary { background: linear-gradient(180deg, var(--accent) 0%, var(--accent-strong) 100%); border-color: var(--accent-strong); color: #fff; }
+      button.danger { background: linear-gradient(180deg, var(--danger) 0%, var(--danger-strong) 100%); border-color: var(--danger-strong); color: #fff; }
+
+      /* Palette selector buttons */
+      .palette-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        padding: 8px 4px;
+        border: 2px solid var(--border);
+        border-radius: 8px;
+        background: var(--muted-surface);
+        cursor: pointer;
+        transition: all 0.15s ease;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+      }
+      .palette-btn:hover {
+        border-color: var(--muted);
+        transform: translateY(-1px);
+        filter: brightness(0.96);
+      }
+      .palette-btn.active {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2px var(--accent-glow);
+      }
+      body.theme-dark .palette-btn { box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+      body.theme-dark .palette-btn:hover { box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
+      .palette-dot {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        border: 2px solid rgba(0,0,0,0.1);
+      }
+      .palette-name {
+        font-size: 10px;
+        font-weight: 500;
+        color: var(--muted);
+        text-align: center;
+        line-height: 1.1;
+      }
+      .palette-btn.active .palette-name {
+        color: var(--text);
+        font-weight: 600;
+      }
+
+      /* Theme mode buttons */
+      .theme-mode-btn {
+        flex: 1;
+        padding: 8px 12px;
+        border: 2px solid var(--border);
+        border-radius: 8px;
+        background: var(--muted-surface);
+        color: var(--text);
+        cursor: pointer;
+        transition: all 0.15s ease;
+        font-size: 13px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+      }
+      .theme-mode-btn:hover {
+        border-color: var(--muted);
+        filter: brightness(0.96);
+      }
+      .theme-mode-btn.active {
+        border-color: var(--accent);
+        background: var(--accent-glow);
+        color: var(--accent);
+        font-weight: 600;
+      }
+      body.theme-dark .theme-mode-btn { box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+      body.theme-dark .theme-mode-btn:hover { box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
 
       .cover-preview { width: 100%; max-height: 220px; object-fit: contain; background: repeating-conic-gradient(from 45deg, rgba(0,0,0,0.04) 0% 25%, rgba(0,0,0,0.02) 0% 50%) 50% / 20px 20px; border:1px dashed var(--border); border-radius: 10px; display:none; }
       .list { display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
       .list.rows { grid-template-columns: 1fr; }
       .list.compact .book { padding:6px; gap:8px; }
       .list.compact .thumb { width:48px; height:68px; }
-      .book { display:flex; gap:12px; background: var(--surface); border:1px solid var(--border); padding:12px; border-radius:12px; box-shadow: var(--shadow); cursor: pointer; align-items:flex-start; }
+      .book { display:flex; gap:12px; background: var(--surface); border:1px solid var(--border); padding:12px; border-radius:12px; cursor: pointer; align-items:flex-start; transition: box-shadow 0.15s ease, transform 0.15s ease; }
       .book { overflow: hidden; }
-      .book.selected { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,111,255,0.25); }
+      .book:hover { box-shadow: var(--shadow); transform: translateY(-2px); }
+      .book.selected { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
       .book.loaned { border-color: rgba(226,61,79,0.4); box-shadow: 0 10px 24px rgba(226,61,79,0.08); }
-      .book.loaned.selected { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,111,255,0.25); }
+      .book.loaned.selected { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
       .book.loaned .thumb { border-color: rgba(226,61,79,0.45); box-shadow: 0 0 0 2px rgba(226,61,79,0.16); }
       .thumb { width:64px; height:86px; object-fit:cover; background: var(--muted-surface); border-radius:8px; border:1px solid var(--border); display:none; }
       .thumb.loaned { border-color: rgba(226,61,79,0.45); box-shadow: 0 0 0 2px rgba(226,61,79,0.16); }
@@ -159,17 +226,17 @@
       .rating { display:inline-flex; align-items:center; gap:2px; margin-top:2px; font-size:0; }
       .rating .star { position:relative; display:inline-block; width:16px; height:16px; }
       .rating .star::before,
-      .rating .star::after { content:'★'; position:absolute; inset:0; font-size:16px; line-height:16px; color:#d1d5db; }
+      .rating .star::after { content:'★'; position:absolute; inset:0; font-size:16px; line-height:16px; color:var(--border); }
       .rating .star::after { content:''; }
-      .rating .star.star--full::before { color:#fbbf24; }
-      .rating .star.star--half::before { color:#fbbf24; clip-path: inset(0 50% 0 0); }
-      .rating .star.star--half::after { content:'★'; color:#d1d5db; clip-path: inset(0 0 0 50%); }
-      .rating .star.star--empty::before { color:#d1d5db; }
+      .rating .star.star--full::before { color:var(--accent); }
+      .rating .star.star--half::before { color:var(--accent); clip-path: inset(0 50% 0 0); }
+      .rating .star.star--half::after { content:'★'; color:var(--border); clip-path: inset(0 0 0 50%); }
+      .rating .star.star--empty::before { color:var(--border); }
       .meta .collections-badges { margin-top: 2px; }
       .meta .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:4px; }
       .empty { color:var(--muted); padding:16px; }
       .dropzone { border: 1px dashed var(--border); border-radius: 10px; }
-      .dropzone.active { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,111,255,0.25); }
+      .dropzone.active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
       .actions { display:flex; gap:8px; align-items:center; }
       .icon-btn { width:36px; height:36px; padding:0; border:1px solid var(--border); border-radius:8px; background:var(--surface); cursor:pointer; display:flex; align-items:center; justify-content:center; }
       .icon-btn:hover { background:var(--muted-surface); }
@@ -207,42 +274,77 @@
         50% { filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.8)) drop-shadow(0 0 12px rgba(251, 191, 36, 0.5)); }
       }
       /* Active state for icon buttons (e.g., Enrichment toggle) */
-      .icon-btn.active { background:rgba(99,102,241,0.12); border-color:rgba(99,102,241,0.35); }
-      body.theme-dark .icon-btn.active { background: rgba(255,255,255,0.12); }
-      /* Bookmarked state for collection icons */
-      .icon-btn.bookmarked { border-color: rgba(239,68,68,0.4); }
-      .icon-btn.bookmarked svg { color: #ef4444; }
-      body.theme-dark .icon-btn.bookmarked { border-color: rgba(248,113,113,0.5); }
-      body.theme-dark .icon-btn.bookmarked svg { color: #f87171; }
+      .icon-btn.active { background: var(--accent-glow); border-color: var(--accent); }
+      .icon-btn.active svg { color: var(--accent); }
+      /* Bookmarked state for collection icons - filled with theme accent */
+      .icon-btn.bookmarked { border-color: var(--accent); background: var(--accent-glow); }
+      .icon-btn.bookmarked svg { color: var(--accent); fill: var(--accent); }
+      /* Pinned state for pin button */
+      .icon-btn.pinned { border-color: var(--accent); background: var(--accent-glow); }
+      .icon-btn.pinned svg { color: var(--accent); fill: var(--accent); }
 
       body.theme-dark .seg > button.active { background: rgba(255,255,255,0.08); }
+      body.theme-dark button, body.theme-dark .btn { box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+      body.theme-dark button:hover, body.theme-dark .btn:hover { box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
       .btn.secondary.active {
-        background: rgba(59,111,255,0.12);
-        border-color: rgba(59,111,255,0.6);
+        background: var(--accent-glow);
+        border-color: var(--accent);
         color: var(--accent);
       }
-      body.theme-dark .btn.secondary.active {
-        background: rgba(99,102,241,0.25);
-        border-color: rgba(129,140,248,0.6);
-        color: #c7d2ff;
+      /* Unified badge styles */
+      .badge-gr, .reading-status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 8px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--accent);
+        background: var(--accent-glow);
+        border: 1px solid var(--accent);
+        border-radius: 6px;
       }
-      .badge-gr {
-        display:inline-flex;
-        align-items:center;
-        gap:8px;
-        padding:2px 6px;
-        font-size:11px;
-        font-weight:600;
-        color:#0f172a;
-        background:linear-gradient(135deg, #a7f3d0, #6ee7b7);
-        border-radius:999px;
+      .reading-status-badge svg {
+        flex-shrink: 0;
+      }
+      /* Pinned badge */
+      .badge-pinned {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 8px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--accent);
+        background: var(--accent-glow);
+        border: 1px solid var(--accent);
+        border-radius: 6px;
+      }
+      .badge-pinned svg {
+        flex-shrink: 0;
+      }
+      /* Collection badges - gradient with theme colors */
+      .collections-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 6px;
+      }
+      .badge-collection {
+        background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+        color: #fff;
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-weight: 500;
+        white-space: nowrap;
       }
       /* layout + unified controls */
       html, body { height: 100%; }
       body { margin: 0; display: flex; flex-direction: column; }
       main { flex: 1; min-height: 0; }
       .input { height:36px; padding:0 12px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--text); font-size:14px; box-sizing:border-box; }
-      .input:focus { outline:none; box-shadow:0 0 0 2px rgba(99,102,241,.55); }
+      .input:focus { outline:none; box-shadow:0 0 0 2px var(--accent-glow-hover); }
       select.input {
         appearance: none; -webkit-appearance: none; -moz-appearance: none;
         padding-right: 32px;
@@ -255,25 +357,39 @@
       body.theme-dark select.input {
         background-image: url("data:image/svg+xml,%3Csvg width='14' height='14' viewBox='0 0 14 14' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0.5 3.85L6.65 10C6.695 10.048 6.749 10.086 6.809 10.112C6.87 10.138 6.934 10.152 7 10.152C7.066 10.152 7.13 10.138 7.191 10.112C7.251 10.086 7.305 10.048 7.35 10L13.5 3.85' stroke='%23a6add6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
       }
-      body.theme-dark .input:focus { box-shadow:0 0 0 2px rgba(129,140,248,.45); }
-      .btn { height:36px; padding:0 12px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--text); font-size:14px; cursor:pointer; box-sizing:border-box; }
-      .btn:hover { background:var(--muted-surface); }
+      .btn { height:36px; padding:0 12px; border:1px solid var(--border); border-radius:8px; background:var(--muted-surface); color:var(--text); font-size:14px; cursor:pointer; box-sizing:border-box; box-shadow: 0 1px 2px rgba(0,0,0,0.04); transition: filter 120ms ease, box-shadow 120ms ease; }
+      .btn:hover { filter: brightness(0.96); box-shadow: 0 2px 4px rgba(0,0,0,0.06); }
       .btn.icon-btn { width:36px; padding:0; display:flex; align-items:center; justify-content:center; }
       .range-input { background:transparent; border:1px solid transparent; }
       .range-input:hover { border-color:var(--border); }
       .range-input:focus { border-color:var(--accent); background:var(--surface); }
-      .filter-group { border:1px solid var(--border); border-radius:10px; padding:2px 4px; background:var(--surface); }
-      .filter-range { border:1px solid var(--border); }
-      body.theme-dark .btn.primary { background: linear-gradient(180deg, #6366f1 0%, #4f46e5 100%); border-color: #6366f1; color: #fff; }
-      body.theme-dark .btn.primary:hover { background: linear-gradient(180deg, #818cf8 0%, #6366f1 100%); }
-      body.theme-dark .btn.secondary { background: rgba(99,102,241,0.12); border-color: rgba(99,102,241,0.35); color: #a5b4fc; }
-      body.theme-dark .btn.secondary:hover { background: rgba(99,102,241,0.2); }
-      .btn.primary { background:#4f46e5; color:#fff; border-color:#4f46e5; }
-      .btn.primary:hover { background:#6366f1; }
+      /* Filter toolbar - first row (view toggle, collections, saved searches, sort) */
+      #listSection > .row:first-child { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:6px; }
+      .filter-group { border:1px solid var(--border); border-radius:8px; padding:3px; background:var(--surface); display:flex; align-items:center; gap:3px; }
+      .filter-group .input { height:28px; font-size:13px; border-radius:5px; }
+      .filter-group .btn.icon-btn { width:28px; height:28px; border-radius:5px; }
+      .filter-group .btn.icon-btn svg { width:12px; height:12px; }
+      .filter-group label { margin:0; padding:0 6px; color:var(--muted); font-size:12px; white-space:nowrap; }
+      /* Filters bar - second row */
+      #filtersBar { display:flex; align-items:center; gap:6px; margin-bottom:8px; flex-wrap:wrap; }
+      #filtersBar .input { height:32px; font-size:13px; border-radius:6px; }
+      #filtersBar .btn { height:32px; font-size:13px; border-radius:6px; padding:0 10px; display:flex; align-items:center; gap:6px; }
+      #filtersBar .btn.icon-btn { width:32px; padding:0; }
+      #filtersBar .filters-actions { margin-left:auto; display:flex; align-items:center; gap:4px; }
+      .filter-range { display:flex; align-items:center; gap:3px; background:var(--muted-surface); padding:4px 8px; border-radius:6px; border:1px solid var(--border); height:32px; box-sizing:border-box; }
+      .filter-range .range-input { width:3rem; height:22px; font-size:11px; padding:0 4px; border-radius:4px; }
+      .filter-range span { font-size:11px; color:var(--muted); }
+      .filter-range span:first-child { font-weight:500; }
+      .btn.primary { background: linear-gradient(180deg, var(--accent) 0%, var(--accent-strong) 100%); color:#fff; border-color: var(--accent-strong); }
+      .btn.primary:hover { filter: brightness(1.1); }
       .btn.primary svg { stroke: #fff; }
-      .seg { display:inline-flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
-      .seg > button { height:36px; width:36px; padding:0; margin:0; border:0; background:var(--surface); cursor:pointer; display:flex; align-items:center; justify-content:center; }
+      .btn.secondary { background: var(--accent-glow); border-color: var(--accent); color: var(--accent); }
+      .btn.secondary:hover { background: var(--accent-glow-hover); }
+      .seg { display:inline-flex; border:1px solid var(--border); border-radius:8px; padding:3px; background:var(--surface); gap:3px; }
+      .seg > button { height:28px; width:28px; padding:0; margin:0; border:0; border-radius:5px; background:transparent; cursor:pointer; display:flex; align-items:center; justify-content:center; transition: background 0.1s ease; }
+      .seg > button:hover { background:var(--muted-surface); }
       .seg > button.active { background:var(--muted-surface); }
+      .seg > button svg { width:14px; height:14px; }
       .search-help-section { margin-top: 14px; }
       .search-help-section:first-of-type { margin-top: 0; }
       .search-help-section strong { display:block; font-size:13px; margin-bottom:6px; }
@@ -281,13 +397,13 @@
       .search-help-list li { margin:4px 0; }
       .search-help-fields { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:6px 16px; font-size:13px; }
       .search-help-note { font-size:12px; color:var(--muted); margin-top:6px; }
-      .bulk-toolbar { display:none; margin-bottom:12px; padding:10px 12px; border:1px dashed rgba(59,111,255,0.4); border-radius:10px; background:rgba(59,111,255,0.05); gap:12px; flex-wrap:wrap; align-items:center; }
+      .bulk-toolbar { display:none; margin-bottom:12px; padding:10px 12px; border:1px dashed var(--accent); border-radius:10px; background:var(--accent-glow); gap:12px; flex-wrap:wrap; align-items:center; }
       .bulk-toolbar.active { display:flex; }
       .bulk-toolbar .bulk-summary { font-weight:600; color:var(--accent); }
       .bulk-toolbar .bulk-actions { display:flex; gap:8px; flex-wrap:wrap; }
       .book { position:relative; }
       .book.bulk-selectable { cursor:pointer; padding-left: 48px; transition: padding 0.16s ease; }
-      .book.bulk-selected { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,111,255,0.25); }
+      .book.bulk-selected { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
       .book .bulk-checkbox { position:absolute; left:16px; transform:none; width:18px; height:18px; accent-color: var(--accent); display:none; background:var(--surface); border-radius:4px; box-shadow:0 1px 2px rgba(15,23,42,0.12); }
       .book.bulk-selectable .bulk-checkbox { display:block; }
       details.goodreads-panel {
@@ -311,7 +427,7 @@
     </style>
   </head>
   <body>
-    <header class="sticky top-0 z-10 bg-white/70 backdrop-blur border-b border-slate-200">
+    <header class="sticky top-0 z-10 backdrop-blur" style="background: color-mix(in srgb, var(--surface) 70%, transparent); border-bottom: 1px solid var(--border);">
       <h1 class="flex items-center justify-center p-2">
         <img id="appIcon" src="" alt="Домашняя библиотека" data-i18n="app.title" data-i18n-attr="alt" width="48" height="48" style="display: none;" />
         <div id="iconFallback" style="width: 48px; height: 48px; background: linear-gradient(135deg, #4f46e5, #7c3aed, #f43f5e); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 20px;">📚</div>
@@ -378,7 +494,7 @@
         <input id="authorsInput" type="text" placeholder="Автор1, Автор2" data-i18n="form.authorsPlaceholder" data-i18n-attr="placeholder" class="input w-full" />
         <label data-i18n="form.cover">Обложка</label>
         <div class="row" style="gap:8px; align-items:center;">
-          <button id="chooseCoverBtn" class="btn" style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px;">
+          <button id="chooseCoverBtn" class="btn secondary" style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px;">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="0.51" y="0.5" width="13" height="13" rx="1"/><circle cx="9.25" cy="4.75" r="1.75"/><path d="M9.4 13.4999C9.07801 11.7849 8.15715 10.2401 6.80173 9.14113C5.44632 8.04214 3.74452 7.46048 2 7.49993C1.49668 7.49858 0.994381 7.54546 0.5 7.63993"/><path d="M13.5 9.91002C12.6946 9.63803 11.8501 9.49954 11 9.50002C9.92394 9.49768 8.85877 9.71548 7.87 10.14"/></svg>
             <span data-i18n="form.chooseFile">Выбрать файл…</span>
           </button>
@@ -386,8 +502,8 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="6.5"/><path d="M0.5 7H13.5"/><path d="M9.5 7C9.3772 9.37699 8.50168 11.6533 7 13.5C5.49832 11.6533 4.6228 9.37699 4.5 7C4.6228 4.62301 5.49832 2.34665 7 0.5C8.50168 2.34665 9.3772 4.62301 9.5 7V7Z"/></svg>
             <span data-i18n="form.findOnline">Найти онлайн…</span>
           </button>
-          <span id="coverFileLabel" class="text-xs text-slate-500" style="margin-left:auto;" data-i18n="form.notSelected">Не выбрано</span>
         </div>
+        <span id="coverFileLabel" class="text-xs" style="display:none; margin-top:4px; color: var(--muted);"></span>
         <div class="row" style="margin-top:8px; gap:8px;">
           <input id="coverUrlInput" type="url" placeholder="https://example.com/cover.jpg" data-i18n="form.coverUrlPlaceholder" data-i18n-attr="placeholder" class="input" style="flex:1;" />
           <button id="loadCoverBtn" class="btn" data-i18n="form.loadCover">Загрузить</button>
@@ -403,19 +519,19 @@
             <span data-i18n="form.addStorage">Добавить…</span>
           </button>
         </div>
-        <div class="row" style="margin-top:12px; gap:12px;">
+        <div class="row" style="margin-top:12px; gap:8px;">
           <button id="saveBtn" class="btn primary" style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px;">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8L6.05 9.64C6.10506 9.68534 6.16952 9.71784 6.23872 9.73514C6.30791 9.75244 6.38009 9.7541 6.45 9.74C6.52058 9.72676 6.58749 9.69847 6.64616 9.65706C6.70483 9.61564 6.75389 9.56207 6.79 9.5L10 4"/><circle cx="7" cy="7" r="6.5"/></svg>
             <span data-i18n="form.save">Сохранить</span>
           </button>
           <button id="resetBtn" class="btn" style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 0.5L0.5 13.5"/><path d="M0.5 0.5L13.5 13.5"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="6.5"/><path d="M9.5 4.5L4.5 9.5"/><path d="M4.5 4.5L9.5 9.5"/></svg>
             <span data-i18n="form.reset">Сбросить</span>
           </button>
         </div>
         <div style="margin-top:8px;">
           <button id="openCreateModalBtn" class="btn secondary" style="width:100%; display:flex; align-items:center; justify-content:center; gap:6px;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="6.5"/><path d="M7 7V10.5"/><circle cx="7" cy="4.5" r="0.5" fill="currentColor"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="6.5"/><path d="M7 7V10.5"/><circle cx="7" cy="4.5" r="0.5" fill="currentColor"/></svg>
             <span data-i18n="form.advancedForm">Расширенная форма</span>
           </button>
         </div>
@@ -424,7 +540,7 @@
 
       <section id="listSection" class="card" style="min-height:0; min-width:0; display:flex; flex-direction:column;">
         <!-- Row 1: View toggle, Collections, Saved searches, Sort -->
-        <div class="row" style="margin-bottom:6px; align-items:center; gap:6px; flex-wrap:wrap;">
+        <div class="row">
           <div class="seg" role="group" aria-label="Вид">
             <button id="btnViewGrid" type="button" class="active" aria-pressed="true" title="Сетка" data-i18n="list.grid" data-i18n-attr="title">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="0.5" y="0.5" width="13" height="13" rx="1"/><path d="M7 0.5V13.5"/><path d="M0.5 7H13.5"/></svg>
@@ -434,8 +550,8 @@
             </button>
           </div>
           <!-- Collections group -->
-          <div class="filter-group" style="display:flex; align-items:center; gap:3px;">
-            <select id="collectionSelect" class="input" style="width:auto; min-width:7rem; font-size:13px; height:30px;">
+          <div class="filter-group">
+            <select id="collectionSelect" class="input" style="width:auto; min-width:7rem;">
               <option value="" data-i18n="filters.collections">Коллекции…</option>
             </select>
             <button id="createCollectionBtn" type="button" class="btn icon-btn" title="Создать коллекцию" data-i18n="filters.createCollectionTitle" data-i18n-attr="title">
@@ -449,8 +565,8 @@
             </button>
           </div>
           <!-- Saved searches group -->
-          <div class="filter-group" style="display:flex; align-items:center; gap:3px;">
-            <select id="filterPresetSelect" class="input" style="width:auto; min-width:8rem; font-size:13px; height:30px;">
+          <div class="filter-group">
+            <select id="filterPresetSelect" class="input" style="width:auto; min-width:8rem;">
               <option value="" data-i18n="filters.savedSearches">Поиски…</option>
             </select>
             <button id="savePresetBtn" type="button" class="btn icon-btn" title="Сохранить текущий поиск" data-i18n="filters.savePresetTitle" data-i18n-attr="title">
@@ -463,9 +579,9 @@
           <!-- Spacer -->
           <div style="flex:1;"></div>
           <!-- Sort -->
-          <div style="display:flex; align-items:center; gap:6px;">
-            <label for="sortSelect" style="margin:0; color:var(--muted); font-size:12px;" data-i18n="list.sort">Сортировка</label>
-            <select id="sortSelect" class="input" style="width:auto; font-size:13px; height:30px;">
+          <div class="filter-group">
+            <label for="sortSelect" data-i18n="list.sort">Сортировка</label>
+            <select id="sortSelect" class="input" style="width:auto;">
               <option value="title" data-i18n="list.sortTitle">Название</option>
               <option value="author" data-i18n="list.sortAuthor">Автор</option>
               <option value="date" data-i18n="list.sortDate">Дата добавления</option>
@@ -481,19 +597,19 @@
           <button id="collectionSaveCancelBtn" type="button" class="btn" data-i18n="actions.cancel">Отмена</button>
         </div>
         <!-- Row 2: Filters and actions -->
-        <div id="filtersBar" style="display:flex; align-items:center; gap:6px; margin-bottom:8px; flex-wrap:wrap;">
-            <select id="filterAuthor" class="input" style="width:auto; min-width:6rem; max-width:7rem; flex-shrink:1;">
+        <div id="filtersBar">
+            <select id="filterAuthor" class="input" style="width:auto; min-width:6rem; max-width:7rem;">
               <option value="">Автор…</option>
             </select>
-            <input id="filterGenres" class="input" type="text" placeholder="Жанры" data-i18n="filters.genresShort" data-i18n-attr="placeholder" style="width:5rem; flex-shrink:1;" />
-            <input id="filterTags" class="input" type="text" placeholder="Теги" data-i18n="filters.tagsShort" data-i18n-attr="placeholder" style="width:5rem; flex-shrink:1;" />
-            <select id="filterFormat" class="input" style="width:auto; max-width:6rem; flex-shrink:1;">
+            <input id="filterGenres" class="input" type="text" placeholder="Жанры" data-i18n="filters.genresShort" data-i18n-attr="placeholder" style="width:5rem;" />
+            <input id="filterTags" class="input" type="text" placeholder="Теги" data-i18n="filters.tagsShort" data-i18n-attr="placeholder" style="width:5rem;" />
+            <select id="filterFormat" class="input" style="width:auto; max-width:6rem;">
               <option value="" data-i18n="filters.format">Формат…</option>
               <option value="paper" data-i18n="format.paper">Бумажная</option>
               <option value="ebook" data-i18n="format.ebook">Электронная</option>
               <option value="audiobook" data-i18n="format.audiobook">Аудио</option>
             </select>
-            <select id="filterReadingStatus" class="input" style="width:auto; max-width:8rem; flex-shrink:1;">
+            <select id="filterReadingStatus" class="input" style="width:auto; max-width:8rem;">
               <option value="" data-i18n="filters.readingStatus">Статус…</option>
               <option value="want_to_read" data-i18n="readingStatus.wantToRead">🔖 Хочу прочитать</option>
               <option value="reading" data-i18n="readingStatus.reading">📖 Читаю</option>
@@ -504,22 +620,22 @@
               <option value="no_status" data-i18n="readingStatus.noStatus">—  Без статуса</option>
             </select>
             <!-- Year range group -->
-            <div class="filter-range" style="display:flex; align-items:center; gap:2px; background:var(--muted-surface); padding:2px 4px; border-radius:6px; flex-shrink:0;">
-              <span style="font-size:11px; color:var(--muted); font-weight:500;" data-i18n="filters.yearLabel">Год</span>
-              <input id="filterYearFrom" class="input range-input" type="number" placeholder="1900" style="width:3rem; height:24px; font-size:11px; padding:0 4px;" />
-              <span style="color:var(--muted); font-size:10px;">—</span>
-              <input id="filterYearTo" class="input range-input" type="number" placeholder="2025" style="width:3rem; height:24px; font-size:11px; padding:0 4px;" />
+            <div class="filter-range">
+              <span data-i18n="filters.yearLabel">Год</span>
+              <input id="filterYearFrom" class="range-input" type="number" placeholder="1900" />
+              <span>—</span>
+              <input id="filterYearTo" class="range-input" type="number" placeholder="2025" />
             </div>
             <!-- GR range group -->
-            <div class="filter-range" style="display:flex; align-items:center; gap:2px; background:var(--muted-surface); padding:2px 4px; border-radius:6px; flex-shrink:0;">
-              <span style="font-size:11px; color:var(--muted); font-weight:500;">GR</span>
-              <input id="filterGoodreadsFrom" class="input range-input" type="number" step="0.1" placeholder="0" style="width:2.5rem; height:24px; font-size:11px; padding:0 4px;" />
-              <span style="color:var(--muted); font-size:10px;">—</span>
-              <input id="filterGoodreadsTo" class="input range-input" type="number" step="0.1" placeholder="5" style="width:2.5rem; height:24px; font-size:11px; padding:0 4px;" />
+            <div class="filter-range">
+              <span>GR</span>
+              <input id="filterGoodreadsFrom" class="range-input" type="number" step="0.1" placeholder="0" style="width:2.5rem;" />
+              <span>—</span>
+              <input id="filterGoodreadsTo" class="range-input" type="number" step="0.1" placeholder="5" style="width:2.5rem;" />
             </div>
             <!-- Right side actions -->
-            <div style="margin-left:auto; display:flex; align-items:center; gap:4px; flex-shrink:0;">
-              <button id="btnClearFilters" class="btn" type="button" title="Сбросить фильтры" data-i18n="filters.clearTitle" data-i18n-attr="title" style="display:flex; align-items:center; gap:6px; font-size:13px;">
+            <div class="filters-actions">
+              <button id="btnClearFilters" class="btn" type="button" title="Сбросить фильтры" data-i18n="filters.clearTitle" data-i18n-attr="title">
                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 0.5L0.5 13.5"/><path d="M0.5 0.5L13.5 13.5"/></svg>
                 <span data-i18n="filters.clear">Сбросить</span>
               </button>
@@ -577,7 +693,7 @@
             <label data-i18n="enrich.csvFile">CSV файл</label>
             <input id="csvInput" type="file" accept=".csv,text/csv" />
           </div>
-          <button id="parseCsvBtn" data-i18n="enrich.load">Загрузить</button>
+          <button id="parseCsvBtn" class="btn" data-i18n="enrich.load">Загрузить</button>
         </div>
         <div id="mappingArea" style="display:none; margin:8px 0;">
           <div style="font-size:12px; color:var(--muted); margin-bottom:6px;" data-i18n="enrich.mapColumns">Сопоставьте колонки</div>
@@ -592,17 +708,17 @@
             <label for="csvHeaderless" style="margin:0;" data-i18n="enrich.noHeader">CSV без заголовка (первая строка — данные)</label>
           </div>
           <div class="row" style="margin-top:8px;">
-            <button id="startEnrichBtn" class="primary" data-i18n="enrich.start">Начать</button>
-            <button id="stopEnrichBtn" data-i18n="enrich.pause">Пауза</button>
+            <button id="startEnrichBtn" class="btn primary" data-i18n="enrich.start">Начать</button>
+            <button id="stopEnrichBtn" class="btn" data-i18n="enrich.pause">Пауза</button>
             <label style="display:flex; align-items:center; gap:6px; margin-left:8px;">
               <input id="enrichIgnoreCache" type="checkbox" /> <span data-i18n="enrich.ignoreCache">Игнорировать кэш (OpenAI)</span>
             </label>
-            <button id="clearAiCacheBtn" title="Очистить кэш OpenAI результатов" style="margin-left:auto;" data-i18n="enrich.clearCache">Очистить кэш</button>
+            <button id="clearAiCacheBtn" class="btn" title="Очистить кэш OpenAI результатов" style="margin-left:auto;" data-i18n="enrich.clearCache">Очистить кэш</button>
           </div>
         </div>
         <div id="enrichList" style="margin-top:10px; display:flex; flex-direction:column; gap:8px;"></div>
         <div class="row" style="margin-top:10px;">
-          <button id="exportCsvBtn" data-i18n="enrich.exportCsv">Экспорт CSV</button>
+          <button id="exportCsvBtn" class="btn" data-i18n="enrich.exportCsv">Экспорт CSV</button>
         </div>
       </section>
       <section id="historyView" class="card" style="display:none; grid-column: 1 / -1;">
@@ -662,7 +778,7 @@
       <div class="modal-card" style="position:relative; width:min(620px, 96vw); max-height:100%; overflow:auto; background: var(--surface); border:1px solid var(--border); border-radius:14px; box-shadow: var(--shadow); padding:18px;">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
           <h3 style="margin:0;" data-i18n="searchHelp.title">Подсказки по поиску</h3>
-          <button id="searchHelpCloseBtn" data-i18n="modal.close">Закрыть</button>
+          <button id="searchHelpCloseBtn" class="btn" data-i18n="modal.close">Закрыть</button>
         </div>
         <div class="search-help-content" style="margin-top:12px; font-size:13px;">
           <div class="search-help-section">
@@ -722,7 +838,7 @@
       <div class="modal-card" style="position:relative; width: min(820px, 96vw); max-height: 100%; overflow:auto; background: var(--surface); border:1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); padding: 16px;">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
           <h3 style="margin:0;" data-i18n="modal.bookCard">Карточка книги</h3>
-          <button id="closeModalBtn" data-i18n="modal.close">Закрыть</button>
+          <button id="closeModalBtn" class="btn" data-i18n="modal.close">Закрыть</button>
         </div>
         <div style="display:grid; grid-template-columns: 220px 1fr; gap: 14px; margin-top: 12px;">
           <div>
@@ -769,6 +885,10 @@
               <span class="loan-badge" data-i18n="modal.lent">Отдана</span>
               <div id="modalLoanDetails" class="loan-status-text"></div>
             </div>
+
+            <!-- Custom Order -->
+            <label style="margin-top:12px;">Порядок сортировки</label>
+            <input id="modalCustomOrder" type="number" class="input" min="1" placeholder="—" title="Книги с меньшим номером показываются первыми" style="width:100%;" />
 
             <!-- Reading Status Section -->
             <details id="readingStatusPanel" style="border:1px solid var(--border); border-radius:12px; padding:8px 12px 12px; background:var(--surface); margin-top:12px;">
@@ -825,7 +945,7 @@
                 <label data-i18n="form.publisher">Издательство</label>
                 <div class="row">
                   <input id="modalPublisher" type="text" />
-                  <button id="publisherCyrBtn" title="Сконвертировать в кириллицу" data-i18n="form.toCyrillic">Кириллицей</button>
+                  <button id="publisherCyrBtn" class="btn" title="Сконвертировать в кириллицу" data-i18n="form.toCyrillic">Кириллицей</button>
                 </div>
               </div>
             </div>
@@ -833,15 +953,15 @@
               <label data-i18n="form.isbn">ISBN</label>
               <div class="row" style="gap:8px;">
                 <input id="modalIsbn" type="text" style="flex:1;" />
-                <button id="aiIsbnSearchBtn" title="Найти ISBN через AI по названию и автору" style="display:flex; align-items:center; gap:8px;">
+                <button id="aiIsbnSearchBtn" class="btn" title="Найти ISBN через AI по названию и автору" style="display:flex; align-items:center; gap:8px;">
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12.64 1.8699L11.8 4.3499C11.771 4.40726 11.7559 4.47063 11.7559 4.5349C11.7559 4.59917 11.771 4.66255 11.8 4.7199L13.37 6.8199C13.4151 6.88001 13.4424 6.95161 13.4487 7.0265C13.455 7.1014 13.4401 7.17655 13.4056 7.24335C13.3712 7.31015 13.3186 7.36589 13.254 7.40419C13.1893 7.44249 13.1152 7.4618 13.04 7.4599H10.42C10.3558 7.46179 10.2928 7.47804 10.2357 7.50746C10.1786 7.53688 10.1288 7.57872 10.09 7.6299L8.63003 9.7299C8.5872 9.79129 8.52802 9.83943 8.4592 9.86885C8.39038 9.89827 8.31468 9.90779 8.24072 9.89633C8.16676 9.88488 8.09749 9.85289 8.0408 9.80403C7.98411 9.75516 7.94226 9.69137 7.92003 9.6199L7.14002 7.1199C7.12223 7.05811 7.08904 7.00184 7.04357 6.95636C6.99809 6.91089 6.94182 6.8777 6.88003 6.8599L4.38003 6.0799C4.30856 6.05766 4.24477 6.01582 4.1959 5.95913C4.14703 5.90244 4.11505 5.83317 4.10359 5.75921C4.09213 5.68525 4.10166 5.60955 4.13108 5.54073C4.1605 5.47191 4.20864 5.41272 4.27003 5.3699L6.41002 3.8599C6.46121 3.82109 6.50305 3.7713 6.53247 3.71419C6.56189 3.65709 6.57814 3.59411 6.58002 3.5299V0.909903C6.58282 0.841088 6.60333 0.77416 6.63958 0.715598C6.67583 0.657037 6.72658 0.608827 6.78693 0.575637C6.84728 0.542446 6.91517 0.525399 6.98404 0.526147C7.0529 0.526894 7.12041 0.54541 7.18002 0.579903L9.28003 2.1499C9.33334 2.18693 9.39468 2.21077 9.459 2.21946C9.52333 2.22816 9.5888 2.22145 9.65002 2.1999L12.13 1.3599C12.2011 1.33491 12.2779 1.33052 12.3514 1.34724C12.4249 1.36397 12.4922 1.40113 12.5455 1.45443C12.5988 1.50774 12.636 1.57503 12.6527 1.64853C12.6694 1.72204 12.665 1.79878 12.64 1.8699V1.8699Z"/><path d="M7.04 6.95996L0.5 13.5"/></svg>
                   <span data-i18n="form.findIsbn">Найти ISBN</span>
                 </button>
-                <button id="isbnSearchBtn" style="display:flex; align-items:center; gap:8px;">
+                <button id="isbnSearchBtn" class="btn" style="display:flex; align-items:center; gap:8px;">
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.92" cy="5.92" r="5.42"/><path d="M13.5 13.5L9.75 9.75"/></svg>
                   <span data-i18n="form.searchByIsbn">По ISBN</span>
                 </button>
-                <button id="isbnRefreshBtn" title="Игнорировать кеш и обновить" style="display:flex; align-items:center; gap:8px;">
+                <button id="isbnRefreshBtn" class="btn" title="Игнорировать кеш и обновить" style="display:flex; align-items:center; gap:8px;">
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M11 9L13 8.5L13.5 10.5"/><path d="M13 8.5C12.5558 9.75861 11.749 10.8576 10.6813 11.6584C9.61353 12.4592 8.33262 12.926 6.99999 13C5.7681 13.0002 4.566 12.6213 3.55697 11.9146C2.54794 11.2079 1.78088 10.2078 1.35999 9.05"/><path d="M3 5L1 5.5L0.5 3.5"/><path d="M1 5.5C1.84 3.2 4.42 1 7 1C8.23789 1.00348 9.4444 1.38976 10.4541 2.10588C11.4639 2.822 12.2274 3.8329 12.64 5"/></svg>
                   <span data-i18n="form.refresh">Обновить</span>
                 </button>
@@ -927,7 +1047,7 @@
               <div id="isbnResultsList" style="display:flex; flex-direction:column; gap:8px;"></div>
             </div>
             <div class="row" style="margin-top:12px; gap:8px;">
-              <button id="modalSaveBtn" class="primary" style="display:flex; align-items:center; gap:6px;">
+              <button id="modalSaveBtn" class="btn primary" style="display:flex; align-items:center; gap:6px;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8L6.05 9.64C6.10506 9.68534 6.16952 9.71784 6.23872 9.73514C6.30791 9.75244 6.38009 9.7541 6.45 9.74C6.52058 9.72676 6.58749 9.69847 6.64616 9.65706C6.70483 9.61564 6.75389 9.56207 6.79 9.5L10 4"/><circle cx="7" cy="7" r="6.5"/></svg>
                 <span data-i18n="form.save">Сохранить</span>
               </button>
@@ -1108,7 +1228,7 @@
       <div class="modal-card" style="position:relative; width: min(820px, 96vw); max-height: 100%; overflow:auto; background: var(--surface); border:1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); padding: 16px;">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
           <h3 style="margin:0;" data-i18n="infoModal.title">Информация о книге</h3>
-          <button id="closeInfoBtn" data-i18n="modal.close">Закрыть</button>
+          <button id="closeInfoBtn" class="btn" data-i18n="modal.close">Закрыть</button>
         </div>
         <div style="display:grid; grid-template-columns: 220px 1fr; gap: 14px; margin-top: 12px;">
           <div>
@@ -1125,7 +1245,7 @@
       <div class="modal-card" style="position:relative; width: min(560px, 96vw); max-height: 100%; overflow:auto; background: var(--surface); border:1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); padding: 16px;">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
           <h3 style="margin:0;" data-i18n="header.settings">Настройки</h3>
-          <button id="closeSettingsBtn" data-i18n="modal.close">Закрыть</button>
+          <button id="closeSettingsBtn" class="btn" data-i18n="modal.close">Закрыть</button>
         </div>
         <div style="margin-top: 12px; display:flex; flex-direction:column; gap:10px;">
           <div>
@@ -1135,6 +1255,20 @@
               <option value="en">🇬🇧 English</option>
             </select>
           </div>
+
+          <!-- Appearance Section -->
+          <div style="margin-top:12px; padding:12px; background:var(--muted-surface); border-radius:8px;">
+            <h4 style="margin:0 0 10px 0; font-size:14px; font-weight:600;" data-i18n="settings.appearance">🎨 Оформление</h4>
+            <label data-i18n="settings.colorPalette" style="margin-bottom:8px;">Цветовая палитра</label>
+            <div id="paletteSelector" style="display:grid; grid-template-columns:repeat(5, 1fr); gap:6px; margin-bottom:12px;"></div>
+            <label data-i18n="settings.themeMode" style="margin-bottom:6px;">Тема</label>
+            <div style="display:flex; gap:6px;">
+              <button id="themeLightBtn" type="button" class="theme-mode-btn">☀️ Светлая</button>
+              <button id="themeDarkBtn" type="button" class="theme-mode-btn">🌙 Тёмная</button>
+              <button id="themeSystemBtn" type="button" class="theme-mode-btn">💻 Системная</button>
+            </div>
+          </div>
+
           <div>
             <label>ISBNdb API Key</label>
             <input id="settingsIsbndbKey" type="text" placeholder="sk_xxx" />
@@ -1188,7 +1322,7 @@
               </select>
             </div>
             <div style="margin-top:8px;">
-              <button id="checkPerplexityBalance" type="button" class="secondary" data-i18n="settings.openPerplexityBilling">
+              <button id="checkPerplexityBalance" type="button" class="btn secondary" data-i18n="settings.openPerplexityBilling">
                 💰 Открыть биллинг Perplexity
               </button>
             </div>
@@ -1320,7 +1454,7 @@
           </div>
 
           <div class="row" style="margin-top:12px;">
-            <button id="saveSettingsBtn" class="primary">Сохранить</button>
+            <button id="saveSettingsBtn" class="btn primary">Сохранить</button>
           </div>
         </div>
       </div>

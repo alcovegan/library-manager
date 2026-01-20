@@ -1400,7 +1400,10 @@ function toFileUrl(p) {
 
 function setPreview(path) {
   const show = !!path;
-  if (coverFileLabel) coverFileLabel.textContent = formatCoverLabel(path);
+  if (coverFileLabel) {
+    coverFileLabel.textContent = show ? formatCoverLabel(path) : '';
+    coverFileLabel.style.display = show ? 'block' : 'none';
+  }
   if (!show) {
     coverPreview.style.display = 'none';
     coverPreview.removeAttribute('src');
@@ -1440,20 +1443,18 @@ function sortBooks(arr) {
   const mode = getSortMode();
   const a = [...arr];
   const collator = new Intl.Collator('ru', { sensitivity: 'base', numeric: true });
-  if (mode === 'author') {
-    a.sort((x, y) => {
+
+  // Helper for mode-specific sorting
+  const modeCompare = (x, y) => {
+    if (mode === 'author') {
       const ax = (Array.isArray(x.authors) ? x.authors[0] : '') || '';
       const ay = (Array.isArray(y.authors) ? y.authors[0] : '') || '';
       return collator.compare(ax, ay) || collator.compare(x.title || '', y.title || '');
-    });
-  } else if (mode === 'date') {
-    a.sort((x, y) => {
+    } else if (mode === 'date') {
       const dx = new Date(x.createdAt || 0).getTime();
       const dy = new Date(y.createdAt || 0).getTime();
       return dy - dx; // newest first
-    });
-  } else if (mode === 'series') {
-    a.sort((x, y) => {
+    } else if (mode === 'series') {
       const c = compareNullable(x.series, y.series);
       if (c !== 0) return c;
       if (x.series && y.series) {
@@ -1467,9 +1468,7 @@ function sortBooks(arr) {
         if (ic !== 0) return ic;
       }
       return collator.compare(x.title || '', y.title || '');
-    });
-  } else if (mode === 'goodreads') {
-    a.sort((x, y) => {
+    } else if (mode === 'goodreads') {
       const rx = typeof x.goodreadsRating === 'number' ? x.goodreadsRating : -Infinity;
       const ry = typeof y.goodreadsRating === 'number' ? y.goodreadsRating : -Infinity;
       if (ry !== rx) return ry - rx;
@@ -1477,11 +1476,38 @@ function sortBooks(arr) {
       const cy = typeof y.goodreadsRatingsCount === 'number' ? y.goodreadsRatingsCount : -Infinity;
       if (cy !== cx) return cy - cx;
       return collator.compare(x.title || '', y.title || '');
-    });
-  } else {
-    // title (default)
-    a.sort((x, y) => collator.compare(x.title || '', y.title || ''));
-  }
+    } else {
+      // title (default)
+      return collator.compare(x.title || '', y.title || '');
+    }
+  };
+
+  a.sort((x, y) => {
+    // 1. Custom order takes highest priority (lower number = first, nulls go to end)
+    const xOrder = x.customOrder != null ? x.customOrder : Infinity;
+    const yOrder = y.customOrder != null ? y.customOrder : Infinity;
+    if (xOrder !== Infinity || yOrder !== Infinity) {
+      if (xOrder !== yOrder) return xOrder - yOrder;
+      // Same custom order - sort alphabetically by title
+      return collator.compare(x.title || '', y.title || '');
+    }
+
+    // 2. Pinned books come next (pinned first, newer pins first among pinned)
+    const xPinned = x.isPinned ? 1 : 0;
+    const yPinned = y.isPinned ? 1 : 0;
+    if (xPinned !== yPinned) return yPinned - xPinned; // pinned first
+
+    // 3. Among pinned, newer pin first
+    if (xPinned && yPinned) {
+      const xTime = x.pinnedAt ? new Date(x.pinnedAt).getTime() : 0;
+      const yTime = y.pinnedAt ? new Date(y.pinnedAt).getTime() : 0;
+      if (xTime !== yTime) return yTime - xTime; // newer first
+    }
+
+    // 4. Normal sort based on mode
+    return modeCompare(x, y);
+  });
+
   return a;
 }
 
@@ -2016,6 +2042,51 @@ async function reloadDataOnly() {
   applySearch(searchInput?.value || '');
   populateAuthorFilter();
   rebuildSuggestStore();
+}
+
+async function togglePin(bookId) {
+  const book = state.books.find(b => b.id === bookId);
+  if (!book) return;
+
+  const newPinned = !book.isPinned;
+  const pinnedAt = newPinned ? new Date().toISOString() : null;
+
+  // Update in database - need to pass minimal update with pin fields
+  await window.api.updateBook({
+    id: bookId,
+    title: book.title,
+    authors: book.authors || [],
+    coverPath: book.coverPath,
+    series: book.series,
+    seriesIndex: book.seriesIndex,
+    year: book.year,
+    publisher: book.publisher,
+    isbn: book.isbn,
+    language: book.language,
+    rating: book.rating,
+    notes: book.notes,
+    tags: book.tags || [],
+    titleAlt: book.titleAlt,
+    authorsAlt: book.authorsAlt || [],
+    format: book.format,
+    genres: book.genres || [],
+    storageLocationId: book.storageLocationId,
+    goodreadsRating: book.goodreadsRating,
+    goodreadsRatingsCount: book.goodreadsRatingsCount,
+    goodreadsReviewsCount: book.goodreadsReviewsCount,
+    goodreadsUrl: book.goodreadsUrl,
+    originalTitleEn: book.originalTitleEn,
+    originalAuthorsEn: book.originalAuthorsEn || [],
+    goodreadsFetchedAt: book.goodreadsFetchedAt,
+    isPinned: newPinned ? 1 : 0,
+    pinnedAt: pinnedAt,
+  });
+
+  // Update local state
+  book.isPinned = newPinned ? 1 : 0;
+  book.pinnedAt = pinnedAt;
+
+  render();
 }
 
 async function deleteBookSmart(bookId) {
@@ -3238,24 +3309,24 @@ function attachFilterEvents() {
   if (renameCollectionBtn) renameCollectionBtn.addEventListener('click', async () => {
     const currentName = collectionSelect && collectionSelect.value;
     if (!currentName) {
-      showInfoModal(t('errors.noCollectionSelected'));
+      alert(t('errors.noCollectionSelected'));
       return;
     }
-    const newName = await showPromptModal(t('collections.renameCollectionTitle'), currentName);
+    const newName = await showPromptDialog(t('collections.renameCollectionTitle'), currentName);
     if (!newName || newName === currentName) return;
 
     try {
       const res = await window.api.renameCollection(currentName, newName);
       if (res && res.ok) {
-        await syncCollectionsUI();
-        collectionSelect.value = newName;
-        showInfoModal(t('success.collectionRenamed'));
+        await refreshCollections({ silent: true });
+        if (collectionSelect) collectionSelect.value = newName;
+        alert(t('success.collectionRenamed'));
       } else {
-        showInfoModal(t('errors.renameCollectionFailed'));
+        alert(t('errors.renameCollectionFailed'));
       }
     } catch (err) {
       console.error('Rename collection failed:', err);
-      showInfoModal(t('errors.renameCollectionFailed'));
+      alert(t('errors.renameCollectionFailed'));
     }
   });
 async function saveCollectionByName(name) {
@@ -3287,6 +3358,7 @@ async function saveCollectionByName(name) {
   if (deleteCollectionBtn) deleteCollectionBtn.addEventListener('click', async () => {
     const name = collectionSelect && collectionSelect.value;
     if (!name) return;
+    if (!confirm(`Удалить коллекцию «${name}»?`)) return;
     if (!(await deleteCollectionByName(name))) return;
     if (collectionSelect) collectionSelect.value = '';
     clearAllFiltersAndCollections();
@@ -3440,67 +3512,68 @@ function render() {
     meta.appendChild(title);
     meta.appendChild(authors);
     if (ratingInfo) meta.appendChild(ratingEl);
-    if (b.goodreadsRating != null) {
-      const grBadge = document.createElement('span');
-      grBadge.className = 'badge-gr';
-      grBadge.title = b.goodreadsRatingsCount != null
-        ? `Goodreads: ${b.goodreadsRating.toFixed(2)} • ${b.goodreadsRatingsCount} ratings`
-        : `Goodreads: ${b.goodreadsRating.toFixed(2)}`;
-      const countLabel = b.goodreadsRatingsCount != null ? Intl.NumberFormat('en-US').format(b.goodreadsRatingsCount) : null;
-      grBadge.textContent = countLabel
-        ? `GR ${b.goodreadsRating.toFixed(2)} • ${countLabel}`
-        : `GR ${b.goodreadsRating.toFixed(2)}`;
-      const badgeWrapper = document.createElement('div');
-      badgeWrapper.style.marginTop = '4px';
-      badgeWrapper.appendChild(grBadge);
-      meta.appendChild(badgeWrapper);
-    }
+    // Add badges row (GR + pinned + reading status)
+    const hasBadges = b.goodreadsRating != null || b.isPinned || b.readingStatus;
+    if (hasBadges) {
+      const badgesRow = document.createElement('div');
+      badgesRow.className = 'badges-row';
+      badgesRow.style.cssText = 'display:flex; flex-wrap:wrap; gap:6px; margin-top:4px;';
 
-    // Add reading status badge
-    if (b.readingStatus) {
-      const statusBadge = document.createElement('div');
-      statusBadge.className = 'reading-status-badge';
-      statusBadge.dataset.status = b.readingStatus;
-
-      const statusConfig = {
-        want_to_read: { emoji: '🔖', label: 'Хочу прочитать', color: '#8b5cf6' },
-        reading: { emoji: '📖', label: 'Читаю', color: '#3b82f6' },
-        finished: { emoji: '✅', label: 'Прочитано', color: '#10b981' },
-        re_reading: { emoji: '🔁', label: 'Перечитываю', color: '#f59e0b' },
-        abandoned: { emoji: '❌', label: 'Брошено', color: '#ef4444' },
-        on_hold: { emoji: '⏸️', label: 'Отложено', color: '#6b7280' },
-      };
-
-      const config = statusConfig[b.readingStatus] || { emoji: '📚', label: b.readingStatus, color: '#9ca3af' };
-
-      statusBadge.style.cssText = `
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        padding: 4px 8px;
-        font-size: 11px;
-        font-weight: 600;
-        border-radius: 6px;
-        margin-top: 4px;
-        background: ${config.color}15;
-        color: ${config.color};
-        border: 1px solid ${config.color}40;
-      `;
-
-      statusBadge.textContent = `${config.emoji} ${config.label}`;
-
-      if (b.readingStartedAt) {
-        const startedDate = new Date(b.readingStartedAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' });
-        statusBadge.title = `Начато: ${startedDate}`;
-      }
-      if (b.readingFinishedAt) {
-        const finishedDate = new Date(b.readingFinishedAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' });
-        statusBadge.title = b.readingStartedAt
-          ? `${statusBadge.title}\nЗавершено: ${finishedDate}`
-          : `Завершено: ${finishedDate}`;
+      if (b.goodreadsRating != null) {
+        const grBadge = document.createElement('span');
+        grBadge.className = 'badge-gr';
+        grBadge.title = b.goodreadsRatingsCount != null
+          ? `Goodreads: ${b.goodreadsRating.toFixed(2)} • ${b.goodreadsRatingsCount} ratings`
+          : `Goodreads: ${b.goodreadsRating.toFixed(2)}`;
+        const countLabel = b.goodreadsRatingsCount != null ? Intl.NumberFormat('en-US').format(b.goodreadsRatingsCount) : null;
+        grBadge.textContent = countLabel
+          ? `GR ${b.goodreadsRating.toFixed(2)} • ${countLabel}`
+          : `GR ${b.goodreadsRating.toFixed(2)}`;
+        badgesRow.appendChild(grBadge);
       }
 
-      meta.appendChild(statusBadge);
+      if (b.isPinned) {
+        const pinBadge = document.createElement('span');
+        pinBadge.className = 'badge-pinned';
+        pinBadge.innerHTML = `<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" stroke="none">
+          <path d="M9.5 1.5L14.5 6.5L10 11L9 14L2 7L5 6L9.5 1.5Z"/>
+        </svg><span>Закреплено</span>`;
+        badgesRow.appendChild(pinBadge);
+      }
+
+      if (b.readingStatus) {
+        const statusBadge = document.createElement('span');
+        statusBadge.className = 'reading-status-badge';
+        statusBadge.dataset.status = b.readingStatus;
+
+        const statusConfig = {
+          want_to_read: { icon: '<svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M11 13.5L7 9.5L3 13.5V1.5C3 1.23478 3.10536 0.98043 3.29289 0.792893C3.48043 0.605357 3.73478 0.5 4 0.5H10C10.2652 0.5 10.5196 0.605357 10.7071 0.792893C10.8946 0.98043 11 1.23478 11 1.5V13.5Z"/></svg>', label: 'Хочу прочитать' },
+          reading: { icon: '<svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M1 2.5C1 2.5 2.5 1 7 1C11.5 1 13 2.5 13 2.5V13C13 13 11.5 12 7 12C2.5 12 1 13 1 13V2.5Z"/><path d="M7 1V12"/></svg>', label: 'Читаю' },
+          finished: { icon: '<svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 7.5L6 10L10.5 4"/><circle cx="7" cy="7" r="6"/></svg>', label: 'Прочитано' },
+          re_reading: { icon: '<svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M1 7C1 3.68629 3.68629 1 7 1C9.5 1 11.5 2.5 12.5 4.5"/><path d="M13 7C13 10.3137 10.3137 13 7 13C4.5 13 2.5 11.5 1.5 9.5"/><path d="M12.5 1.5V4.5H9.5"/><path d="M1.5 12.5V9.5H4.5"/></svg>', label: 'Перечитываю' },
+          abandoned: { icon: '<svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="6"/><path d="M9 5L5 9"/><path d="M5 5L9 9"/></svg>', label: 'Брошено' },
+          on_hold: { icon: '<svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="6"/><path d="M5.5 5V9"/><path d="M8.5 5V9"/></svg>', label: 'Отложено' },
+        };
+
+        const config = statusConfig[b.readingStatus] || { icon: '<svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="1" width="10" height="12" rx="1"/><path d="M5 4H9"/><path d="M5 7H9"/><path d="M5 10H7"/></svg>', label: b.readingStatus };
+
+        statusBadge.innerHTML = `${config.icon}<span>${config.label}</span>`;
+
+        if (b.readingStartedAt) {
+          const startedDate = new Date(b.readingStartedAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' });
+          statusBadge.title = `Начато: ${startedDate}`;
+        }
+        if (b.readingFinishedAt) {
+          const finishedDate = new Date(b.readingFinishedAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' });
+          statusBadge.title = b.readingStartedAt
+            ? `${statusBadge.title}\nЗавершено: ${finishedDate}`
+            : `Завершено: ${finishedDate}`;
+        }
+
+        badgesRow.appendChild(statusBadge);
+      }
+
+      meta.appendChild(badgesRow);
     }
 
     // Add collection badges
@@ -3508,24 +3581,10 @@ function render() {
     if (bookCollections.length > 0) {
       const collectionsEl = document.createElement('div');
       collectionsEl.className = 'collections-badges';
-      collectionsEl.style.cssText = `
-        display: flex;
-        flex-wrap: wrap;
-        gap: 4px;
-        margin-top: 6px;
-      `;
 
       bookCollections.forEach(collectionName => {
         const badge = document.createElement('span');
-        badge.style.cssText = `
-          background: linear-gradient(135deg, #4f46e5, #7c3aed);
-          color: white;
-          font-size: 10px;
-          padding: 2px 6px;
-          border-radius: 4px;
-          font-weight: 500;
-          white-space: nowrap;
-        `;
+        badge.className = 'badge-collection';
         badge.textContent = collectionName;
         badge.title = `В коллекции: ${collectionName}`;
         collectionsEl.appendChild(badge);
@@ -3558,8 +3617,22 @@ function render() {
     collectionsBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M11 13.5L7 9.5L3 13.5V1.5C3 1.23478 3.10536 0.98043 3.29289 0.792893C3.48043 0.605357 3.73478 0.5 4 0.5H10C10.2652 0.5 10.5196 0.605357 10.7071 0.792893C10.8946 0.98043 11 1.23478 11 1.5V13.5Z"/></svg>';
     collectionsBtn.onclick = (ev) => { ev.stopPropagation(); showAddToCollectionDialog(b.id); };
 
+    // Pin button
+    const pinBtn = document.createElement('button');
+    pinBtn.className = b.isPinned ? 'icon-btn pinned' : 'icon-btn';
+    pinBtn.title = b.isPinned ? 'Открепить' : 'Закрепить';
+    pinBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9.5 1.5L14.5 6.5L10 11L9 14L2 7L5 6L9.5 1.5Z"/>
+      <path d="M5.5 10.5L2 14"/>
+    </svg>`;
+    pinBtn.onclick = async (ev) => {
+      ev.stopPropagation();
+      await togglePin(b.id);
+    };
+
     actions.appendChild(editBtn);
     actions.appendChild(collectionsBtn);
+    actions.appendChild(pinBtn);
     actions.appendChild(delBtn);
 
     actions.style.display = isBulkMode ? 'none' : 'flex';
@@ -3629,11 +3702,15 @@ function resetForm() {
   coverUrlInput.value = '';
   state.coverSourcePath = null;
   state.storageLocationId = null;
-  coverFileLabel.textContent = 'Не выбрано';
+  if (coverFileLabel) {
+    coverFileLabel.textContent = '';
+    coverFileLabel.style.display = 'none';
+  }
   setPreview(null);
   if (storageSelect) storageSelect.value = '';
   formTitle.textContent = 'Добавить книгу';
-  saveBtn.textContent = 'Сохранить';
+  const saveBtnText = saveBtn.querySelector('span');
+  if (saveBtnText) saveBtnText.textContent = 'Сохранить';
 }
 
 function startEdit(b) {
@@ -3645,7 +3722,8 @@ function startEdit(b) {
   if (storageSelect) storageSelect.value = b.storageLocationId || '';
   setPreview(b.coverPath || null);
   formTitle.textContent = 'Редактировать книгу';
-  saveBtn.textContent = 'Обновить';
+  const saveBtnText = saveBtn.querySelector('span');
+  if (saveBtnText) saveBtnText.textContent = 'Обновить';
 }
 
 function openDetails(b) {
@@ -3661,6 +3739,8 @@ function openDetails(b) {
   modalIsbn.value = b?.isbn || '';
   modalLanguage.value = b?.language || '';
   modalRating.value = b?.rating ?? '';
+  const modalCustomOrder = document.getElementById('modalCustomOrder');
+  if (modalCustomOrder) modalCustomOrder.value = b?.customOrder ?? '';
   if (modalFormat) modalFormat.value = b?.format || '';
   if (modalGenres) modalGenres.value = (Array.isArray(b?.genres) ? b.genres : []).join(', ');
   modalTags.value = (b?.tags || []).join(', ');
@@ -3801,8 +3881,10 @@ function updateModalLoanStatus(book) {
   }
 }
 
-function closeDetails() {
+function closeDetails(skipRender = false) {
   modalEl.style.display = 'none';
+  state.selectedId = null;
+  if (!skipRender) render();
 }
 
 function captureModalSnapshot() {
@@ -5354,6 +5436,8 @@ attachAutocomplete(authorsInput, 'authors', { multiple: true });
 if (modalSaveBtn) {
   modalSaveBtn.addEventListener('click', async () => {
     try {
+    const modalCustomOrderEl = document.getElementById('modalCustomOrder');
+    const customOrderValue = modalCustomOrderEl?.value ? parseInt(modalCustomOrderEl.value, 10) : null;
     const payload = {
       id: state.modal.id,
       title: modalTitle.value.trim(),
@@ -5379,6 +5463,7 @@ if (modalSaveBtn) {
       goodreadsRatingsCount: parseIntFromInput(modalGoodreadsRatingsCountInput),
       goodreadsReviewsCount: parseIntFromInput(modalGoodreadsReviewsCountInput),
       goodreadsUrl: modalGoodreadsUrlInput ? (modalGoodreadsUrlInput.value.trim() || null) : null,
+      customOrder: Number.isFinite(customOrderValue) ? customOrderValue : null,
     };
       if (!payload.title) { alert('Введите название'); return; }
 
@@ -5418,7 +5503,7 @@ if (modalSaveBtn) {
         }
       }
 
-      closeDetails();
+      closeDetails(true); // skipRender - load() will render
       await load();
     } catch (e) {
       alert('Не удалось сохранить');
@@ -5750,11 +5835,101 @@ function matchCase(rep, sample) {
 
 function openSettings() {
   if (settingsModal) settingsModal.style.display = 'flex';
+  renderPaletteSelector();
+  updateThemeModeButtons();
 }
 
 function closeSettings() {
   if (settingsModal) settingsModal.style.display = 'none';
 }
+
+// ========== Palette Selector ==========
+function renderPaletteSelector() {
+  const container = document.getElementById('paletteSelector');
+  if (!container) return;
+
+  const palettes = getPalettes();
+  const paletteIds = getPaletteIds();
+  const currentPalette = localStorage.getItem('palette') || getDefaultPalette();
+  container.innerHTML = '';
+
+  paletteIds.forEach(id => {
+    const palette = palettes[id];
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `palette-btn${id === currentPalette ? ' active' : ''}`;
+    btn.dataset.palette = id;
+    btn.innerHTML = `
+      <div class="palette-dot" style="background: ${palette.light.accent}; border-color: ${palette.dark.accent};"></div>
+      <span class="palette-name">${palette.name}</span>
+    `;
+    btn.addEventListener('click', () => {
+      const currentTheme = document.body.classList.contains('theme-dark') ? 'dark' : 'light';
+      applyTheme(currentTheme, id);
+      renderPaletteSelector();
+    });
+    container.appendChild(btn);
+  });
+}
+
+function updateThemeModeButtons() {
+  const currentTheme = localStorage.getItem('theme') || 'light';
+  const systemTheme = localStorage.getItem('themeMode') || 'manual';
+  const lightBtn = document.getElementById('themeLightBtn');
+  const darkBtn = document.getElementById('themeDarkBtn');
+  const systemBtn = document.getElementById('themeSystemBtn');
+
+  [lightBtn, darkBtn, systemBtn].forEach(btn => {
+    if (btn) btn.classList.remove('active');
+  });
+
+  if (systemTheme === 'system') {
+    if (systemBtn) systemBtn.classList.add('active');
+  } else if (currentTheme === 'dark') {
+    if (darkBtn) darkBtn.classList.add('active');
+  } else {
+    if (lightBtn) lightBtn.classList.add('active');
+  }
+}
+
+// Theme mode button handlers
+document.addEventListener('DOMContentLoaded', () => {
+  const lightBtn = document.getElementById('themeLightBtn');
+  const darkBtn = document.getElementById('themeDarkBtn');
+  const systemBtn = document.getElementById('themeSystemBtn');
+
+  if (lightBtn) {
+    lightBtn.addEventListener('click', () => {
+      localStorage.setItem('themeMode', 'manual');
+      applyTheme('light');
+      updateThemeModeButtons();
+    });
+  }
+
+  if (darkBtn) {
+    darkBtn.addEventListener('click', () => {
+      localStorage.setItem('themeMode', 'manual');
+      applyTheme('dark');
+      updateThemeModeButtons();
+    });
+  }
+
+  if (systemBtn) {
+    systemBtn.addEventListener('click', () => {
+      localStorage.setItem('themeMode', 'system');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      applyTheme(prefersDark ? 'dark' : 'light');
+      updateThemeModeButtons();
+    });
+  }
+
+  // Listen for system theme changes
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+    if (localStorage.getItem('themeMode') === 'system') {
+      applyTheme(e.matches ? 'dark' : 'light');
+    }
+  });
+});
 
 // Toggle AI provider settings
 function toggleAiProviderSettings() {
@@ -6240,18 +6415,137 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-function applyTheme(theme) {
-  const isDark = theme === 'dark';
-  document.body.classList.toggle('theme-dark', isDark);
-  localStorage.setItem('theme', isDark ? 'dark' : 'light');
-  if (themeToggle) {
-    themeToggle.title = isDark ? 'Светлая тема' : 'Тёмная тема';
-    // Icons are toggled via CSS based on body.theme-dark class
+// ========== Color Palettes ==========
+// Fallback palettes in case shared package fails to load
+const FALLBACK_PALETTES = {
+  oak: {
+    name: 'Warm Oak',
+    light: { bg: '#f5ebe0', bgGradient: 'radial-gradient(1200px 800px at -10% -20%, #faf3e8 0%, #f5ebe0 60%), radial-gradient(1000px 700px at 120% 0%, #efe3d4 0%, #f5ebe0 60%)', surface: '#fdf8f2', mutedSurface: '#efe5d8', border: '#ddd0be', text: '#3d3224', muted: '#8c7a63', accent: '#b8860b', accentStrong: '#9a7209', accentGlow: 'rgba(184, 134, 11, 0.15)', accentGlowHover: 'rgba(184, 134, 11, 0.25)', danger: '#c45a3b', dangerStrong: '#a84830', dangerGlow: 'rgba(196, 90, 59, 0.15)', success: '#5a8a5a', successGlow: 'rgba(90, 138, 90, 0.15)', shadow: '0 8px 24px rgba(61, 50, 36, 0.08)' },
+    dark: { bg: '#1a1612', bgGradient: 'radial-gradient(1200px 800px at -10% -20%, #2a2218 0%, #1a1612 60%), radial-gradient(1000px 700px at 120% 0%, #231c14 0%, #1a1612 60%)', surface: '#252017', mutedSurface: '#302820', border: '#443a2e', text: '#f5ebe0', muted: '#b8a890', accent: '#d4a84b', accentStrong: '#c49a3d', accentGlow: 'rgba(212, 168, 75, 0.2)', accentGlowHover: 'rgba(212, 168, 75, 0.35)', danger: '#e07352', dangerStrong: '#c86040', dangerGlow: 'rgba(224, 115, 82, 0.2)', success: '#7ab87a', successGlow: 'rgba(122, 184, 122, 0.2)', shadow: '0 8px 24px rgba(0,0,0,0.35)' },
+  },
+  sage: {
+    name: 'Sage Garden',
+    light: { bg: '#e8f0eb', bgGradient: 'radial-gradient(1200px 800px at -10% -20%, #f0f7f2 0%, #e8f0eb 60%), radial-gradient(1000px 700px at 120% 0%, #dfeae2 0%, #e8f0eb 60%)', surface: '#f5faf7', mutedSurface: '#dce8e0', border: '#c5d6ca', text: '#1e2d22', muted: '#5f7866', accent: '#4a7c59', accentStrong: '#3d6a4b', accentGlow: 'rgba(74, 124, 89, 0.15)', accentGlowHover: 'rgba(74, 124, 89, 0.25)', danger: '#c45a5a', dangerStrong: '#a84848', dangerGlow: 'rgba(196, 90, 90, 0.15)', success: '#4a7c59', successGlow: 'rgba(74, 124, 89, 0.15)', shadow: '0 8px 24px rgba(30, 45, 34, 0.08)' },
+    dark: { bg: '#121916', bgGradient: 'radial-gradient(1200px 800px at -10% -20%, #1d2a22 0%, #121916 60%), radial-gradient(1000px 700px at 120% 0%, #18241c 0%, #121916 60%)', surface: '#1a241e', mutedSurface: '#232f27', border: '#344038', text: '#e5f0e8', muted: '#98b3a0', accent: '#6ba37a', accentStrong: '#5c9269', accentGlow: 'rgba(107, 163, 122, 0.2)', accentGlowHover: 'rgba(107, 163, 122, 0.35)', danger: '#e07272', dangerStrong: '#c86060', dangerGlow: 'rgba(224, 114, 114, 0.2)', success: '#6ba37a', successGlow: 'rgba(107, 163, 122, 0.2)', shadow: '0 8px 24px rgba(0,0,0,0.35)' },
+  },
+  plum: {
+    name: 'Velvet Plum',
+    light: { bg: '#f0e8ed', bgGradient: 'radial-gradient(1200px 800px at -10% -20%, #f7f0f4 0%, #f0e8ed 60%), radial-gradient(1000px 700px at 120% 0%, #e8dde3 0%, #f0e8ed 60%)', surface: '#f9f4f7', mutedSurface: '#e6dce2', border: '#d4c5ce', text: '#2d1f29', muted: '#7a6474', accent: '#8e5a7c', accentStrong: '#7a4a6a', accentGlow: 'rgba(142, 90, 124, 0.15)', accentGlowHover: 'rgba(142, 90, 124, 0.25)', danger: '#c45a5a', dangerStrong: '#a84848', dangerGlow: 'rgba(196, 90, 90, 0.15)', success: '#5a8a6a', successGlow: 'rgba(90, 138, 106, 0.15)', shadow: '0 8px 24px rgba(45, 31, 41, 0.08)' },
+    dark: { bg: '#18121a', bgGradient: 'radial-gradient(1200px 800px at -10% -20%, #2a1e2d 0%, #18121a 60%), radial-gradient(1000px 700px at 120% 0%, #221826 0%, #18121a 60%)', surface: '#221a24', mutedSurface: '#2d242f', border: '#433644', text: '#f2e8ef', muted: '#b89fae', accent: '#b87aa0', accentStrong: '#a86990', accentGlow: 'rgba(184, 122, 160, 0.2)', accentGlowHover: 'rgba(184, 122, 160, 0.35)', danger: '#e07272', dangerStrong: '#c86060', dangerGlow: 'rgba(224, 114, 114, 0.2)', success: '#7ab88a', successGlow: 'rgba(122, 184, 138, 0.2)', shadow: '0 8px 24px rgba(0,0,0,0.35)' },
+  },
+  cloud: {
+    name: 'Cloud Dancer',
+    light: { bg: '#eceae5', bgGradient: 'radial-gradient(1200px 800px at -10% -20%, #f5f3ef 0%, #eceae5 60%), radial-gradient(1000px 700px at 120% 0%, #e3e0d8 0%, #eceae5 60%)', surface: '#f7f5f1', mutedSurface: '#e2dfd8', border: '#d5d0c6', text: '#2c3e50', muted: '#7f8c9a', accent: '#5a7d9a', accentStrong: '#4a6a85', accentGlow: 'rgba(90, 125, 154, 0.12)', accentGlowHover: 'rgba(90, 125, 154, 0.22)', danger: '#c9746c', dangerStrong: '#b5625a', dangerGlow: 'rgba(201, 116, 108, 0.12)', success: '#6a9a7d', successGlow: 'rgba(106, 154, 125, 0.12)', shadow: '0 8px 24px rgba(44, 62, 80, 0.06)' },
+    dark: { bg: '#1a1d21', bgGradient: 'radial-gradient(1200px 800px at -10% -20%, #252a30 0%, #1a1d21 60%), radial-gradient(1000px 700px at 120% 0%, #1f2328 0%, #1a1d21 60%)', surface: '#22262b', mutedSurface: '#2a2f35', border: '#3a4048', text: '#e8e6e1', muted: '#9ca3ab', accent: '#7a9fc0', accentStrong: '#6a8fb0', accentGlow: 'rgba(122, 159, 192, 0.18)', accentGlowHover: 'rgba(122, 159, 192, 0.32)', danger: '#e08a82', dangerStrong: '#d07870', dangerGlow: 'rgba(224, 138, 130, 0.18)', success: '#8abaa0', successGlow: 'rgba(138, 186, 160, 0.18)', shadow: '0 8px 24px rgba(0,0,0,0.4)' },
+  },
+  ember: {
+    name: 'Ember',
+    light: { bg: '#f5e8de', bgGradient: 'radial-gradient(1200px 800px at -10% -20%, #faf0e6 0%, #f5e8de 60%), radial-gradient(1000px 700px at 120% 0%, #eddfd2 0%, #f5e8de 60%)', surface: '#fcf5ef', mutedSurface: '#ebdfd2', border: '#dccabc', text: '#3d2e24', muted: '#8a756a', accent: '#c45c36', accentStrong: '#a84a28', accentGlow: 'rgba(196, 92, 54, 0.14)', accentGlowHover: 'rgba(196, 92, 54, 0.26)', danger: '#b8433a', dangerStrong: '#9c3830', dangerGlow: 'rgba(184, 67, 58, 0.14)', success: '#3a7d6e', successGlow: 'rgba(58, 125, 110, 0.14)', shadow: '0 8px 24px rgba(61, 46, 36, 0.08)' },
+    dark: { bg: '#1c1714', bgGradient: 'radial-gradient(1200px 800px at -10% -20%, #2a211c 0%, #1c1714 60%), radial-gradient(1000px 700px at 120% 0%, #241c17 0%, #1c1714 60%)', surface: '#262019', mutedSurface: '#322920', border: '#4a3d32', text: '#f5ebe3', muted: '#b8a090', accent: '#e07850', accentStrong: '#d06840', accentGlow: 'rgba(224, 120, 80, 0.22)', accentGlowHover: 'rgba(224, 120, 80, 0.38)', danger: '#e05a50', dangerStrong: '#c84a40', dangerGlow: 'rgba(224, 90, 80, 0.22)', success: '#5aaa98', successGlow: 'rgba(90, 170, 152, 0.22)', shadow: '0 8px 24px rgba(0,0,0,0.4)' },
+  },
+  matrix: {
+    name: 'Matrix',
+    light: { bg: '#e0ede5', bgGradient: 'radial-gradient(1200px 800px at -10% -20%, #ecf5ef 0%, #e0ede5 60%), radial-gradient(1000px 700px at 120% 0%, #d5e5db 0%, #e0ede5 60%)', surface: '#eff7f2', mutedSurface: '#d2e3da', border: '#b5ccc0', text: '#1a2e22', muted: '#5a7a66', accent: '#00875a', accentStrong: '#006644', accentGlow: 'rgba(0, 135, 90, 0.12)', accentGlowHover: 'rgba(0, 135, 90, 0.22)', danger: '#c44040', dangerStrong: '#a83030', dangerGlow: 'rgba(196, 64, 64, 0.12)', success: '#00875a', successGlow: 'rgba(0, 135, 90, 0.12)', shadow: '0 8px 24px rgba(26, 46, 34, 0.08)' },
+    dark: { bg: '#0a0f0c', bgGradient: 'radial-gradient(1200px 800px at -10% -20%, #0f1a14 0%, #0a0f0c 60%), radial-gradient(1000px 700px at 120% 0%, #0c140f 0%, #0a0f0c 60%)', surface: '#0f1a14', mutedSurface: '#152419', border: '#1e3528', text: '#c8f7dc', muted: '#5a9a72', accent: '#00d26a', accentStrong: '#00b85c', accentGlow: 'rgba(0, 210, 106, 0.2)', accentGlowHover: 'rgba(0, 210, 106, 0.35)', danger: '#ff6b6b', dangerStrong: '#e85555', dangerGlow: 'rgba(255, 107, 107, 0.2)', success: '#00d26a', successGlow: 'rgba(0, 210, 106, 0.2)', shadow: '0 8px 24px rgba(0,0,0,0.5)' },
+  },
+  ink: {
+    name: 'Ink',
+    light: { bg: '#e8e6f0', bgGradient: 'radial-gradient(1200px 800px at -10% -20%, #f2f0f8 0%, #e8e6f0 60%), radial-gradient(1000px 700px at 120% 0%, #dedce8 0%, #e8e6f0 60%)', surface: '#f4f2fa', mutedSurface: '#dcdae6', border: '#c8c5d5', text: '#1e2433', muted: '#6b7280', accent: '#4355a0', accentStrong: '#364789', accentGlow: 'rgba(67, 85, 160, 0.12)', accentGlowHover: 'rgba(67, 85, 160, 0.22)', danger: '#b84545', dangerStrong: '#9c3838', dangerGlow: 'rgba(184, 69, 69, 0.12)', success: '#3a7d5c', successGlow: 'rgba(58, 125, 92, 0.12)', shadow: '0 8px 24px rgba(30, 36, 51, 0.08)' },
+    dark: { bg: '#12141c', bgGradient: 'radial-gradient(1200px 800px at -10% -20%, #1a1d28 0%, #12141c 60%), radial-gradient(1000px 700px at 120% 0%, #161822 0%, #12141c 60%)', surface: '#1a1d28', mutedSurface: '#232738', border: '#343a50', text: '#e8e6e1', muted: '#9198a8', accent: '#6b7fd4', accentStrong: '#5a6dc4', accentGlow: 'rgba(107, 127, 212, 0.2)', accentGlowHover: 'rgba(107, 127, 212, 0.35)', danger: '#e07070', dangerStrong: '#c85e5e', dangerGlow: 'rgba(224, 112, 112, 0.2)', success: '#5aaa7c', successGlow: 'rgba(90, 170, 124, 0.2)', shadow: '0 8px 24px rgba(0,0,0,0.45)' },
+  },
+  sakura: {
+    name: 'Sakura',
+    light: { bg: '#f8e8ed', bgGradient: 'radial-gradient(1200px 800px at -10% -20%, #fcf0f4 0%, #f8e8ed 60%), radial-gradient(1000px 700px at 120% 0%, #f2dce4 0%, #f8e8ed 60%)', surface: '#fdf4f7', mutedSurface: '#f0e0e6', border: '#e0c8d0', text: '#3d2832', muted: '#8a6b75', accent: '#d4627a', accentStrong: '#c04d66', accentGlow: 'rgba(212, 98, 122, 0.12)', accentGlowHover: 'rgba(212, 98, 122, 0.22)', danger: '#c45555', dangerStrong: '#a84545', dangerGlow: 'rgba(196, 85, 85, 0.12)', success: '#5a9a7a', successGlow: 'rgba(90, 154, 122, 0.12)', shadow: '0 8px 24px rgba(61, 40, 50, 0.06)' },
+    dark: { bg: '#1c1518', bgGradient: 'radial-gradient(1200px 800px at -10% -20%, #2a1e24 0%, #1c1518 60%), radial-gradient(1000px 700px at 120% 0%, #24181d 0%, #1c1518 60%)', surface: '#261c20', mutedSurface: '#32262b', border: '#4a3840', text: '#f8e8ed', muted: '#b89aa5', accent: '#e88a9f', accentStrong: '#d8788d', accentGlow: 'rgba(232, 138, 159, 0.2)', accentGlowHover: 'rgba(232, 138, 159, 0.35)', danger: '#e07070', dangerStrong: '#c85e5e', dangerGlow: 'rgba(224, 112, 112, 0.2)', success: '#7aba9a', successGlow: 'rgba(122, 186, 154, 0.2)', shadow: '0 8px 24px rgba(0,0,0,0.45)' },
+  },
+  ocean: {
+    name: 'Ocean',
+    light: { bg: '#e0f0f4', bgGradient: 'radial-gradient(1200px 800px at -10% -20%, #ecf6f9 0%, #e0f0f4 60%), radial-gradient(1000px 700px at 120% 0%, #d4e8ed 0%, #e0f0f4 60%)', surface: '#eef8fa', mutedSurface: '#d0e5ea', border: '#b5d0d8', text: '#1a3038', muted: '#5a7a82', accent: '#0891a2', accentStrong: '#067a8a', accentGlow: 'rgba(8, 145, 162, 0.12)', accentGlowHover: 'rgba(8, 145, 162, 0.22)', danger: '#c45a5a', dangerStrong: '#a84848', dangerGlow: 'rgba(196, 90, 90, 0.12)', success: '#0d9468', successGlow: 'rgba(13, 148, 104, 0.12)', shadow: '0 8px 24px rgba(26, 48, 56, 0.08)' },
+    dark: { bg: '#0c1618', bgGradient: 'radial-gradient(1200px 800px at -10% -20%, #142224 0%, #0c1618 60%), radial-gradient(1000px 700px at 120% 0%, #101c1e 0%, #0c1618 60%)', surface: '#142224', mutedSurface: '#1c3032', border: '#2a4448', text: '#e0f2f4', muted: '#7aacb4', accent: '#22d3ee', accentStrong: '#14b8cc', accentGlow: 'rgba(34, 211, 238, 0.18)', accentGlowHover: 'rgba(34, 211, 238, 0.32)', danger: '#f87171', dangerStrong: '#e85555', dangerGlow: 'rgba(248, 113, 113, 0.18)', success: '#34d399', successGlow: 'rgba(52, 211, 153, 0.18)', shadow: '0 8px 24px rgba(0,0,0,0.5)' },
+  },
+  honey: {
+    name: 'Honey',
+    light: { bg: '#f8ecd8', bgGradient: 'radial-gradient(1200px 800px at -10% -20%, #fcf4e4 0%, #f8ecd8 60%), radial-gradient(1000px 700px at 120% 0%, #f0e0c8 0%, #f8ecd8 60%)', surface: '#fdf6ea', mutedSurface: '#efe0c8', border: '#dccaa8', text: '#3d3020', muted: '#8a7a60', accent: '#d4a020', accentStrong: '#b8890a', accentGlow: 'rgba(212, 160, 32, 0.14)', accentGlowHover: 'rgba(212, 160, 32, 0.26)', danger: '#c45050', dangerStrong: '#a84040', dangerGlow: 'rgba(196, 80, 80, 0.12)', success: '#5a9a60', successGlow: 'rgba(90, 154, 96, 0.12)', shadow: '0 8px 24px rgba(61, 48, 32, 0.08)' },
+    dark: { bg: '#1a1610', bgGradient: 'radial-gradient(1200px 800px at -10% -20%, #282014 0%, #1a1610 60%), radial-gradient(1000px 700px at 120% 0%, #221a10 0%, #1a1610 60%)', surface: '#242016', mutedSurface: '#30281c', border: '#4a3e28', text: '#f8f0e0', muted: '#b8a888', accent: '#f0c040', accentStrong: '#d8a830', accentGlow: 'rgba(240, 192, 64, 0.2)', accentGlowHover: 'rgba(240, 192, 64, 0.35)', danger: '#e87070', dangerStrong: '#d05858', dangerGlow: 'rgba(232, 112, 112, 0.2)', success: '#7aba80', successGlow: 'rgba(122, 186, 128, 0.2)', shadow: '0 8px 24px rgba(0,0,0,0.45)' },
+  },
+};
+const FALLBACK_PALETTE_IDS = ['oak', 'sage', 'plum', 'cloud', 'ember', 'matrix', 'ink', 'sakura', 'ocean', 'honey'];
+
+// Try to get from preload, fall back to embedded palettes
+let _palettesCache = null;
+let _paletteIdsCache = null;
+
+function getPalettes() {
+  if (!_palettesCache) {
+    const fromApi = window.api?.getPalettes?.();
+    _palettesCache = fromApi || FALLBACK_PALETTES;
   }
+  return _palettesCache;
+}
+function getPaletteIds() {
+  if (!_paletteIdsCache) {
+    const fromApi = window.api?.getPaletteIds?.();
+    _paletteIdsCache = fromApi || FALLBACK_PALETTE_IDS;
+  }
+  return _paletteIdsCache;
+}
+function getDefaultPalette() {
+  return window.api?.getDefaultPalette?.() || 'oak';
 }
 
+function applyTheme(theme, paletteId) {
+  const palettes = getPalettes();
+  const defaultPalette = getDefaultPalette();
+  const pid = paletteId || localStorage.getItem('palette') || defaultPalette;
+  const palette = palettes[pid] || palettes[defaultPalette];
+  if (!palette) return; // palettes not loaded yet
+  const isDark = theme === 'dark';
+  const colors = isDark ? palette.dark : palette.light;
+
+  // Apply CSS variables to :root
+  const root = document.documentElement;
+  root.style.setProperty('--bg', colors.bg);
+  root.style.setProperty('--bg-gradient', colors.bgGradient);
+  root.style.setProperty('--surface', colors.surface);
+  root.style.setProperty('--muted-surface', colors.mutedSurface);
+  root.style.setProperty('--border', colors.border);
+  root.style.setProperty('--text', colors.text);
+  root.style.setProperty('--muted', colors.muted);
+  root.style.setProperty('--accent', colors.accent);
+  root.style.setProperty('--accent-strong', colors.accentStrong);
+  root.style.setProperty('--accent-glow', colors.accentGlow);
+  root.style.setProperty('--accent-glow-hover', colors.accentGlowHover);
+  root.style.setProperty('--danger', colors.danger);
+  root.style.setProperty('--danger-strong', colors.dangerStrong);
+  root.style.setProperty('--danger-glow', colors.dangerGlow);
+  root.style.setProperty('--success', colors.success);
+  root.style.setProperty('--success-glow', colors.successGlow);
+  root.style.setProperty('--shadow', colors.shadow);
+
+  document.body.classList.toggle('theme-dark', isDark);
+  localStorage.setItem('theme', isDark ? 'dark' : 'light');
+  localStorage.setItem('palette', pid);
+
+  if (themeToggle) {
+    themeToggle.title = isDark ? 'Светлая тема' : 'Тёмная тема';
+  }
+
+  // Update palette selector UI if it exists
+  updatePaletteSelectorUI(pid);
+}
+
+function updatePaletteSelectorUI(activePaletteId) {
+  const selector = document.getElementById('paletteSelector');
+  if (!selector) return;
+  selector.querySelectorAll('.palette-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.palette === activePaletteId);
+  });
+}
+
+// Initial theme application (window.api should be ready by now via preload)
 const savedTheme = localStorage.getItem('theme') || 'light';
-applyTheme(savedTheme);
+const savedPalette = localStorage.getItem('palette') || getDefaultPalette();
+applyTheme(savedTheme, savedPalette);
 
 if (themeToggle) {
   themeToggle.addEventListener('click', () => {
