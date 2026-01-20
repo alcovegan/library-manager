@@ -29,6 +29,9 @@ import {
 import type { CollectionWithCount } from '../services/database';
 import type { RootStackParamList } from '../types';
 import { AppEvents, eventEmitter } from '../services/events';
+import { useTheme } from '../contexts/ThemeContext';
+import { useOffline } from '../contexts/OfflineContext';
+import { useLanguage } from '../contexts/LanguageContext';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -36,54 +39,57 @@ function CollectionItem({
   collection,
   onPress,
   onLongPress,
+  colors,
+  t,
+  pluralizeBooks,
 }: {
   collection: CollectionWithCount;
   onPress: () => void;
   onLongPress: () => void;
+  colors: ReturnType<typeof useTheme>['colors'];
+  t: (key: string, options?: object) => string;
+  pluralizeBooks: (count: number) => string;
 }) {
-  const typeLabel = collection.type === 'filter' ? 'Фильтр' : 'Статическая';
-  const typeColor = collection.type === 'filter' ? '#007AFF' : '#34C759';
+  const typeLabel = collection.type === 'filter' ? t('collections.typeFilter') : t('collections.typeStatic');
+  const typeColor = collection.type === 'filter' ? colors.accent : colors.success;
 
   return (
     <TouchableOpacity
-      style={styles.collectionItem}
+      style={[styles.collectionItem, { backgroundColor: colors.surface }]}
       onPress={onPress}
       onLongPress={onLongPress}
       delayLongPress={500}
     >
-      <View style={styles.collectionIcon}>
+      <View style={[styles.collectionIcon, { backgroundColor: colors.mutedSurface }]}>
         <Text style={styles.collectionIconText}>
           {collection.type === 'filter' ? '🔍' : '📁'}
         </Text>
       </View>
       <View style={styles.collectionInfo}>
-        <Text style={styles.collectionName} numberOfLines={1}>
+        <Text style={[styles.collectionName, { color: colors.text }]} numberOfLines={1}>
           {collection.name}
         </Text>
         <View style={styles.collectionMeta}>
           <View style={[styles.typeBadge, { backgroundColor: typeColor + '20' }]}>
             <Text style={[styles.typeText, { color: typeColor }]}>{typeLabel}</Text>
           </View>
-          <Text style={styles.bookCount}>
-            {collection.bookCount} {pluralBooks(collection.bookCount)}
+          <Text style={[styles.bookCount, { color: colors.muted }]}>
+            {pluralizeBooks(collection.bookCount)}
           </Text>
         </View>
       </View>
-      <Text style={styles.chevron}>›</Text>
+      <Text style={[styles.chevron, { color: colors.muted }]}>›</Text>
     </TouchableOpacity>
   );
-}
-
-function pluralBooks(count: number): string {
-  if (count === 1) return 'книга';
-  if (count >= 2 && count <= 4) return 'книги';
-  return 'книг';
 }
 
 export default function CollectionsScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { ready, error: dbError } = useDatabaseInit();
   const { collections, loading, error, refresh } = useCollections();
+  const { colors } = useTheme();
+  const { isOffline } = useOffline();
+  const { t, pluralizeBooks } = useLanguage();
 
   // Modal state for create/edit
   const [modalVisible, setModalVisible] = useState(false);
@@ -96,12 +102,17 @@ export default function CollectionsScreen() {
   }, [navigation]);
 
   const handleLongPress = useCallback((collection: CollectionWithCount) => {
+    if (isOffline) {
+      Alert.alert(t('offline.banner'), t('offline.editingUnavailable'));
+      return;
+    }
+
     Alert.alert(
       collection.name,
-      'Выберите действие',
+      t('collections.selectAction'),
       [
         {
-          text: 'Редактировать',
+          text: t('common.edit'),
           onPress: () => {
             setEditingCollection(collection);
             setCollectionName(collection.name);
@@ -109,23 +120,23 @@ export default function CollectionsScreen() {
           },
         },
         {
-          text: 'Удалить',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: () => {
             Alert.alert(
-              'Удалить коллекцию?',
-              `Коллекция "${collection.name}" будет удалена. Книги из неё не будут удалены.`,
+              t('collections.deleteConfirmTitle'),
+              t('collections.deleteConfirmMessage', { name: collection.name }),
               [
-                { text: 'Отмена', style: 'cancel' },
+                { text: t('common.cancel'), style: 'cancel' },
                 {
-                  text: 'Удалить',
+                  text: t('common.delete'),
                   style: 'destructive',
                   onPress: async () => {
                     try {
                       await deleteCollection(collection.id);
                       eventEmitter.emit(AppEvents.DATA_CHANGED);
                     } catch (e) {
-                      Alert.alert('Ошибка', 'Не удалось удалить коллекцию');
+                      Alert.alert(t('common.error'), t('collections.deleteFailed'));
                     }
                   },
                 },
@@ -133,21 +144,25 @@ export default function CollectionsScreen() {
             );
           },
         },
-        { text: 'Отмена', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
       ]
     );
-  }, []);
+  }, [isOffline, t]);
 
   const handleAddPress = useCallback(() => {
+    if (isOffline) {
+      Alert.alert(t('offline.banner'), t('offline.creationUnavailable'));
+      return;
+    }
     setEditingCollection(null);
     setCollectionName('');
     setModalVisible(true);
-  }, []);
+  }, [isOffline, t]);
 
   const handleSave = useCallback(async () => {
     const name = collectionName.trim();
     if (!name) {
-      Alert.alert('Ошибка', 'Введите название коллекции');
+      Alert.alert(t('common.error'), t('collections.enterName'));
       return;
     }
 
@@ -163,11 +178,11 @@ export default function CollectionsScreen() {
       setCollectionName('');
       setEditingCollection(null);
     } catch (e) {
-      Alert.alert('Ошибка', 'Не удалось сохранить коллекцию');
+      Alert.alert(t('common.error'), t('collections.saveFailed'));
     } finally {
       setSaving(false);
     }
-  }, [collectionName, editingCollection]);
+  }, [collectionName, editingCollection, t]);
 
   const handleCancel = useCallback(() => {
     setModalVisible(false);
@@ -177,34 +192,34 @@ export default function CollectionsScreen() {
 
   if (!ready) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>Загрузка...</Text>
+      <View style={[styles.centered, { backgroundColor: colors.bg }]}>
+        <ActivityIndicator size="large" color={colors.accent} />
+        <Text style={[styles.loadingText, { color: colors.muted }]}>{t('common.loading')}</Text>
       </View>
     );
   }
 
   if (dbError) {
     return (
-      <View style={styles.centered}>
-        <Text style={styles.errorText}>Ошибка базы данных: {dbError.message}</Text>
+      <View style={[styles.centered, { backgroundColor: colors.bg }]}>
+        <Text style={[styles.errorText, { color: colors.danger }]}>{t('collections.dbError')}: {dbError.message}</Text>
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.centered}>
-        <Text style={styles.errorText}>Ошибка: {error.message}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={refresh}>
-          <Text style={styles.retryText}>Повторить</Text>
+      <View style={[styles.centered, { backgroundColor: colors.bg }]}>
+        <Text style={[styles.errorText, { color: colors.danger }]}>{t('common.error')}: {error.message}</Text>
+        <TouchableOpacity style={[styles.retryButton, { backgroundColor: colors.accent }]} onPress={refresh}>
+          <Text style={styles.retryText}>{t('common.retry')}</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.bg }]}>
       <FlatList
         data={collections}
         keyExtractor={(item) => item.id}
@@ -213,25 +228,31 @@ export default function CollectionsScreen() {
             collection={item}
             onPress={() => handleCollectionPress(item.id)}
             onLongPress={() => handleLongPress(item)}
+            colors={colors}
+            t={t}
+            pluralizeBooks={pluralizeBooks}
           />
         )}
         contentContainerStyle={collections.length === 0 ? styles.emptyList : styles.list}
         refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={refresh} />
+          <RefreshControl refreshing={loading} onRefresh={refresh} tintColor={colors.accent} />
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyIcon}>📁</Text>
-            <Text style={styles.emptyText}>Нет коллекций</Text>
-            <Text style={styles.emptySubtext}>
-              Нажмите + чтобы создать первую коллекцию
+            <Text style={[styles.emptyText, { color: colors.text }]}>{t('collections.emptyTitle')}</Text>
+            <Text style={[styles.emptySubtext, { color: colors.muted }]}>
+              {t('collections.emptySubtitle')}
             </Text>
           </View>
         }
       />
 
       {/* FAB for adding new collection */}
-      <TouchableOpacity style={styles.fab} onPress={handleAddPress}>
+      <TouchableOpacity
+        style={[styles.fab, { backgroundColor: colors.accent }, isOffline && styles.fabDisabled]}
+        onPress={handleAddPress}
+      >
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
 
@@ -246,17 +267,17 @@ export default function CollectionsScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.modalOverlay}
         >
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>
-              {editingCollection ? 'Редактировать коллекцию' : 'Новая коллекция'}
+          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              {editingCollection ? t('collections.editCollection') : t('collections.newCollection')}
             </Text>
 
             <TextInput
-              style={styles.modalInput}
+              style={[styles.modalInput, { borderColor: colors.border, backgroundColor: colors.mutedSurface, color: colors.text }]}
               value={collectionName}
               onChangeText={setCollectionName}
-              placeholder="Название коллекции"
-              placeholderTextColor="#999"
+              placeholder={t('collections.collectionName')}
+              placeholderTextColor={colors.muted}
               autoFocus
               returnKeyType="done"
               onSubmitEditing={handleSave}
@@ -264,14 +285,14 @@ export default function CollectionsScreen() {
 
             <View style={styles.modalButtons}>
               <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonCancel]}
+                style={[styles.modalButton, styles.modalButtonCancel, { backgroundColor: colors.mutedSurface }]}
                 onPress={handleCancel}
                 disabled={saving}
               >
-                <Text style={styles.modalButtonCancelText}>Отмена</Text>
+                <Text style={[styles.modalButtonCancelText, { color: colors.muted }]}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonSave]}
+                style={[styles.modalButton, styles.modalButtonSave, { backgroundColor: colors.accent }]}
                 onPress={handleSave}
                 disabled={saving || !collectionName.trim()}
               >
@@ -279,7 +300,7 @@ export default function CollectionsScreen() {
                   <ActivityIndicator size="small" color="white" />
                 ) : (
                   <Text style={styles.modalButtonSaveText}>
-                    {editingCollection ? 'Сохранить' : 'Создать'}
+                    {editingCollection ? t('common.save') : t('common.create')}
                   </Text>
                 )}
               </TouchableOpacity>
@@ -427,6 +448,9 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: '300',
     marginTop: -2,
+  },
+  fabDisabled: {
+    opacity: 0.5,
   },
   modalOverlay: {
     flex: 1,

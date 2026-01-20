@@ -22,26 +22,29 @@ import { addBookToCollection, removeBookFromCollection } from '../services/datab
 import type { CollectionWithCount } from '../services/database';
 import { getCoverUri } from '../utils/covers';
 import { AppEvents, eventEmitter } from '../services/events';
+import { useTheme } from '../contexts/ThemeContext';
+import { useOffline } from '../contexts/OfflineContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import type { RootStackParamList } from '../types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'BookDetails'>;
 
-function DetailRow({ label, value }: { label: string; value: string | null | undefined }) {
+function DetailRow({ label, value, colors }: { label: string; value: string | null | undefined; colors: ReturnType<typeof useTheme>['colors'] }) {
   if (!value) return null;
 
   return (
-    <View style={styles.detailRow}>
-      <Text style={styles.detailLabel}>{label}</Text>
-      <Text style={styles.detailValue}>{value}</Text>
+    <View style={[styles.detailRow, { borderBottomColor: colors.border }]}>
+      <Text style={[styles.detailLabel, { color: colors.muted }]}>{label}</Text>
+      <Text style={[styles.detailValue, { color: colors.text }]}>{value}</Text>
     </View>
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children, colors }: { title: string; children: React.ReactNode; colors: ReturnType<typeof useTheme>['colors'] }) {
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      <View style={styles.sectionContent}>{children}</View>
+      <Text style={[styles.sectionTitle, { color: colors.muted }]}>{title}</Text>
+      <View style={[styles.sectionContent, { backgroundColor: colors.surface, borderColor: colors.border }]}>{children}</View>
     </View>
   );
 }
@@ -50,6 +53,9 @@ export default function BookDetailsScreen({ route, navigation }: Props) {
   const { bookId } = route.params;
   const { book, loading, error } = useBook(bookId);
   const { collections } = useCollections();
+  const { colors } = useTheme();
+  const { isOffline } = useOffline();
+  const { t, pluralizeBooks, language } = useLanguage();
 
   const [collectionModalVisible, setCollectionModalVisible] = useState(false);
   const [savingCollection, setSavingCollection] = useState(false);
@@ -60,13 +66,16 @@ export default function BookDetailsScreen({ route, navigation }: Props) {
       headerRight: () => (
         <TouchableOpacity
           onPress={() => navigation.navigate('EditBook', { bookId })}
-          style={styles.headerButton}
+          style={[styles.headerButton, isOffline && styles.headerButtonDisabled]}
+          disabled={isOffline}
         >
-          <Text style={styles.headerButtonText}>Изменить</Text>
+          <Text style={[styles.headerButtonText, isOffline && styles.headerButtonTextDisabled]}>
+            {t('bookDetails.edit')}
+          </Text>
         </TouchableOpacity>
       ),
     });
-  }, [navigation, bookId]);
+  }, [navigation, bookId, isOffline, t]);
 
   // Filter to only static collections (can't manually add to filter collections)
   const staticCollections = collections.filter(c => c.type === 'static');
@@ -77,130 +86,135 @@ export default function BookDetailsScreen({ route, navigation }: Props) {
       await addBookToCollection(collection.id, bookId);
       eventEmitter.emit(AppEvents.DATA_CHANGED);
       setCollectionModalVisible(false);
-      Alert.alert('Готово', `Книга добавлена в "${collection.name}"`);
+      Alert.alert(t('common.done'), t('bookDetails.addedToCollection', { name: collection.name }));
     } catch (e) {
-      Alert.alert('Ошибка', 'Не удалось добавить книгу в коллекцию');
+      Alert.alert(t('common.error'), t('bookDetails.addToCollectionFailed'));
     } finally {
       setSavingCollection(false);
     }
-  }, [bookId]);
+  }, [bookId, t]);
 
   if (loading) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#007AFF" />
+      <View style={[styles.centered, { backgroundColor: colors.bg }]}>
+        <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
   }
 
   if (error || !book) {
     return (
-      <View style={styles.centered}>
-        <Text style={styles.errorText}>
-          {error?.message || 'Книга не найдена'}
+      <View style={[styles.centered, { backgroundColor: colors.bg }]}>
+        <Text style={[styles.errorText, { color: colors.danger }]}>
+          {error?.message || t('bookDetails.bookNotFound')}
         </Text>
       </View>
     );
   }
 
-  const authorsText = book.authors.map((a) => a.name).join(', ') || 'Автор неизвестен';
+  const authorsText = book.authors.map((a) => a.name).join(', ') || t('library.unknownAuthor');
   const genresText = book.genres ? JSON.parse(book.genres).join(', ') : null;
   const tagsText = book.tags ? JSON.parse(book.tags).join(', ') : null;
   const coverUri = getCoverUri(book.coverPath);
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
+    <ScrollView style={[styles.container, { backgroundColor: colors.bg }]}>
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <View style={styles.headerContent}>
           {coverUri ? (
-            <Image source={{ uri: coverUri }} style={styles.coverImage} />
+            <Image source={{ uri: coverUri }} style={[styles.coverImage, { backgroundColor: colors.mutedSurface }]} />
           ) : (
-            <View style={styles.coverPlaceholder}>
+            <View style={[styles.coverPlaceholder, { backgroundColor: colors.mutedSurface }]}>
               <Text style={styles.coverPlaceholderText}>📚</Text>
             </View>
           )}
           <View style={styles.headerInfo}>
-            <Text style={styles.title}>{book.title}</Text>
+            <Text style={[styles.title, { color: colors.text }]}>{book.title}</Text>
             {book.titleAlt && (
-              <Text style={styles.titleAlt}>{book.titleAlt}</Text>
+              <Text style={[styles.titleAlt, { color: colors.muted }]}>{book.titleAlt}</Text>
             )}
-            <Text style={styles.authors}>{authorsText}</Text>
+            <Text style={[styles.authors, { color: colors.muted }]}>{authorsText}</Text>
           </View>
         </View>
       </View>
 
       {/* Add to Collection button */}
       <TouchableOpacity
-        style={styles.addToCollectionButton}
+        style={[styles.addToCollectionButton, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}
         onPress={() => setCollectionModalVisible(true)}
+        disabled={isOffline}
       >
-        <Text style={styles.addToCollectionText}>📁 Добавить в коллекцию</Text>
+        <Text style={[styles.addToCollectionText, { color: isOffline ? colors.muted : colors.accent }]}>
+          📁 {t('bookDetails.addToCollection')}{isOffline ? t('bookDetails.offlineSuffix') : ''}
+        </Text>
       </TouchableOpacity>
 
       {book.rating && (
-        <View style={styles.ratingContainer}>
-          <Text style={styles.ratingStars}>
+        <View style={[styles.ratingContainer, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+          <Text style={[styles.ratingStars, { color: colors.accent }]}>
             {'★'.repeat(Math.floor(book.rating))}
             {'☆'.repeat(5 - Math.floor(book.rating))}
           </Text>
-          <Text style={styles.ratingValue}>{book.rating.toFixed(1)}</Text>
+          <Text style={[styles.ratingValue, { color: colors.text }]}>{book.rating.toFixed(1)}</Text>
         </View>
       )}
 
-      <Section title="Информация">
-        <DetailRow label="Год" value={book.year?.toString()} />
-        <DetailRow label="Издательство" value={book.publisher} />
-        <DetailRow label="ISBN" value={book.isbn} />
-        <DetailRow label="Язык" value={book.language} />
-        <DetailRow label="Формат" value={book.format} />
+      <Section title={t('bookDetails.info')} colors={colors}>
+        <DetailRow label={t('bookDetails.year')} value={book.year?.toString()} colors={colors} />
+        <DetailRow label={t('bookDetails.publisher')} value={book.publisher} colors={colors} />
+        <DetailRow label={t('bookDetails.isbn')} value={book.isbn} colors={colors} />
+        <DetailRow label={t('bookDetails.language')} value={book.language} colors={colors} />
+        <DetailRow label={t('bookDetails.format')} value={book.format} colors={colors} />
         {book.series && (
           <DetailRow
-            label="Серия"
+            label={t('bookDetails.series')}
             value={
               book.seriesIndex
                 ? `${book.series} (#${book.seriesIndex})`
                 : book.series
             }
+            colors={colors}
           />
         )}
       </Section>
 
       {genresText && (
-        <Section title="Жанры">
-          <Text style={styles.tagsText}>{genresText}</Text>
+        <Section title={t('bookDetails.genres')} colors={colors}>
+          <Text style={[styles.tagsText, { color: colors.text }]}>{genresText}</Text>
         </Section>
       )}
 
       {tagsText && (
-        <Section title="Теги">
-          <Text style={styles.tagsText}>{tagsText}</Text>
+        <Section title={t('bookDetails.tags')} colors={colors}>
+          <Text style={[styles.tagsText, { color: colors.text }]}>{tagsText}</Text>
         </Section>
       )}
 
       {book.notes && (
-        <Section title="Заметки">
-          <Text style={styles.notesText}>{book.notes}</Text>
+        <Section title={t('bookDetails.notes')} colors={colors}>
+          <Text style={[styles.notesText, { color: colors.text }]}>{book.notes}</Text>
         </Section>
       )}
 
       {book.goodreadsRating && (
-        <Section title="Goodreads">
+        <Section title="Goodreads" colors={colors}>
           <DetailRow
-            label="Рейтинг"
-            value={`${book.goodreadsRating.toFixed(2)} (${book.goodreadsRatingsCount} оценок)`}
+            label={t('bookDetails.rating')}
+            value={`${book.goodreadsRating.toFixed(2)} (${t('bookDetails.goodreadsRatings', { count: book.goodreadsRatingsCount })})`}
+            colors={colors}
           />
           {book.goodreadsUrl && (
-            <DetailRow label="Страница" value="Открыть в браузере" />
+            <DetailRow label={t('bookDetails.page')} value={t('bookDetails.openInBrowser')} colors={colors} />
           )}
         </Section>
       )}
 
       <View style={styles.footer}>
-        <Text style={styles.footerText}>
-          Добавлено: {new Date(book.createdAt).toLocaleDateString('ru-RU')}
+        <Text style={[styles.footerText, { color: colors.muted }]}>
+          {t('bookDetails.createdAt')}: {new Date(book.createdAt).toLocaleDateString(language === 'ru' ? 'ru-RU' : 'en-US')}
         </Text>
-        <Text style={styles.footerText}>
-          Обновлено: {new Date(book.updatedAt).toLocaleDateString('ru-RU')}
+        <Text style={[styles.footerText, { color: colors.muted }]}>
+          {t('bookDetails.updatedAt')}: {new Date(book.updatedAt).toLocaleDateString(language === 'ru' ? 'ru-RU' : 'en-US')}
         </Text>
       </View>
 
@@ -212,12 +226,12 @@ export default function BookDetailsScreen({ route, navigation }: Props) {
         onRequestClose={() => setCollectionModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Выберите коллекцию</Text>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>{t('bookDetails.selectCollection')}</Text>
 
             {staticCollections.length === 0 ? (
-              <Text style={styles.noCollectionsText}>
-                Нет доступных коллекций. Создайте коллекцию во вкладке "Коллекции".
+              <Text style={[styles.noCollectionsText, { color: colors.muted }]}>
+                {t('bookDetails.noCollections')}
               </Text>
             ) : (
               <FlatList
@@ -226,13 +240,13 @@ export default function BookDetailsScreen({ route, navigation }: Props) {
                 style={styles.collectionList}
                 renderItem={({ item }) => (
                   <TouchableOpacity
-                    style={styles.collectionOption}
+                    style={[styles.collectionOption, { borderBottomColor: colors.border }]}
                     onPress={() => handleAddToCollection(item)}
                     disabled={savingCollection}
                   >
-                    <Text style={styles.collectionOptionText}>{item.name}</Text>
-                    <Text style={styles.collectionOptionCount}>
-                      {item.bookCount} книг
+                    <Text style={[styles.collectionOptionText, { color: colors.text }]}>{item.name}</Text>
+                    <Text style={[styles.collectionOptionCount, { color: colors.muted }]}>
+                      {pluralizeBooks(item.bookCount)}
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -243,7 +257,7 @@ export default function BookDetailsScreen({ route, navigation }: Props) {
               style={styles.modalCloseButton}
               onPress={() => setCollectionModalVisible(false)}
             >
-              <Text style={styles.modalCloseButtonText}>Отмена</Text>
+              <Text style={[styles.modalCloseButtonText, { color: colors.accent }]}>{t('common.cancel')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -468,9 +482,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
+  headerButtonDisabled: {
+    opacity: 0.5,
+  },
   headerButtonText: {
     color: '#007AFF',
     fontSize: 17,
     fontWeight: '500',
+  },
+  headerButtonTextDisabled: {
+    color: '#999',
   },
 });

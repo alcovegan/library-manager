@@ -20,6 +20,8 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useBookFilter, useFilterOptions } from '../hooks/useDatabase';
 import { getCoverUri } from '../utils/covers';
+import { useTheme, ThemeColors } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import type { BookWithAuthors, RootStackParamList, ReadingStatus } from '../types';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -49,42 +51,44 @@ const EMPTY_FILTERS: Filters = {
   tags: '',
 };
 
-const STATUS_OPTIONS = [
-  { value: '', label: 'Все статусы' },
-  { value: 'reading', label: 'Читаю' },
-  { value: 'finished', label: 'Прочитано' },
-  { value: 'want_to_read', label: 'Хочу прочитать' },
-  { value: 'on_hold', label: 'Отложено' },
-  { value: 'abandoned', label: 'Брошено' },
-  { value: 're_reading', label: 'Перечитываю' },
-  { value: 'no_status', label: 'Без статуса' },
-];
+function getStatusOptions(t: (key: string) => string) {
+  return [
+    { value: '', label: t('search.allStatuses') },
+    { value: 'reading', label: t('search.statusReading') },
+    { value: 'finished', label: t('search.statusFinished') },
+    { value: 'want_to_read', label: t('search.statusWantToRead') },
+    { value: 'on_hold', label: t('search.statusOnHold') },
+    { value: 'abandoned', label: t('search.statusAbandoned') },
+    { value: 're_reading', label: t('search.statusReReading') },
+    { value: 'no_status', label: t('search.statusNoStatus') },
+  ];
+}
 
-function SearchResultItem({ book, onPress }: { book: BookWithAuthors; onPress: () => void }) {
-  const authorsText = book.authors.map((a) => a.name).join(', ') || 'Автор неизвестен';
+function SearchResultItem({ book, onPress, colors, t }: { book: BookWithAuthors; onPress: () => void; colors: ThemeColors; t: (key: string) => string }) {
+  const authorsText = book.authors.map((a) => a.name).join(', ') || t('library.unknownAuthor');
   const coverUri = getCoverUri(book.coverPath);
 
   return (
-    <TouchableOpacity style={styles.resultItem} onPress={onPress}>
+    <TouchableOpacity style={[styles.resultItem, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={onPress}>
       {coverUri ? (
-        <Image source={{ uri: coverUri }} style={styles.bookCover} />
+        <Image source={{ uri: coverUri }} style={[styles.bookCover, { backgroundColor: colors.mutedSurface }]} />
       ) : (
-        <View style={styles.bookCoverPlaceholder}>
+        <View style={[styles.bookCoverPlaceholder, { backgroundColor: colors.mutedSurface }]}>
           <Text style={styles.bookCoverPlaceholderText}>📚</Text>
         </View>
       )}
       <View style={styles.resultInfo}>
-        <Text style={styles.resultTitle} numberOfLines={2}>
+        <Text style={[styles.resultTitle, { color: colors.text }]} numberOfLines={2}>
           {book.title}
         </Text>
-        <Text style={styles.resultAuthors} numberOfLines={1}>
+        <Text style={[styles.resultAuthors, { color: colors.muted }]} numberOfLines={1}>
           {authorsText}
         </Text>
-        {book.year && <Text style={styles.resultYear}>{book.year}</Text>}
+        {book.year && <Text style={[styles.resultYear, { color: colors.muted }]}>{book.year}</Text>}
       </View>
       {book.rating && (
-        <View style={styles.ratingBadge}>
-          <Text style={styles.ratingText}>★ {book.rating}</Text>
+        <View style={[styles.ratingBadge, { backgroundColor: colors.accentGlow }]}>
+          <Text style={[styles.ratingText, { color: colors.accent }]}>★ {book.rating}</Text>
         </View>
       )}
     </TouchableOpacity>
@@ -98,6 +102,7 @@ function PickerModal({
   selected,
   onSelect,
   onClose,
+  colors,
 }: {
   visible: boolean;
   title: string;
@@ -105,15 +110,16 @@ function PickerModal({
   selected: string;
   onSelect: (value: string) => void;
   onClose: () => void;
+  colors: ThemeColors;
 }) {
   return (
     <Modal visible={visible} animationType="slide" transparent>
       <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>{title}</Text>
+        <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>{title}</Text>
             <TouchableOpacity onPress={onClose}>
-              <Text style={styles.modalClose}>✕</Text>
+              <Text style={[styles.modalClose, { color: colors.muted }]}>✕</Text>
             </TouchableOpacity>
           </View>
           <ScrollView style={styles.modalScroll}>
@@ -122,7 +128,8 @@ function PickerModal({
                 key={option.value}
                 style={[
                   styles.modalOption,
-                  selected === option.value && styles.modalOptionSelected,
+                  { borderBottomColor: colors.border },
+                  selected === option.value && { backgroundColor: colors.accentGlow },
                 ]}
                 onPress={() => {
                   onSelect(option.value);
@@ -132,13 +139,14 @@ function PickerModal({
                 <Text
                   style={[
                     styles.modalOptionText,
-                    selected === option.value && styles.modalOptionTextSelected,
+                    { color: colors.text },
+                    selected === option.value && { color: colors.accent, fontWeight: '600' },
                   ]}
                 >
                   {option.label}
                 </Text>
                 {selected === option.value && (
-                  <Text style={styles.modalOptionCheck}>✓</Text>
+                  <Text style={[styles.modalOptionCheck, { color: colors.accent }]}>✓</Text>
                 )}
               </TouchableOpacity>
             ))}
@@ -151,6 +159,8 @@ function PickerModal({
 
 export default function SearchScreen() {
   const navigation = useNavigation<NavigationProp>();
+  const { colors } = useTheme();
+  const { t } = useLanguage();
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [showFilters, setShowFilters] = useState(false);
   const [pickerModal, setPickerModal] = useState<{
@@ -160,6 +170,7 @@ export default function SearchScreen() {
 
   const { results, loading, error, applyFilters } = useBookFilter();
   const { authors, formats, languages } = useFilterOptions();
+  const STATUS_OPTIONS = getStatusOptions(t);
 
   // Apply filters when they change
   useEffect(() => {
@@ -206,13 +217,13 @@ export default function SearchScreen() {
   const getPickerOptions = () => {
     switch (pickerModal.type) {
       case 'author':
-        return [{ value: '', label: 'Все авторы' }, ...authors.map(a => ({ value: a, label: a }))];
+        return [{ value: '', label: t('search.allAuthors') }, ...authors.map(a => ({ value: a, label: a }))];
       case 'format':
-        return [{ value: '', label: 'Все форматы' }, ...formats.map(f => ({ value: f, label: f }))];
+        return [{ value: '', label: t('search.allFormats') }, ...formats.map(f => ({ value: f, label: f }))];
       case 'status':
         return STATUS_OPTIONS;
       case 'language':
-        return [{ value: '', label: 'Все языки' }, ...languages.map(l => ({ value: l, label: l }))];
+        return [{ value: '', label: t('search.allLanguages') }, ...languages.map(l => ({ value: l, label: l }))];
       default:
         return [];
     }
@@ -220,10 +231,10 @@ export default function SearchScreen() {
 
   const getPickerTitle = () => {
     switch (pickerModal.type) {
-      case 'author': return 'Автор';
-      case 'format': return 'Формат';
-      case 'status': return 'Статус';
-      case 'language': return 'Язык';
+      case 'author': return t('search.author');
+      case 'format': return t('search.format');
+      case 'status': return t('search.status');
+      case 'language': return t('search.language');
     }
   };
 
@@ -232,14 +243,14 @@ export default function SearchScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.bg }]}>
       {/* Search bar */}
-      <View style={styles.searchContainer}>
+      <View style={[styles.searchContainer, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <View style={styles.searchRow}>
           <TextInput
-            style={styles.searchInput}
-            placeholder="Поиск по названию, автору, серии..."
-            placeholderTextColor="#999"
+            style={[styles.searchInput, { backgroundColor: colors.mutedSurface, color: colors.text }]}
+            placeholder={t('search.placeholder')}
+            placeholderTextColor={colors.muted}
             value={filters.query}
             onChangeText={(text) => updateFilter('query', text)}
             autoCapitalize="none"
@@ -248,7 +259,7 @@ export default function SearchScreen() {
             returnKeyType="search"
           />
           <TouchableOpacity
-            style={[styles.filterButton, showFilters && styles.filterButtonActive]}
+            style={[styles.filterButton, { backgroundColor: colors.mutedSurface }, showFilters && { backgroundColor: colors.accent }]}
             onPress={() => setShowFilters(!showFilters)}
           >
             <Text style={styles.filterButtonText}>
@@ -259,66 +270,66 @@ export default function SearchScreen() {
 
         {/* Filters panel */}
         {showFilters && (
-          <View style={styles.filtersPanel}>
+          <View style={[styles.filtersPanel, { borderTopColor: colors.mutedSurface }]}>
             {/* Dropdown filters row */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtersRow}>
               <TouchableOpacity
-                style={[styles.filterDropdown, filters.author && styles.filterDropdownActive]}
+                style={[styles.filterDropdown, { backgroundColor: colors.mutedSurface }, filters.author && { backgroundColor: colors.accent }]}
                 onPress={() => setPickerModal({ visible: true, type: 'author' })}
               >
-                <Text style={[styles.filterDropdownText, filters.author && styles.filterDropdownTextActive]}>
-                  {filters.author || 'Автор'}
+                <Text style={[styles.filterDropdownText, { color: colors.muted }, filters.author && { color: 'white' }]}>
+                  {filters.author || t('search.author')}
                 </Text>
-                <Text style={styles.filterDropdownArrow}>▼</Text>
+                <Text style={[styles.filterDropdownArrow, { color: colors.muted }]}>▼</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.filterDropdown, filters.format && styles.filterDropdownActive]}
+                style={[styles.filterDropdown, { backgroundColor: colors.mutedSurface }, filters.format && { backgroundColor: colors.accent }]}
                 onPress={() => setPickerModal({ visible: true, type: 'format' })}
               >
-                <Text style={[styles.filterDropdownText, filters.format && styles.filterDropdownTextActive]}>
-                  {filters.format || 'Формат'}
+                <Text style={[styles.filterDropdownText, { color: colors.muted }, filters.format && { color: 'white' }]}>
+                  {filters.format || t('search.format')}
                 </Text>
-                <Text style={styles.filterDropdownArrow}>▼</Text>
+                <Text style={[styles.filterDropdownArrow, { color: colors.muted }]}>▼</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.filterDropdown, filters.status && styles.filterDropdownActive]}
+                style={[styles.filterDropdown, { backgroundColor: colors.mutedSurface }, filters.status && { backgroundColor: colors.accent }]}
                 onPress={() => setPickerModal({ visible: true, type: 'status' })}
               >
-                <Text style={[styles.filterDropdownText, filters.status && styles.filterDropdownTextActive]}>
-                  {STATUS_OPTIONS.find(s => s.value === filters.status)?.label || 'Статус'}
+                <Text style={[styles.filterDropdownText, { color: colors.muted }, filters.status && { color: 'white' }]}>
+                  {STATUS_OPTIONS.find(s => s.value === filters.status)?.label || t('search.status')}
                 </Text>
-                <Text style={styles.filterDropdownArrow}>▼</Text>
+                <Text style={[styles.filterDropdownArrow, { color: colors.muted }]}>▼</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.filterDropdown, filters.language && styles.filterDropdownActive]}
+                style={[styles.filterDropdown, { backgroundColor: colors.mutedSurface }, filters.language && { backgroundColor: colors.accent }]}
                 onPress={() => setPickerModal({ visible: true, type: 'language' })}
               >
-                <Text style={[styles.filterDropdownText, filters.language && styles.filterDropdownTextActive]}>
-                  {filters.language || 'Язык'}
+                <Text style={[styles.filterDropdownText, { color: colors.muted }, filters.language && { color: 'white' }]}>
+                  {filters.language || t('search.language')}
                 </Text>
-                <Text style={styles.filterDropdownArrow}>▼</Text>
+                <Text style={[styles.filterDropdownArrow, { color: colors.muted }]}>▼</Text>
               </TouchableOpacity>
             </ScrollView>
 
             {/* Year range */}
             <View style={styles.filterInputRow}>
-              <Text style={styles.filterLabel}>Год:</Text>
+              <Text style={[styles.filterLabel, { color: colors.muted }]}>{t('search.year')}:</Text>
               <TextInput
-                style={styles.yearInput}
-                placeholder="от"
-                placeholderTextColor="#999"
+                style={[styles.yearInput, { backgroundColor: colors.mutedSurface, color: colors.text }]}
+                placeholder={t('search.from')}
+                placeholderTextColor={colors.muted}
                 keyboardType="number-pad"
                 value={filters.yearFrom}
                 onChangeText={(text) => updateFilter('yearFrom', text)}
               />
-              <Text style={styles.filterDash}>—</Text>
+              <Text style={[styles.filterDash, { color: colors.muted }]}>—</Text>
               <TextInput
-                style={styles.yearInput}
-                placeholder="до"
-                placeholderTextColor="#999"
+                style={[styles.yearInput, { backgroundColor: colors.mutedSurface, color: colors.text }]}
+                placeholder={t('search.to')}
+                placeholderTextColor={colors.muted}
                 keyboardType="number-pad"
                 value={filters.yearTo}
                 onChangeText={(text) => updateFilter('yearTo', text)}
@@ -327,16 +338,16 @@ export default function SearchScreen() {
 
             {/* Genres and tags */}
             <TextInput
-              style={styles.filterTextInput}
-              placeholder="Жанры (через запятую)"
-              placeholderTextColor="#999"
+              style={[styles.filterTextInput, { backgroundColor: colors.mutedSurface, color: colors.text }]}
+              placeholder={t('search.genres')}
+              placeholderTextColor={colors.muted}
               value={filters.genres}
               onChangeText={(text) => updateFilter('genres', text)}
             />
             <TextInput
-              style={styles.filterTextInput}
-              placeholder="Теги (через запятую)"
-              placeholderTextColor="#999"
+              style={[styles.filterTextInput, { backgroundColor: colors.mutedSurface, color: colors.text }]}
+              placeholder={t('search.tags')}
+              placeholderTextColor={colors.muted}
               value={filters.tags}
               onChangeText={(text) => updateFilter('tags', text)}
             />
@@ -344,7 +355,7 @@ export default function SearchScreen() {
             {/* Reset button */}
             {activeFiltersCount > 0 && (
               <TouchableOpacity style={styles.resetButton} onPress={resetFilters}>
-                <Text style={styles.resetButtonText}>Сбросить фильтры</Text>
+                <Text style={[styles.resetButtonText, { color: colors.danger }]}>{t('search.resetFilters')}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -353,9 +364,9 @@ export default function SearchScreen() {
 
       {/* Results count */}
       {(filters.query || activeFiltersCount > 0) && !loading && (
-        <View style={styles.resultsCount}>
-          <Text style={styles.resultsCountText}>
-            Найдено: {results.length}
+        <View style={[styles.resultsCount, { backgroundColor: colors.bg }]}>
+          <Text style={[styles.resultsCountText, { color: colors.muted }]}>
+            {t('search.found')}: {results.length}
           </Text>
         </View>
       )}
@@ -363,14 +374,14 @@ export default function SearchScreen() {
       {/* Loading */}
       {loading && (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color="#007AFF" />
+          <ActivityIndicator size="small" color={colors.accent} />
         </View>
       )}
 
       {/* Error */}
       {error && (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Ошибка: {error.message}</Text>
+        <View style={[styles.errorContainer, { backgroundColor: colors.dangerGlow }]}>
+          <Text style={[styles.errorText, { color: colors.danger }]}>{t('common.error')}: {error.message}</Text>
         </View>
       )}
 
@@ -379,24 +390,24 @@ export default function SearchScreen() {
         data={results}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <SearchResultItem book={item} onPress={() => handleBookPress(item.id)} />
+          <SearchResultItem book={item} onPress={() => handleBookPress(item.id)} colors={colors} t={t} />
         )}
         contentContainerStyle={results.length === 0 ? styles.emptyList : styles.list}
         ListEmptyComponent={
           !loading && (filters.query || activeFiltersCount > 0) ? (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyIcon}>🔍</Text>
-              <Text style={styles.emptyText}>Ничего не найдено</Text>
-              <Text style={styles.emptySubtext}>
-                Попробуйте изменить параметры поиска
+              <Text style={[styles.emptyText, { color: colors.text }]}>{t('search.noResultsTitle')}</Text>
+              <Text style={[styles.emptySubtext, { color: colors.muted }]}>
+                {t('search.noResultsSubtitle')}
               </Text>
             </View>
           ) : !loading ? (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyIcon}>📖</Text>
-              <Text style={styles.emptyText}>Поиск и фильтры</Text>
-              <Text style={styles.emptySubtext}>
-                Введите запрос или выберите фильтры для поиска книг
+              <Text style={[styles.emptyText, { color: colors.text }]}>{t('search.emptyTitle')}</Text>
+              <Text style={[styles.emptySubtext, { color: colors.muted }]}>
+                {t('search.emptySubtitle')}
               </Text>
             </View>
           ) : null
@@ -411,6 +422,7 @@ export default function SearchScreen() {
         selected={getPickerValue()}
         onSelect={(value) => updateFilter(pickerModal.type, value)}
         onClose={() => setPickerModal({ ...pickerModal, visible: false })}
+        colors={colors}
       />
     </View>
   );

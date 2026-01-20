@@ -22,6 +22,8 @@ import { useCollectionBooks, useCollection } from '../hooks/useDatabase';
 import { removeBookFromCollection } from '../services/database';
 import { getCoverUri } from '../utils/covers';
 import { AppEvents, eventEmitter } from '../services/events';
+import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import type { BookWithAuthors, RootStackParamList } from '../types';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -31,42 +33,46 @@ function BookItem({
   book,
   onPress,
   onLongPress,
+  colors,
+  t,
 }: {
   book: BookWithAuthors;
   onPress: () => void;
   onLongPress?: () => void;
+  colors: ReturnType<typeof useTheme>['colors'];
+  t: (key: string) => string;
 }) {
-  const authorsText = book.authors.map((a) => a.name).join(', ') || 'Автор неизвестен';
+  const authorsText = book.authors.map((a) => a.name).join(', ') || t('library.unknownAuthor');
   const coverUri = getCoverUri(book.coverPath);
 
   return (
     <TouchableOpacity
-      style={styles.bookItem}
+      style={[styles.bookItem, { backgroundColor: colors.surface }]}
       onPress={onPress}
       onLongPress={onLongPress}
       delayLongPress={500}
     >
       {coverUri ? (
-        <Image source={{ uri: coverUri }} style={styles.bookCover} />
+        <Image source={{ uri: coverUri }} style={[styles.bookCover, { backgroundColor: colors.mutedSurface }]} />
       ) : (
-        <View style={styles.bookCoverPlaceholder}>
+        <View style={[styles.bookCoverPlaceholder, { backgroundColor: colors.mutedSurface }]}>
           <Text style={styles.bookCoverPlaceholderText}>📚</Text>
         </View>
       )}
       <View style={styles.bookInfo}>
-        <Text style={styles.bookTitle} numberOfLines={2}>
+        <Text style={[styles.bookTitle, { color: colors.text }]} numberOfLines={2}>
           {book.title}
         </Text>
-        <Text style={styles.bookAuthors} numberOfLines={1}>
+        <Text style={[styles.bookAuthors, { color: colors.muted }]} numberOfLines={1}>
           {authorsText}
         </Text>
         {book.year && (
-          <Text style={styles.bookYear}>{book.year}</Text>
+          <Text style={[styles.bookYear, { color: colors.muted }]}>{book.year}</Text>
         )}
       </View>
       {book.rating && (
-        <View style={styles.ratingBadge}>
-          <Text style={styles.ratingText}>★ {book.rating}</Text>
+        <View style={[styles.ratingBadge, { backgroundColor: colors.accentGlow }]}>
+          <Text style={[styles.ratingText, { color: colors.accent }]}>★ {book.rating}</Text>
         </View>
       )}
     </TouchableOpacity>
@@ -77,6 +83,8 @@ export default function CollectionDetailsScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<CollectionDetailsRouteProp>();
   const { collectionId } = route.params;
+  const { colors } = useTheme();
+  const { t } = useLanguage();
 
   const { collection } = useCollection(collectionId);
   const { books, loading, error, refresh } = useCollectionBooks(collectionId);
@@ -87,41 +95,41 @@ export default function CollectionDetailsScreen() {
     if (!isStaticCollection) return;
 
     Alert.alert(
-      'Удалить из коллекции?',
-      `Убрать "${book.title}" из коллекции "${collection?.name}"?`,
+      t('collections.removeFromCollection'),
+      t('collections.removeFromCollectionMessage', { book: book.title, collection: collection?.name }),
       [
-        { text: 'Отмена', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Удалить',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
               await removeBookFromCollection(collectionId, book.id);
               eventEmitter.emit(AppEvents.DATA_CHANGED);
             } catch (e) {
-              Alert.alert('Ошибка', 'Не удалось удалить книгу из коллекции');
+              Alert.alert(t('common.error'), t('collections.removeFromCollectionFailed'));
             }
           },
         },
       ]
     );
-  }, [collectionId, collection?.name, isStaticCollection]);
+  }, [collectionId, collection?.name, isStaticCollection, t]);
 
   if (loading && books.length === 0) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>Загрузка...</Text>
+      <View style={[styles.centered, { backgroundColor: colors.bg }]}>
+        <ActivityIndicator size="large" color={colors.accent} />
+        <Text style={[styles.loadingText, { color: colors.muted }]}>{t('common.loading')}</Text>
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.centered}>
-        <Text style={styles.errorText}>Ошибка: {error.message}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={refresh}>
-          <Text style={styles.retryText}>Повторить</Text>
+      <View style={[styles.centered, { backgroundColor: colors.bg }]}>
+        <Text style={[styles.errorText, { color: colors.danger }]}>{t('common.error')}: {error.message}</Text>
+        <TouchableOpacity style={[styles.retryButton, { backgroundColor: colors.accent }]} onPress={refresh}>
+          <Text style={styles.retryText}>{t('common.retry')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -132,7 +140,7 @@ export default function CollectionDetailsScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.bg }]}>
       <FlatList
         data={books}
         keyExtractor={(item) => item.id}
@@ -141,18 +149,20 @@ export default function CollectionDetailsScreen() {
             book={item}
             onPress={() => handleBookPress(item.id)}
             onLongPress={isStaticCollection ? () => handleRemoveBook(item) : undefined}
+            colors={colors}
+            t={t}
           />
         )}
         contentContainerStyle={books.length === 0 ? styles.emptyList : styles.list}
         refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={refresh} />
+          <RefreshControl refreshing={loading} onRefresh={refresh} tintColor={colors.accent} />
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyIcon}>📚</Text>
-            <Text style={styles.emptyText}>Коллекция пуста</Text>
-            <Text style={styles.emptySubtext}>
-              В этой коллекции пока нет книг
+            <Text style={[styles.emptyText, { color: colors.text }]}>{t('collections.emptyCollection')}</Text>
+            <Text style={[styles.emptySubtext, { color: colors.muted }]}>
+              {t('collections.emptyCollectionSubtitle')}
             </Text>
           </View>
         }

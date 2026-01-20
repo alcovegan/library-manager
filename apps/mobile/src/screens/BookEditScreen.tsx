@@ -20,6 +20,9 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useBook } from '../hooks/useDatabase';
 import { updateBook } from '../services/database';
 import { AppEvents, eventEmitter } from '../services/events';
+import { useTheme } from '../contexts/ThemeContext';
+import { useOffline } from '../contexts/OfflineContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import type { RootStackParamList } from '../types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'EditBook'>;
@@ -31,6 +34,7 @@ function FormField({
   placeholder,
   multiline,
   keyboardType,
+  colors,
 }: {
   label: string;
   value: string;
@@ -38,16 +42,17 @@ function FormField({
   placeholder?: string;
   multiline?: boolean;
   keyboardType?: 'default' | 'numeric' | 'decimal-pad';
+  colors: ReturnType<typeof useTheme>['colors'];
 }) {
   return (
     <View style={styles.fieldContainer}>
-      <Text style={styles.fieldLabel}>{label}</Text>
+      <Text style={[styles.fieldLabel, { color: colors.muted }]}>{label}</Text>
       <TextInput
-        style={[styles.fieldInput, multiline && styles.fieldInputMultiline]}
+        style={[styles.fieldInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }, multiline && styles.fieldInputMultiline]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor="#999"
+        placeholderTextColor={colors.muted}
         multiline={multiline}
         keyboardType={keyboardType}
       />
@@ -58,13 +63,17 @@ function FormField({
 function RatingSelector({
   value,
   onChange,
+  colors,
+  t,
 }: {
   value: number | null;
   onChange: (rating: number | null) => void;
+  colors: ReturnType<typeof useTheme>['colors'];
+  t: (key: string) => string;
 }) {
   return (
     <View style={styles.fieldContainer}>
-      <Text style={styles.fieldLabel}>Рейтинг</Text>
+      <Text style={[styles.fieldLabel, { color: colors.muted }]}>{t('bookDetails.rating')}</Text>
       <View style={styles.ratingContainer}>
         {[1, 2, 3, 4, 5].map((star) => (
           <TouchableOpacity
@@ -72,14 +81,14 @@ function RatingSelector({
             onPress={() => onChange(value === star ? null : star)}
             style={styles.starButton}
           >
-            <Text style={[styles.starText, value !== null && value >= star && styles.starActive]}>
+            <Text style={[styles.starText, { color: colors.border }, value !== null && value >= star && { color: colors.accent }]}>
               {value !== null && value >= star ? '★' : '☆'}
             </Text>
           </TouchableOpacity>
         ))}
         {value && (
           <TouchableOpacity onPress={() => onChange(null)} style={styles.clearRating}>
-            <Text style={styles.clearRatingText}>Сбросить</Text>
+            <Text style={[styles.clearRatingText, { color: colors.accent }]}>{t('bookDetails.resetRating')}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -90,6 +99,20 @@ function RatingSelector({
 export default function BookEditScreen({ route, navigation }: Props) {
   const { bookId } = route.params;
   const { book, loading, error } = useBook(bookId);
+  const { colors } = useTheme();
+  const { isOffline } = useOffline();
+  const { t } = useLanguage();
+
+  // Redirect back if offline
+  useEffect(() => {
+    if (isOffline) {
+      Alert.alert(
+        t('offline.banner'),
+        t('offline.editingUnavailable'),
+        [{ text: t('common.ok'), onPress: () => navigation.goBack() }]
+      );
+    }
+  }, [isOffline, navigation, t]);
 
   // Form state
   const [title, setTitle] = useState('');
@@ -136,7 +159,7 @@ export default function BookEditScreen({ route, navigation }: Props) {
 
   const handleSave = useCallback(async () => {
     if (!title.trim()) {
-      Alert.alert('Ошибка', 'Название книги обязательно');
+      Alert.alert(t('common.error'), t('bookDetails.titleRequired'));
       return;
     }
 
@@ -145,8 +168,8 @@ export default function BookEditScreen({ route, navigation }: Props) {
       // Parse tags and genres back to JSON arrays
       const tagsArray = tags
         .split(',')
-        .map((t) => t.trim())
-        .filter((t) => t);
+        .map((tag) => tag.trim())
+        .filter((tag) => tag);
       const genresArray = genres
         .split(',')
         .map((g) => g.trim())
@@ -179,7 +202,7 @@ export default function BookEditScreen({ route, navigation }: Props) {
       navigation.goBack();
     } catch (e) {
       console.error('Failed to save book:', e);
-      Alert.alert('Ошибка', 'Не удалось сохранить изменения');
+      Alert.alert(t('common.error'), t('bookDetails.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -200,6 +223,7 @@ export default function BookEditScreen({ route, navigation }: Props) {
     tags,
     genres,
     navigation,
+    t,
   ]);
 
   // Set up header save button
@@ -210,134 +234,147 @@ export default function BookEditScreen({ route, navigation }: Props) {
           {saving ? (
             <ActivityIndicator size="small" color="#007AFF" />
           ) : (
-            <Text style={styles.headerButtonText}>Сохранить</Text>
+            <Text style={styles.headerButtonText}>{t('common.save')}</Text>
           )}
         </TouchableOpacity>
       ),
     });
-  }, [navigation, handleSave, saving]);
+  }, [navigation, handleSave, saving, t]);
 
   if (loading) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#007AFF" />
+      <View style={[styles.centered, { backgroundColor: colors.bg }]}>
+        <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
   }
 
   if (error || !book) {
     return (
-      <View style={styles.centered}>
-        <Text style={styles.errorText}>{error?.message || 'Книга не найдена'}</Text>
+      <View style={[styles.centered, { backgroundColor: colors.bg }]}>
+        <Text style={[styles.errorText, { color: colors.danger }]}>{error?.message || t('bookDetails.bookNotFound')}</Text>
       </View>
     );
   }
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: colors.bg }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
         <FormField
-          label="Название *"
+          label={t('bookDetails.titleLabel')}
           value={title}
           onChangeText={setTitle}
-          placeholder="Название книги"
+          placeholder={t('bookDetails.titlePlaceholder')}
+          colors={colors}
         />
 
         <FormField
-          label="Альтернативное название"
+          label={t('bookDetails.titleAltLabel')}
           value={titleAlt}
           onChangeText={setTitleAlt}
-          placeholder="Оригинальное название"
+          placeholder={t('bookDetails.titleAltPlaceholder')}
+          colors={colors}
         />
 
         <FormField
-          label="Авторы"
+          label={t('bookDetails.authorsLabel')}
           value={authors}
           onChangeText={setAuthors}
-          placeholder="Автор 1, Автор 2"
+          placeholder={t('bookDetails.authorsPlaceholder')}
+          colors={colors}
         />
 
         <View style={styles.row}>
           <View style={styles.halfField}>
             <FormField
-              label="Год"
+              label={t('bookDetails.year')}
               value={year}
               onChangeText={setYear}
-              placeholder="2024"
+              placeholder={t('bookDetails.yearPlaceholder')}
               keyboardType="numeric"
+              colors={colors}
             />
           </View>
           <View style={styles.halfField}>
             <FormField
-              label="Язык"
+              label={t('bookDetails.language')}
               value={language}
               onChangeText={setLanguage}
-              placeholder="ru"
+              placeholder={t('bookDetails.languagePlaceholder')}
+              colors={colors}
             />
           </View>
         </View>
 
-        <RatingSelector value={rating} onChange={setRating} />
+        <RatingSelector value={rating} onChange={setRating} colors={colors} t={t} />
 
         <FormField
-          label="Серия"
+          label={t('bookDetails.series')}
           value={series}
           onChangeText={setSeries}
-          placeholder="Название серии"
+          placeholder={t('bookDetails.seriesPlaceholder')}
+          colors={colors}
         />
 
         <FormField
-          label="Номер в серии"
+          label={t('bookDetails.seriesIndex')}
           value={seriesIndex}
           onChangeText={setSeriesIndex}
-          placeholder="1"
+          placeholder={t('bookDetails.seriesIndexPlaceholder')}
           keyboardType="numeric"
+          colors={colors}
         />
 
         <FormField
-          label="Издательство"
+          label={t('bookDetails.publisher')}
           value={publisher}
           onChangeText={setPublisher}
-          placeholder="Название издательства"
+          placeholder={t('bookDetails.publisherPlaceholder')}
+          colors={colors}
         />
 
         <FormField
-          label="ISBN"
+          label={t('bookDetails.isbn')}
           value={isbn}
           onChangeText={setIsbn}
-          placeholder="978-..."
+          placeholder={t('bookDetails.isbnPlaceholder')}
+          colors={colors}
         />
 
         <FormField
-          label="Формат"
+          label={t('bookDetails.format')}
           value={format}
           onChangeText={setFormat}
-          placeholder="epub, fb2, бумажная..."
+          placeholder={t('bookDetails.formatPlaceholder')}
+          colors={colors}
         />
 
         <FormField
-          label="Жанры"
+          label={t('bookDetails.genres')}
           value={genres}
           onChangeText={setGenres}
-          placeholder="Фантастика, Детектив"
+          placeholder={t('bookDetails.genresPlaceholder')}
+          colors={colors}
         />
 
         <FormField
-          label="Теги"
+          label={t('bookDetails.tags')}
           value={tags}
           onChangeText={setTags}
-          placeholder="тег1, тег2"
+          placeholder={t('bookDetails.tagsPlaceholder')}
+          colors={colors}
         />
 
         <FormField
-          label="Заметки"
+          label={t('bookDetails.notes')}
           value={notes}
           onChangeText={setNotes}
-          placeholder="Ваши заметки о книге..."
+          placeholder={t('bookDetails.notesPlaceholder')}
           multiline
+          colors={colors}
         />
 
         <View style={styles.bottomPadding} />

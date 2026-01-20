@@ -16,6 +16,8 @@ import BookEditScreen from '../screens/BookEditScreen';
 import CollectionsScreen from '../screens/CollectionsScreen';
 import CollectionDetailsScreen from '../screens/CollectionDetailsScreen';
 import SyncSettingsScreen from '../screens/SyncSettingsScreen';
+import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import type { RootStackParamList, MainTabParamList } from '../types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -37,45 +39,64 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
 }
 
 function MainTabs() {
+  const { colors } = useTheme();
+  const { t } = useLanguage();
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused }) => (
           <TabIcon name={route.name} focused={focused} />
         ),
-        tabBarActiveTintColor: '#007AFF',
-        tabBarInactiveTintColor: 'gray',
+        tabBarActiveTintColor: colors.accent,
+        tabBarInactiveTintColor: colors.muted,
+        tabBarStyle: {
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
+        },
+        headerStyle: {
+          backgroundColor: colors.surface,
+        },
+        headerTintColor: colors.text,
         headerShown: true,
       })}
     >
       <Tab.Screen
         name="Library"
         component={LibraryScreen}
-        options={{ title: 'Библиотека' }}
+        options={{ title: t('tabs.library') }}
       />
       <Tab.Screen
         name="Search"
         component={SearchScreen}
-        options={{ title: 'Поиск' }}
+        options={{ title: t('tabs.search') }}
       />
       <Tab.Screen
         name="Collections"
         component={CollectionsScreen}
-        options={{ title: 'Коллекции' }}
+        options={{ title: t('tabs.collections') }}
       />
       <Tab.Screen
         name="Settings"
         component={SettingsScreen}
-        options={{ title: 'Настройки' }}
+        options={{ title: t('tabs.settings') }}
       />
     </Tab.Navigator>
   );
 }
 
 export default function Navigation() {
+  const { colors } = useTheme();
+  const { t } = useLanguage();
+
   return (
     <NavigationContainer>
-      <Stack.Navigator>
+      <Stack.Navigator
+        screenOptions={{
+          headerStyle: { backgroundColor: colors.surface },
+          headerTintColor: colors.text,
+        }}
+      >
         <Stack.Screen
           name="Main"
           component={MainTabs}
@@ -84,22 +105,22 @@ export default function Navigation() {
         <Stack.Screen
           name="BookDetails"
           component={BookDetailsScreen}
-          options={{ title: 'Книга' }}
+          options={{ title: t('screens.book') }}
         />
         <Stack.Screen
           name="CollectionDetails"
           component={CollectionDetailsScreen}
-          options={{ title: 'Коллекция' }}
+          options={{ title: t('screens.collection') }}
         />
         <Stack.Screen
           name="SyncSettings"
           component={SyncSettingsScreen}
-          options={{ title: 'Синхронизация' }}
+          options={{ title: t('screens.sync') }}
         />
         <Stack.Screen
           name="EditBook"
           component={BookEditScreen}
-          options={{ title: 'Редактирование' }}
+          options={{ title: t('screens.editBook') }}
         />
       </Stack.Navigator>
     </NavigationContainer>
