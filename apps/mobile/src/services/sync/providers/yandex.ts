@@ -6,11 +6,14 @@
  * OAuth: https://oauth.yandex.ru/
  */
 
-import { File } from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as WebBrowser from 'expo-web-browser';
-import * as Linking from 'expo-linking';
+import * as AuthSession from 'expo-auth-session';
 import * as SecureStore from 'expo-secure-store';
 import * as Crypto from 'expo-crypto';
+
+// Needed for expo-web-browser
+WebBrowser.maybeCompleteAuthSession();
 
 import {
   BaseCloudProvider,
@@ -142,7 +145,7 @@ export class YandexDiskProvider extends BaseCloudProvider {
   getAuthUrl(): string {
     // This is a sync version that returns a placeholder
     // The actual URL with PKCE is generated in authorizeWithBrowser
-    const redirectUri = Linking.createURL('auth/yandex');
+    const redirectUri = AuthSession.makeRedirectUri({ path: 'auth/yandex' });
     console.log('[Yandex] OAuth redirect URI:', redirectUri);
     return `${YANDEX_OAUTH}/authorize?client_id=${this.clientId}&redirect_uri=${encodeURIComponent(redirectUri)}`;
   }
@@ -217,7 +220,7 @@ export class YandexDiskProvider extends BaseCloudProvider {
    * Start OAuth flow with WebBrowser using PKCE
    */
   async authorizeWithBrowser(): Promise<AuthResult> {
-    const redirectUri = Linking.createURL('auth/yandex');
+    const redirectUri = AuthSession.makeRedirectUri({ path: 'auth/yandex' });
     console.log('[Yandex] Starting OAuth with redirect URI:', redirectUri);
 
     // Generate PKCE challenge
@@ -382,8 +385,9 @@ export class YandexDiskProvider extends BaseCloudProvider {
     const { href: uploadUrl } = await uploadUrlResponse.json();
 
     // Read file and upload
-    const file = new File(localPath);
-    const fileContent = await file.base64();
+    const fileContent = await FileSystem.readAsStringAsync(localPath, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
 
     const uploadResponse = await fetch(uploadUrl, {
       method: 'PUT',
@@ -439,8 +443,9 @@ export class YandexDiskProvider extends BaseCloudProvider {
 
     const arrayBuffer = await response.arrayBuffer();
     const base64 = this.arrayBufferToBase64(arrayBuffer);
-    const file = new File(localPath);
-    await file.write(base64, { encoding: 'base64' });
+    await FileSystem.writeAsStringAsync(localPath, base64, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
 
     this.log('info', `Download successful: ${remotePath}`);
   }

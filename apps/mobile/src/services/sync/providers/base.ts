@@ -3,7 +3,7 @@
  * Abstract class for cloud storage providers (Yandex Disk, Google Drive, Dropbox)
  */
 
-import { Paths, File } from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 
 // Types from @library-manager/shared
 // Re-exported here for convenience
@@ -172,23 +172,32 @@ export abstract class BaseCloudProvider implements CloudStorageProvider {
 
   // ==================== JSON Helpers ====================
 
+  private getCacheDir(): string {
+    return FileSystem.cacheDirectory || FileSystem.documentDirectory || '';
+  }
+
   async uploadJson(remotePath: string, data: unknown): Promise<void> {
-    const tempFile = new File(Paths.cache, `upload_${Date.now()}.json`);
+    const tempPath = `${this.getCacheDir()}upload_${Date.now()}.json`;
     try {
-      await tempFile.write(JSON.stringify(data, null, 2));
-      await this.uploadFile(tempFile.uri, remotePath);
+      await FileSystem.writeAsStringAsync(tempPath, JSON.stringify(data, null, 2));
+      await this.uploadFile(tempPath, remotePath);
     } finally {
-      if (tempFile.exists) {
-        await tempFile.delete();
+      try {
+        const info = await FileSystem.getInfoAsync(tempPath);
+        if (info.exists) {
+          await FileSystem.deleteAsync(tempPath, { idempotent: true });
+        }
+      } catch {
+        // Ignore cleanup errors
       }
     }
   }
 
   async downloadJson<T>(remotePath: string): Promise<T | null> {
-    const tempFile = new File(Paths.cache, `download_${Date.now()}.json`);
+    const tempPath = `${this.getCacheDir()}download_${Date.now()}.json`;
     try {
-      await this.downloadFile(remotePath, tempFile.uri);
-      const content = await tempFile.text();
+      await this.downloadFile(remotePath, tempPath);
+      const content = await FileSystem.readAsStringAsync(tempPath);
       return JSON.parse(content) as T;
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -197,8 +206,13 @@ export abstract class BaseCloudProvider implements CloudStorageProvider {
       }
       throw error;
     } finally {
-      if (tempFile.exists) {
-        await tempFile.delete();
+      try {
+        const info = await FileSystem.getInfoAsync(tempPath);
+        if (info.exists) {
+          await FileSystem.deleteAsync(tempPath, { idempotent: true });
+        }
+      } catch {
+        // Ignore cleanup errors
       }
     }
   }

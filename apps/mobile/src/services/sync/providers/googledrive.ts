@@ -6,9 +6,9 @@
  * OAuth: https://developers.google.com/identity/protocols/oauth2
  */
 
-import { File } from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as WebBrowser from 'expo-web-browser';
-import * as Linking from 'expo-linking';
+import * as AuthSession from 'expo-auth-session';
 import * as SecureStore from 'expo-secure-store';
 import * as Crypto from 'expo-crypto';
 
@@ -142,7 +142,7 @@ export class GoogleDriveProvider extends BaseCloudProvider {
     }
 
     try {
-      const redirectUri = Linking.createURL('auth/google');
+      const redirectUri = AuthSession.makeRedirectUri({ path: 'auth/google' });
 
       const body = new URLSearchParams({
         client_id: this.clientId,
@@ -197,7 +197,7 @@ export class GoogleDriveProvider extends BaseCloudProvider {
 
   async authorizeWithBrowser(): Promise<AuthResult> {
     const { codeChallenge } = await this.generatePKCE();
-    const redirectUri = Linking.createURL('auth/google');
+    const redirectUri = AuthSession.makeRedirectUri({ path: 'auth/google' });
 
     const params = new URLSearchParams({
       client_id: this.clientId,
@@ -358,8 +358,9 @@ export class GoogleDriveProvider extends BaseCloudProvider {
     const existing = await this.findFile(fileName);
 
     // Read file as base64
-    const file = new File(localPath);
-    const fileContent = await file.base64();
+    const fileContent = await FileSystem.readAsStringAsync(localPath, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
 
     const mimeType = this.getContentType(localPath);
 
@@ -419,8 +420,9 @@ export class GoogleDriveProvider extends BaseCloudProvider {
 
     const arrayBuffer = await response.arrayBuffer();
     const base64 = this.arrayBufferToBase64(arrayBuffer);
-    const localFile = new File(localPath);
-    await localFile.write(base64, { encoding: 'base64' });
+    await FileSystem.writeAsStringAsync(localPath, base64, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
 
     this.log('info', `Download successful: ${fileName}`);
   }
