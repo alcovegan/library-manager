@@ -21,6 +21,10 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alcovegan/library-manager.git"
+  },
   "type": "commonjs",
   "engines": {
     "node": ">=20.0.0"
