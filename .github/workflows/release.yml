@@ -31,10 +31,6 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Rebuild native modules for Electron
-        working-directory: apps/desktop
-        run: npx electron-rebuild
-
       - name: Run unit tests
         run: npm run test:unit
         env:
