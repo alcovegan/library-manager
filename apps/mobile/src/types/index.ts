@@ -30,6 +30,8 @@ export interface Book {
   originalAuthorsEn: string | null;
   goodreadsFetchedAt: string | null;
   currentReadingSessionId: string | null;
+  isPinned: number;
+  pinnedAt: string | null;
 }
 
 export interface Author {

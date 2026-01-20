@@ -210,15 +210,46 @@ async function attachAuthorsToBooks(database: SQLite.SQLiteDatabase, books: Book
 
 /**
  * Get all books with their authors
+ * Pinned books are returned first (sorted by pinnedAt DESC), then other books by updatedAt DESC
  */
 export async function getAllBooks(): Promise<BookWithAuthors[]> {
   const database = await getDatabase();
 
   const books = await database.getAllAsync<Book>(`
-    SELECT * FROM books WHERE deleted_at IS NULL ORDER BY updatedAt DESC
+    SELECT * FROM books WHERE deleted_at IS NULL
+    ORDER BY
+      CASE WHEN isPinned = 1 THEN 0 ELSE 1 END,
+      pinnedAt DESC,
+      updatedAt DESC
   `);
 
   return attachAuthorsToBooks(database, books);
+}
+
+/**
+ * Toggle pin status for a book
+ */
+export async function toggleBookPin(bookId: string): Promise<boolean> {
+  const database = await getDatabase();
+  const now = new Date().toISOString();
+
+  // Get current pin status
+  const book = await database.getFirstAsync<{ isPinned: number }>(
+    'SELECT isPinned FROM books WHERE id = ?',
+    [bookId]
+  );
+
+  if (!book) return false;
+
+  const newPinned = book.isPinned ? 0 : 1;
+  const pinnedAt = newPinned ? now : null;
+
+  await database.runAsync(
+    'UPDATE books SET isPinned = ?, pinnedAt = ?, updatedAt = ? WHERE id = ?',
+    [newPinned, pinnedAt, now, bookId]
+  );
+
+  return !!newPinned;
 }
 
 /**
@@ -672,6 +703,8 @@ export interface BookUpdateData {
   tags?: string | null;
   genres?: string | null;
   authors?: string[];
+  isPinned?: number;
+  pinnedAt?: string | null;
 }
 
 /**
@@ -739,6 +772,14 @@ export async function updateBook(
   if (updates.genres !== undefined) {
     bookFields.push('genres = ?');
     bookValues.push(updates.genres);
+  }
+  if (updates.isPinned !== undefined) {
+    bookFields.push('isPinned = ?');
+    bookValues.push(updates.isPinned);
+  }
+  if (updates.pinnedAt !== undefined) {
+    bookFields.push('pinnedAt = ?');
+    bookValues.push(updates.pinnedAt);
   }
 
   // Update book record
