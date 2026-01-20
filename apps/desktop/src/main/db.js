@@ -443,17 +443,9 @@ async function migrate(ctx) {
     console.log('[DB] Migration v17 completed');
   }
 
-  // v18: Cleanup soft-deleted collections (now using hard delete)
+  // v18: Reserved (was cleanup migration, now no-op to preserve sync tombstones)
   if (getSchemaVersion(ctx) === 17) {
-    console.log('[DB] Running migration v17 -> v18: Cleaning up soft-deleted collections');
-    // Delete collection_books entries for soft-deleted collections
-    ctx.db.exec(`
-      DELETE FROM collection_books WHERE collectionId IN (
-        SELECT id FROM collections WHERE deleted_at IS NOT NULL
-      );
-    `);
-    // Hard delete soft-deleted collections
-    ctx.db.exec(`DELETE FROM collections WHERE deleted_at IS NOT NULL;`);
+    console.log('[DB] Running migration v17 -> v18: No-op (preserving soft-deleted records for sync)');
     setSchemaVersion(ctx, 18);
     persist(ctx);
     console.log('[DB] Migration v18 completed');
@@ -1184,6 +1176,32 @@ function createCollection(ctx, { name, type = 'filter', filters = null, books = 
   if (!cleanName) throw new Error('collection name required');
   const normalizedType = type === 'static' ? 'static' : 'filter';
   const now = new Date().toISOString();
+
+  // Check if a soft-deleted collection with this name exists - resurrect it
+  const existingStmt = ctx.db.prepare('SELECT id FROM collections WHERE name = ? AND deleted_at IS NOT NULL');
+  existingStmt.bind([cleanName]);
+  let existingId = null;
+  if (existingStmt.step()) {
+    existingId = existingStmt.getAsObject().id;
+  }
+  existingStmt.free();
+
+  if (existingId) {
+    // Resurrect the soft-deleted collection
+    const resurrectStmt = ctx.db.prepare('UPDATE collections SET type = ?, filters = ?, updated_at = ?, deleted_at = NULL WHERE id = ?');
+    resurrectStmt.bind([normalizedType, encodeJson(filters), now, existingId]);
+    resurrectStmt.step();
+    resurrectStmt.free();
+
+    if (normalizedType === 'static' && Array.isArray(books) && books.length) {
+      setCollectionBooks(ctx, { collectionId: existingId, bookIds: books });
+    } else {
+      persist(ctx);
+    }
+    return getCollectionById(ctx, existingId);
+  }
+
+  // Create new collection
   const id = randomUUID();
   const stmt = ctx.db.prepare('INSERT INTO collections(id, name, type, filters, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)');
   stmt.bind([
@@ -1234,15 +1252,11 @@ function updateCollection(ctx, { id, name = null, type = null, filters = undefin
 }
 
 function deleteCollection(ctx, id) {
-  // Delete related collection_books entries first
-  const delBooks = ctx.db.prepare('DELETE FROM collection_books WHERE collectionId = ?');
-  delBooks.bind([id]);
-  delBooks.step();
-  delBooks.free();
+  const now = new Date().toISOString();
 
-  // Hard delete the collection
-  const stmt = ctx.db.prepare('DELETE FROM collections WHERE id = ?');
-  stmt.bind([id]);
+  // Soft delete the collection (keep for sync)
+  const stmt = ctx.db.prepare('UPDATE collections SET deleted_at = ?, updated_at = ? WHERE id = ?');
+  stmt.bind([now, now, id]);
   stmt.step();
   stmt.free();
 

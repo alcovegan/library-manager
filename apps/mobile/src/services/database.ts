@@ -582,6 +582,7 @@ export async function getCollectionsCount(): Promise<number> {
 
 /**
  * Create a new collection
+ * If a soft-deleted collection with the same name exists, resurrect it
  */
 export async function createCollection(
   name: string,
@@ -589,9 +590,25 @@ export async function createCollection(
   filters: string | null = null
 ): Promise<string> {
   const database = await getDatabase();
-  const id = generateId();
   const now = new Date().toISOString();
 
+  // Check if a soft-deleted collection with this name exists
+  const existing = await database.getFirstAsync<{ id: string }>(
+    'SELECT id FROM collections WHERE name = ? AND deleted_at IS NOT NULL',
+    [name]
+  );
+
+  if (existing) {
+    // Resurrect the soft-deleted collection
+    await database.runAsync(
+      'UPDATE collections SET type = ?, filters = ?, updated_at = ?, deleted_at = NULL WHERE id = ?',
+      [type, filters, now, existing.id]
+    );
+    return existing.id;
+  }
+
+  // Create new collection
+  const id = generateId();
   await database.runAsync(
     `INSERT INTO collections (id, name, type, filters, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?)`,
