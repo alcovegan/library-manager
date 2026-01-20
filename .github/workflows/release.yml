@@ -28,22 +28,12 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install dependencies (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          # Install build tools for native modules
-          npm install --global node-gyp @electron/rebuild
-          npm install --no-audit --no-fund
-          # Rebuild native modules for Electron
-          npx electron-rebuild
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
 
-      - name: Install dependencies (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          npm install --global node-gyp @electron/rebuild
-          npm install --no-audit --no-fund
-          # Rebuild native modules for Electron
-          npx electron-rebuild
+      - name: Rebuild native modules for Electron
+        working-directory: apps/desktop
+        run: npx electron-rebuild
 
       - name: Run unit tests
         run: npm run test:unit
@@ -53,11 +43,5 @@ jobs:
       - name: Build and Publish with electron-builder
         run: npm run publish
         env:
-          # Use your PAT stored as LIBRARYMANAGER; fallback to GITHUB_TOKEN
           GH_TOKEN: ${{ secrets.LIBRARYMANAGER }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Optional signing secrets (set only if you have them):
-          # APPLE_ID: ${{ secrets.APPLE_ID }}
-          # APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          # CSC_LINK: ${{ secrets.CSC_LINK }}
-          # CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}

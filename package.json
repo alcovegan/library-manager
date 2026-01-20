@@ -22,6 +22,7 @@
     "test": "npm run test:unit -w desktop",
     "test:unit": "npm run test:unit -w desktop",
     "test:e2e": "npm run test:e2e -w desktop",
+    "publish": "npm run publish -w desktop",
     "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules",
     "android": "expo run:android",
     "ios": "expo run:ios"
