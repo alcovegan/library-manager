@@ -16,7 +16,8 @@
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:debug": "playwright test --debug",
-    "postinstall": "electron-builder install-app-deps"
+    "patch-name": "node scripts/patch-electron-name.js",
+    "postinstall": "node scripts/patch-electron-name.js && electron-builder install-app-deps"
   },
   "keywords": [],
   "author": "",
@@ -55,6 +56,12 @@
       "src/**/*",
       "assets/**/*",
       "!**/*.map"
+    ],
+    "extraResources": [
+      {
+        "from": "node_modules/sql.js/dist/sql-wasm.wasm",
+        "to": "sql-wasm.wasm"
+      }
     ],
     "mac": {
       "icon": "assets/icons/icon.icns",

@@ -28,6 +28,14 @@ export function compareTimestamps(a: string | null, b: string | null): number {
 }
 
 /**
+ * Get the updatedAt timestamp from an entity, handling both camelCase and snake_case
+ */
+function getUpdatedAt(entity: SyncEntity | Record<string, unknown>): string | undefined {
+  return (entity as Record<string, unknown>).updatedAt as string | undefined
+    || (entity as Record<string, unknown>).updated_at as string | undefined;
+}
+
+/**
  * Merge a single entity using Last-Write-Wins strategy
  *
  * Rules:
@@ -61,8 +69,9 @@ export function mergeEntity<T extends SyncEntity>(
   }
 
   // Both exist - compare timestamps (LWW)
-  const localTime = new Date(local!.updatedAt).getTime();
-  const remoteTime = new Date(remote!.updatedAt).getTime();
+  // Handle both updatedAt (camelCase) and updated_at (snake_case)
+  const localTime = new Date(getUpdatedAt(local!) || 0).getTime();
+  const remoteTime = new Date(getUpdatedAt(remote!) || 0).getTime();
 
   if (remoteTime > localTime) {
     // Remote is newer

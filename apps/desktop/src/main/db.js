@@ -12,8 +12,13 @@ let _writeScheduled = false;
 async function openDb(userDataPath) {
   const SQL = await initSqlJs({
     locateFile: (file) => {
-      // Use module path in dev; packagers can adjust this as needed
-      // In monorepo, node_modules is at the root level
+      // In packaged app, wasm is in extraResources; in dev, use node_modules
+      const isPacked = __dirname.includes('app.asar');
+      if (isPacked) {
+        // Packaged: Resources/sql-wasm.wasm (extraResources)
+        return path.join(process.resourcesPath, file);
+      }
+      // Development: node_modules in monorepo root
       return path.join(__dirname, '../../../../node_modules/sql.js/dist', file);
     },
   });

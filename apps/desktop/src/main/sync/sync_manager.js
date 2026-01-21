@@ -637,7 +637,10 @@ class SyncManager {
 
       // Read database to get used cover paths using sql.js (WASM), avoiding native sqlite3
       const initSqlJs = require('sql.js');
-      const wasmPath = require.resolve('sql.js/dist/sql-wasm.wasm');
+      const isPacked = __dirname.includes('app.asar');
+      const wasmPath = isPacked
+        ? path.join(process.resourcesPath, 'sql-wasm.wasm')
+        : require.resolve('sql.js/dist/sql-wasm.wasm');
       const SQL = await initSqlJs({ locateFile: () => wasmPath });
       const usedCovers = new Set();
 

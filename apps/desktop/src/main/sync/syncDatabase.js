@@ -352,10 +352,12 @@ function applyMerge(db, table, merge, columns) {
   }
 
   // Soft delete records
+  // Determine the correct column name for updated timestamp (some tables use snake_case)
+  const updatedAtCol = columns.includes('updated_at') ? 'updated_at' : 'updatedAt';
   for (const entity of merge.toDelete) {
     const deletedAt = entity.deleted_at;
     const updatedAt = entity.updatedAt || entity.updated_at;
-    const stmt = db.prepare(`UPDATE ${table} SET deleted_at = ?, updatedAt = ? WHERE id = ?`);
+    const stmt = db.prepare(`UPDATE ${table} SET deleted_at = ?, ${updatedAtCol} = ? WHERE id = ?`);
     stmt.run([deletedAt, updatedAt, entity.id]);
     stmt.free();
   }

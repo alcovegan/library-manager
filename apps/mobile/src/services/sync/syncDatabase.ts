@@ -292,10 +292,13 @@ async function applyMerge<T extends { id: string }>(
   }
 
   // Soft delete records
+  // Determine the correct column name for updated timestamp (some tables use snake_case)
+  const updatedAtCol = columns.includes('updated_at') ? 'updated_at' : 'updatedAt';
   for (const entity of merge.toDelete) {
     const deletedAt = (entity as Record<string, unknown>).deleted_at as string;
-    const updatedAt = (entity as Record<string, unknown>).updatedAt as string;
-    await database.runAsync(`UPDATE ${table} SET deleted_at = ?, updatedAt = ? WHERE id = ?`, [
+    const updatedAt = (entity as Record<string, unknown>).updatedAt as string
+      || (entity as Record<string, unknown>).updated_at as string;
+    await database.runAsync(`UPDATE ${table} SET deleted_at = ?, ${updatedAtCol} = ? WHERE id = ?`, [
       deletedAt,
       updatedAt,
       entity.id,
