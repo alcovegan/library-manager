@@ -42,3 +42,6 @@ docs/redesign/
 docs/mobile/
 ios/
 android/
+
+# Icon backups
+icon-backup-*/
