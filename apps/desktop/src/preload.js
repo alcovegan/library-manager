@@ -1,5 +1,23 @@
 const { contextBridge, ipcRenderer } = require('electron');
-const { pathToFileURL } = require('url');
+
+// Sandboxed preload can only require('electron'); `url` was dropped in Electron 39+,
+// so build file:// URLs by hand (same encoding as url.pathToFileURL).
+function pathToFileUrl(filePath) {
+  const str = String(filePath);
+  if (str.startsWith('file://')) return str;
+  let normalized = str.replace(/\\/g, '/');
+  if (normalized.startsWith('//')) {
+    // UNC path: //server/share/...
+    return `file:${normalized.split('/').map((seg, i) => (i < 3 ? seg : encodeURIComponent(seg))).join('/')}`;
+  }
+  if (/^[a-zA-Z]:\//.test(normalized)) normalized = `/${normalized}`;
+  else if (!normalized.startsWith('/')) normalized = `/${normalized}`;
+  const encoded = normalized
+    .split('/')
+    .map((seg, i) => (i === 1 && /^[a-zA-Z]:$/.test(seg) ? seg : encodeURIComponent(seg)))
+    .join('/');
+  return `file://${encoded}`;
+}
 
 // Palettes - try to load from shared, fallback to null
 let PALETTES = null;
@@ -77,25 +95,9 @@ contextBridge.exposeInMainWorld('api', {
   reloadIgnoringCache: () => ipcRenderer.invoke('app:reload-ignore-cache'),
   toFileUrl: (filePath) => {
     try {
-      if (!filePath) return '';
-      return pathToFileURL(filePath).href;
-    } catch (err) {
-      try {
-        const str = String(filePath);
-        if (str.startsWith('file://')) return str;
-        if (/^\\\\/.test(str)) {
-          const normalizedUnc = str.replace(/\\/g, '/');
-          return encodeURI(`file:${normalizedUnc}`);
-        }
-        const normalized = str.replace(/\\/g, '/');
-        if (/^[a-zA-Z]:\//.test(normalized)) {
-          return encodeURI(`file:///${normalized}`);
-        }
-        const prefixed = normalized.startsWith('/') ? normalized : `/${normalized}`;
-        return encodeURI(`file://${prefixed}`);
-      } catch {
-        return '';
-      }
+      return filePath ? pathToFileUrl(filePath) : '';
+    } catch {
+      return '';
     }
   },
   // Updates
