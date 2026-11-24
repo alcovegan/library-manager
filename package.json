@@ -25,7 +25,10 @@
     "publish": "npm run publish -w desktop",
     "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules",
     "android": "expo run:android",
-    "ios": "expo run:ios"
+    "ios": "expo run:ios",
+    "docs": "npm run dev -w docs",
+    "docs:build": "npm run build -w docs",
+    "docs:screenshots": "npm run screenshots -w docs"
   },
   "engines": {
     "node": ">=22.12.0"

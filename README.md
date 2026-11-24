@@ -96,6 +96,16 @@ Reading session history is preserved for each book.
 - **Theme**: Light and dark mode
 - **Auto-sync**: Enable automatic cloud synchronization
 
+## Documentation
+
+User documentation (in Russian, with screenshots) lives in `apps/docs` (Astro Starlight):
+
+```bash
+npm run docs              # dev server: http://localhost:23170
+npm run docs:build        # static site in apps/docs/dist
+npm run docs:screenshots  # regenerate desktop screenshots on demo data
+```
+
 ## Installation
 
 ### From Release

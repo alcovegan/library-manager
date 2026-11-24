@@ -1,0 +1,54 @@
+---
+title: Library Manager
+description: Учёт домашней библиотеки — desktop-приложение для macOS и Windows и мобильное приложение для iOS с общей синхронизацией.
+template: splash
+hero:
+  tagline: Каталог домашней библиотеки — с обложками, полками, статусами чтения, коллекциями и синхронизацией между компьютером и телефоном.
+  image:
+    file: ../../assets/screenshots/desktop/main.png
+  actions:
+    - text: Установить
+      link: /start/install/
+      icon: right-arrow
+    - text: Обзор интерфейса
+      link: /start/overview/
+      variant: minimal
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+## Что умеет
+
+<CardGrid stagger>
+	<Card title="Каталог книг" icon="open-book">
+		Название, авторы, серия, издательство, ISBN, формат, жанры, теги, рейтинг и заметки. Обложки
+		подгружаются из файла, по ссылке или поиском в интернете.
+	</Card>
+	<Card title="Автозаполнение по ISBN и AI" icon="rocket">
+		Метаданные по ISBN из Open Library или ISBNdb. AI (OpenAI или Perplexity) подсказывает ISBN
+		по названию и находит рейтинг на Goodreads.
+	</Card>
+	<Card title="Мощный поиск" icon="magnifier">
+		Операторы AND / OR / NOT, поля `author:`, `series:`, `year:>=2000`, фильтры по формату и
+		статусу, сохранённые поиски.
+	</Card>
+	<Card title="Полки и выдача" icon="list-format">
+		Места хранения с кодами полок, история перемещений, учёт того, кому отдана книга.
+	</Card>
+	<Card title="Чтение и статистика" icon="approve-check">
+		Статусы «Хочу прочитать», «Читаю», «Прочитано» и другие, даты и история прочтений, статистика
+		по годам.
+	</Card>
+	<Card title="Синхронизация" icon="laptop">
+		Яндекс Диск, Google Drive, Dropbox или S3. Слияние изменений между компьютером и телефоном.
+	</Card>
+</CardGrid>
+
+## С чего начать
+
+<CardGrid>
+	<LinkCard title="Установка" href="/start/install/" description="Скачать, установить, первый запуск." />
+	<LinkCard title="Обзор интерфейса" href="/start/overview/" description="Что за кнопки в шапке и где что лежит." />
+	<LinkCard title="Мобильное приложение" href="/mobile/overview/" description="Что умеет iOS-приложение и как оно связано с desktop." />
+	<LinkCard title="Известные ограничения" href="/reference/limitations/" description="Что пока работает не так, как кажется." />
+</CardGrid>

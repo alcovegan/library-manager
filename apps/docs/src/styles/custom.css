@@ -1,0 +1,11 @@
+/* Accent colours follow the app's default "Warm Oak" palette */
+:root {
+	--sl-color-accent-low: #3d2f14;
+	--sl-color-accent: #b8860b;
+	--sl-color-accent-high: #f2dfb0;
+}
+:root[data-theme='light'] {
+	--sl-color-accent-low: #f5e9cc;
+	--sl-color-accent: #9a6f08;
+	--sl-color-accent-high: #4a360a;
+}
