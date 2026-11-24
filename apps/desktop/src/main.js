@@ -44,11 +44,18 @@ const fs = require('fs');
 if (app && typeof app.setName === 'function') {
   app.setName('Library Manager');
 }
+if (app && typeof app.setPath === 'function') {
+  require('./main/userDataDir').applyUserDataOverride(app);
+}
+// Hidden window, no Dock icon, no notifications — for e2e runs and docs screenshots
+const HEADLESS = process.env.LIBRARY_MANAGER_HEADLESS === '1';
 process.title = 'Library Manager';
-// Load keys from .env (monorepo root)
-try {
-  require('dotenv').config({ path: path.resolve(__dirname, '../../..', '.env') });
-} catch {}
+// Load keys from .env (monorepo root); skipped for e2e/screenshots so no real keys leak into the UI
+if (process.env.LIBRARY_MANAGER_NO_DOTENV !== '1') {
+  try {
+    require('dotenv').config({ path: path.resolve(__dirname, '../../..', '.env') });
+  } catch {}
+}
 const dbLayer = require('./main/db');
 const settings = require('./main/settings');
 const isbnProvider = require('./main/providers/isbn');
@@ -262,6 +269,7 @@ function uniqId() {
 }
 
 function showNotification(title, body) {
+  if (HEADLESS) return;
   if (Notification.isSupported()) {
     new Notification({
       title,
@@ -477,10 +485,12 @@ function createWindow() {
     height: 700,
     title: 'Library Manager',
     icon: windowIcon,
+    show: !HEADLESS,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      backgroundThrottling: !HEADLESS,
     },
   });
 
@@ -497,6 +507,7 @@ function createWindow() {
 }
 
 if (app && typeof app.whenReady === 'function') app.whenReady().then(async () => {
+  if (HEADLESS && app.dock) app.dock.hide();
   // Set app name for dock and Alt+Tab display (multiple attempts for development mode)
   app.setName('Library Manager');
 
