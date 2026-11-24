@@ -340,7 +340,10 @@
     "hotkeyNewBook": "New book",
     "hotkeySave": "Save form",
     "hotkeyDelete": "Delete selected book",
-    "hotkeysNote": "💡 Hotkeys don't work while typing in fields"
+    "hotkeysNote": "💡 Hotkeys don't work while typing in fields",
+    "appearance": "Appearance",
+    "colorPalette": "Color palette",
+    "themeMode": "Theme"
   },
   "csvImport": {
     "title": "Import books from CSV / TSV",
@@ -443,4 +446,3 @@
     "finished": "Finished"
   }
 }
-
