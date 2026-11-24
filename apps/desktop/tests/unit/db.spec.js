@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createTestContext, dbLayer } from '../helpers/db.js';
 
 let ctx;
@@ -12,8 +12,20 @@ describe('db layer — книги и словари', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     if (cleanup) cleanup();
   });
+
+  // Создание и правка в одну миллисекунду дают равные updatedAt — для проверок
+  // «updatedAt вырос» фиксируем часы и явно сдвигаем их между шагами.
+  function freezeClock() {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+  }
+
+  function tickClock() {
+    vi.setSystemTime(new Date(Date.now() + 1000));
+  }
 
   function createSampleBook(overrides = {}) {
     const base = {
@@ -44,9 +56,11 @@ describe('db layer — книги и словари', () => {
   });
 
   it('обновляет авторов и массивы', () => {
+    freezeClock();
     const created = createSampleBook({ tags: ['тег-старый'], genres: ['жанр-старый'] });
     const originalUpdatedAt = dbLayer.getBookById(ctx, created.id).updatedAt;
 
+    tickClock();
     const updated = dbLayer.updateBook(ctx, {
       id: created.id,
       title: created.title,
@@ -70,9 +84,11 @@ describe('db layer — книги и словари', () => {
   });
 
   it('переименовывает словарь авторов и обновляет книги', () => {
+    freezeClock();
     const created = createSampleBook();
     const before = dbLayer.getBookById(ctx, created.id);
 
+    tickClock();
     const result = dbLayer.renameVocabularyValue(ctx, 'authors', 'Автор Один', 'Автор Два');
     expect(result.affected).toBe(1);
 
