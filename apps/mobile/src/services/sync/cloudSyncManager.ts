@@ -17,7 +17,7 @@ import {
 } from './providers/base';
 import { cloudProviderFactory } from './providerFactory';
 import { exportDatabaseToPayload, importPayloadWithMerge } from './syncDatabase';
-import type { SyncPayload, MergeSummary } from '../../../../packages/shared/src/sync/syncPayload';
+import type { SyncPayload, MergeSummary } from '../../../../../packages/shared/src/sync/syncPayload';
 
 // Sync paths in cloud storage
 export const SYNC_PATHS = {
@@ -58,6 +58,7 @@ export interface SyncResult {
   success?: boolean;
   successful?: number;
   failed?: number;
+  syncedAt?: string;
 }
 
 export interface FullSyncResult {

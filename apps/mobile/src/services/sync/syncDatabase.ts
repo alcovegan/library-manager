@@ -273,7 +273,7 @@ async function applyMerge<T extends { id: string }>(
 ): Promise<void> {
   // Insert new records
   for (const entity of merge.toInsert) {
-    const values = columns.map((col) => (entity as Record<string, unknown>)[col]);
+    const values = columns.map((col) => (entity as unknown as Record<string, unknown>)[col]);
     const placeholders = columns.map(() => '?').join(', ');
     await database.runAsync(
       `INSERT OR REPLACE INTO ${table} (${columns.join(', ')}) VALUES (${placeholders})`,
@@ -283,7 +283,7 @@ async function applyMerge<T extends { id: string }>(
 
   // Update existing records
   for (const entity of merge.toUpdate) {
-    const values = columns.map((col) => (entity as Record<string, unknown>)[col]);
+    const values = columns.map((col) => (entity as unknown as Record<string, unknown>)[col]);
     const setClause = columns.map((col) => `${col} = ?`).join(', ');
     await database.runAsync(`UPDATE ${table} SET ${setClause} WHERE id = ?`, [
       ...(values as (string | number | null)[]),
@@ -324,7 +324,7 @@ async function applyBookStorageHistoryMerge(
   ];
 
   for (const entity of merge.toInsert) {
-    const values = columns.map((col) => (entity as Record<string, unknown>)[col]);
+    const values = columns.map((col) => (entity as unknown as Record<string, unknown>)[col]);
     const placeholders = columns.map(() => '?').join(', ');
     await database.runAsync(
       `INSERT OR REPLACE INTO book_storage_history (${columns.join(', ')}) VALUES (${placeholders})`,

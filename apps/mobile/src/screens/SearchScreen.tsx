@@ -410,7 +410,7 @@ export default function SearchScreen() {
                 {t('search.emptySubtitle')}
               </Text>
             </View>
-          ) : null
+          ) : undefined
         }
       />
 

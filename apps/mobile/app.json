@@ -27,7 +27,6 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
       "package": "com.librarymanager.mobile"
     },
     "web": {
@@ -36,7 +35,8 @@
     "plugins": [
       "expo-sqlite",
       "expo-secure-store",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-status-bar"
     ]
   }
 }
