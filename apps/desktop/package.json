@@ -28,26 +28,25 @@
   },
   "type": "commonjs",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.12.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.56.1",
-    "electron": "38.1.0",
-    "electron-builder": "^24.13.3",
-    "jsdom": "^27.1.0",
-    "playwright": "^1.56.1",
-    "vitest": "^4.0.4"
+    "@playwright/test": "^1.65.1",
+    "electron": "45.4.1",
+    "electron-builder": "^26.18.0",
+    "jsdom": "^29.1.1",
+    "playwright": "^1.65.1",
+    "vitest": "^5.1.1"
   },
   "dependencies": {
-    "@library-manager/shared": "*",
     "@aws-sdk/client-s3": "^3.891.0",
-    "dotenv": "^17.2.2",
-    "electron-updater": "^6.3.9",
+    "@library-manager/shared": "*",
+    "dotenv": "^18.0.10",
+    "electron-updater": "^6.8.11",
     "fuse.js": "^7.1.0",
-    "openai": "^5.20.2",
+    "openai": "^7.63.0",
     "papaparse": "^5.5.3",
-    "sql.js": "^1.13.0",
-    "uuid": "^13.0.0"
+    "sql.js": "^1.13.0"
   },
   "build": {
     "appId": "com.example.librarymanager",

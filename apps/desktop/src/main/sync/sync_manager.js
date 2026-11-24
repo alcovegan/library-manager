@@ -2,7 +2,7 @@ const s3Client = require('./s3_client');
 const settings = require('../settings');
 const path = require('path');
 const fs = require('fs');
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID } = require('crypto');
 
 class SyncManager {
   constructor() {
@@ -60,7 +60,7 @@ class SyncManager {
       }
 
       // Create new device ID
-      const newDeviceId = uuidv4();
+      const newDeviceId = randomUUID();
 
       // Ensure directory exists
       const dir = path.dirname(deviceIdPath);

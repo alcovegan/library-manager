@@ -28,7 +28,7 @@
     "ios": "expo run:ios"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.12.0"
   },
   "devDependencies": {
     "typescript": "^5.7.0"

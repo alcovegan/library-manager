@@ -8,7 +8,7 @@
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID } = require('crypto');
 const { cloudProviderFactory } = require('./providerFactory');
 const { exportDatabaseToPayload, importPayloadWithMerge } = require('./syncDatabase');
 const settings = require('../settings');
@@ -106,7 +106,7 @@ class CloudSyncManager {
         }
       }
 
-      const newDeviceId = uuidv4();
+      const newDeviceId = randomUUID();
 
       const dir = path.dirname(deviceIdPath);
       if (!fs.existsSync(dir)) {
