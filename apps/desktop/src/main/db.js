@@ -3,6 +3,7 @@ const fs = require('fs');
 const { randomUUID } = require('crypto');
 const initSqlJs = require('sql.js');
 const { fileURLToPath } = require('url');
+const { currentSqlWasmPath } = require('./sqlWasm');
 
 const DB_FILENAME = 'library.db';
 
@@ -10,18 +11,7 @@ let _writeQueue = Promise.resolve();
 let _writeScheduled = false;
 
 async function openDb(userDataPath) {
-  const SQL = await initSqlJs({
-    locateFile: (file) => {
-      // In packaged app, wasm is in extraResources; in dev, use node_modules
-      const isPacked = __dirname.includes('app.asar');
-      if (isPacked) {
-        // Packaged: Resources/sql-wasm.wasm (extraResources)
-        return path.join(process.resourcesPath, file);
-      }
-      // Development: node_modules in monorepo root
-      return path.join(__dirname, '../../../../node_modules/sql.js/dist', file);
-    },
-  });
+  const SQL = await initSqlJs({ locateFile: () => currentSqlWasmPath() });
 
   const dbPath = path.join(userDataPath, 'data', DB_FILENAME);
   const dir = path.dirname(dbPath);
