@@ -84,28 +84,28 @@ const STORAGE_LOCATIONS = [
 
 const PALETTE = ['#264653', '#2a9d8f', '#e9c46a', '#f4a261', '#e76f51', '#6d597a', '#355070', '#b56576'];
 
-// Public-domain works only; ratings and notes are invented for the demo.
+// Public-domain works only; ratings, Goodreads numbers, dates and notes are invented for the demo.
 const BOOKS = [
-  { title: 'Война и мир', authors: ['Лев Толстой'], year: 1869, language: 'ru', genres: ['Роман', 'Исторический'], tags: ['классика'], format: 'paper', rating: 5, storage: 'LR-1', status: 'finished', pinned: true },
+  { title: 'Война и мир', authors: ['Лев Толстой'], year: 1869, language: 'ru', genres: ['Роман', 'Исторический'], tags: ['классика'], format: 'paper', rating: 5, storage: 'LR-1', status: 'finished', pinned: true , finishedAt: '2023-08-14T12:00:00.000Z'},
   { title: 'Анна Каренина', authors: ['Лев Толстой'], year: 1878, language: 'ru', genres: ['Роман'], tags: ['классика'], format: 'paper', rating: 4.5, storage: 'LR-1', status: 'reading' },
-  { title: 'Преступление и наказание', authors: ['Фёдор Достоевский'], year: 1866, language: 'ru', genres: ['Роман', 'Психологический'], tags: ['классика'], format: 'paper', rating: 5, storage: 'LR-1', status: 'finished' },
+  { title: 'Преступление и наказание', authors: ['Фёдор Достоевский'], year: 1866, language: 'ru', genres: ['Роман', 'Психологический'], tags: ['классика'], format: 'paper', rating: 5, storage: 'LR-1', status: 'finished' , finishedAt: '2024-02-03T12:00:00.000Z'},
   { title: 'Братья Карамазовы', authors: ['Фёдор Достоевский'], year: 1880, language: 'ru', genres: ['Роман'], tags: ['классика', 'перечитать'], format: 'ebook', rating: 5, status: 'want_to_read' },
   { title: 'Идиот', authors: ['Фёдор Достоевский'], year: 1869, language: 'ru', genres: ['Роман'], tags: ['классика'], format: 'audiobook', rating: 4, status: 'on_hold' },
   { title: 'Мёртвые души', authors: ['Николай Гоголь'], year: 1842, language: 'ru', genres: ['Поэма', 'Сатира'], tags: ['классика'], format: 'paper', rating: 4.5, storage: 'LR-2' },
-  { title: 'Отцы и дети', authors: ['Иван Тургенев'], year: 1862, language: 'ru', genres: ['Роман'], tags: ['школьная программа'], format: 'paper', rating: 4, storage: 'LR-2', status: 'finished' },
+  { title: 'Отцы и дети', authors: ['Иван Тургенев'], year: 1862, language: 'ru', genres: ['Роман'], tags: ['школьная программа'], format: 'paper', rating: 4, storage: 'LR-2', status: 'finished' , finishedAt: '2024-10-21T12:00:00.000Z'},
   { title: 'Евгений Онегин', authors: ['Александр Пушкин'], year: 1833, language: 'ru', genres: ['Роман в стихах'], tags: ['поэзия', 'классика'], format: 'paper', rating: 5, storage: 'LR-2', pinned: true },
   { title: 'Герой нашего времени', authors: ['Михаил Лермонтов'], year: 1840, language: 'ru', genres: ['Роман'], tags: ['классика'], format: 'ebook', rating: 4.5 },
   { title: 'Вишнёвый сад', authors: ['Антон Чехов'], year: 1904, language: 'ru', genres: ['Пьеса'], tags: ['драматургия'], format: 'paper', rating: 4, storage: 'ST-1' },
   { title: 'Обломов', authors: ['Иван Гончаров'], year: 1859, language: 'ru', genres: ['Роман'], tags: ['классика'], format: 'paper', rating: 3.5, storage: 'ST-1', status: 'abandoned' },
-  { title: 'Этюд в багровых тонах', authors: ['Артур Конан Дойл'], year: 1887, language: 'ru', genres: ['Детектив'], tags: ['детектив'], series: 'Шерлок Холмс', seriesIndex: 1, format: 'paper', rating: 4.5, storage: 'ST-1', status: 'finished', titleAlt: 'A Study in Scarlet' },
+  { title: 'Этюд в багровых тонах', authors: ['Артур Конан Дойл'], year: 1887, language: 'ru', genres: ['Детектив'], tags: ['детектив'], series: 'Шерлок Холмс', seriesIndex: 1, format: 'paper', rating: 4.5, storage: 'ST-1', status: 'finished', titleAlt: 'A Study in Scarlet' , finishedAt: '2025-03-09T12:00:00.000Z'},
   { title: 'Знак четырёх', authors: ['Артур Конан Дойл'], year: 1890, language: 'ru', genres: ['Детектив'], tags: ['детектив'], series: 'Шерлок Холмс', seriesIndex: 2, format: 'paper', rating: 4, storage: 'ST-1', status: 'reading', titleAlt: 'The Sign of the Four' },
-  { title: 'Собака Баскервилей', authors: ['Артур Конан Дойл'], year: 1902, language: 'ru', genres: ['Детектив'], tags: ['детектив'], series: 'Шерлок Холмс', seriesIndex: 5, format: 'ebook', rating: 5, status: 'want_to_read', titleAlt: 'The Hound of the Baskervilles' },
-  { title: 'Pride and Prejudice', authors: ['Jane Austen'], year: 1813, language: 'en', genres: ['Novel', 'Romance'], tags: ['english'], format: 'paper', rating: 4.5, storage: 'LR-2', status: 'finished' },
+  { title: 'Собака Баскервилей', authors: ['Артур Конан Дойл'], year: 1902, language: 'ru', genres: ['Детектив'], tags: ['детектив'], series: 'Шерлок Холмс', seriesIndex: 5, format: 'ebook', rating: 5, status: 'want_to_read', titleAlt: 'The Hound of the Baskervilles' , goodreadsRating: 4.12, goodreadsRatingsCount: 412000, goodreadsReviewsCount: 12800},
+  { title: 'Pride and Prejudice', authors: ['Jane Austen'], year: 1813, language: 'en', genres: ['Novel', 'Romance'], tags: ['english'], format: 'paper', rating: 4.5, storage: 'LR-2', status: 'finished' , finishedAt: '2025-07-30T12:00:00.000Z', goodreadsRating: 4.29, goodreadsRatingsCount: 4600000, goodreadsReviewsCount: 125000},
   { title: 'Moby-Dick', authors: ['Herman Melville'], year: 1851, language: 'en', genres: ['Novel', 'Adventure'], tags: ['english'], format: 'ebook', rating: 3.5, status: 'want_to_read' },
   { title: 'Frankenstein', authors: ['Mary Shelley'], year: 1818, language: 'en', genres: ['Gothic', 'Science fiction'], tags: ['english'], format: 'audiobook', rating: 4 },
   { title: 'The Time Machine', authors: ['H. G. Wells'], year: 1895, language: 'en', genres: ['Science fiction'], tags: ['english', 'фантастика'], format: 'paper', rating: 4, storage: 'ST-1' },
   { title: 'Двадцать тысяч льё под водой', authors: ['Жюль Верн'], year: 1870, language: 'ru', genres: ['Приключения', 'Фантастика'], tags: ['фантастика'], format: 'paper', rating: 4.5, storage: 'LR-2' },
-  { title: 'Граф Монте-Кристо', authors: ['Александр Дюма'], year: 1844, language: 'ru', genres: ['Приключения'], tags: ['перечитать'], format: 'paper', rating: 5, storage: 'LR-1', status: 'finished', notes: 'Демо-заметка: любимое издание в двух томах.' },
+  { title: 'Граф Монте-Кристо', authors: ['Александр Дюма'], year: 1844, language: 'ru', genres: ['Приключения'], tags: ['перечитать'], format: 'paper', rating: 5, storage: 'LR-1', status: 'finished', notes: 'Демо-заметка: любимое издание в двух томах.' , finishedAt: '2026-01-12T12:00:00.000Z', goodreadsRating: 4.30, goodreadsRatingsCount: 1500000, goodreadsReviewsCount: 46000},
 ];
 
 const COLLECTIONS = [
@@ -206,9 +206,19 @@ async function seedDemoLibrary(userDataDir, { force = false } = {}) {
       titleAlt: book.titleAlt || null,
       notes: book.notes || null,
       coverPath,
+      goodreadsRating: book.goodreadsRating ?? null,
+      goodreadsRatingsCount: book.goodreadsRatingsCount ?? null,
+      goodreadsReviewsCount: book.goodreadsReviewsCount ?? null,
+      goodreadsUrl: book.goodreadsRating ? 'https://www.goodreads.com/' : null,
+      originalTitleEn: book.titleAlt || null,
       storageLocationId: book.storage ? locations[book.storage].id : null,
     });
-    if (book.status) dbLayer.setReadingStatus(ctx, record.id, book.status);
+    if (book.status) {
+      const dates = book.finishedAt
+        ? { startedAt: new Date(Date.parse(book.finishedAt) - 30 * 86400000).toISOString(), finishedAt: book.finishedAt }
+        : {};
+      dbLayer.setReadingStatus(ctx, record.id, book.status, dates);
+    }
     if (book.pinned) {
       dbLayer.updateBook(ctx, { ...dbLayer.getBookById(ctx, record.id), isPinned: true, pinnedAt: new Date().toISOString() });
     }
